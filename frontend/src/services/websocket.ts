@@ -1,0 +1,217 @@
+type Listener = (...args: unknown[]) => void
+
+interface WSMessage {
+  type: string
+  path?: string
+  entries?: Array<{
+    lineNum: number
+    raw: string
+    level: string
+    timestamp?: string
+    fields?: Record<string, unknown>
+  }>
+  seq?: number
+  lineNum?: number
+  message?: string
+}
+
+export class WSClient {
+  private ws: WebSocket | null = null
+  private subscriptions: Map<string, number> = new Map()
+  private listeners: Map<string, Set<Listener>> = new Map()
+  private reconnectDelay = 1000
+  private maxReconnectDelay = 30000
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private shouldConnect = false
+  private isTabVisible = true
+
+  constructor() {
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.handleVisibilityChange)
+    }
+  }
+
+  private getWsUrl(): string {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${protocol}//${location.host}/ws`
+  }
+
+  connect(): void {
+    if (this.ws?.readyState === WebSocket.OPEN) return
+    this.shouldConnect = true
+
+    try {
+      this.ws = new WebSocket(this.getWsUrl())
+
+      this.ws.onopen = () => {
+        this.reconnectDelay = 1000
+        this.emit('open')
+        this.startHeartbeat()
+        this.resubscribeAll()
+      }
+
+      this.ws.onmessage = (event: MessageEvent) => {
+        try {
+          const msg = JSON.parse(event.data as string) as WSMessage
+          this.handleMessage(msg)
+        } catch {
+          // ignore malformed messages
+        }
+      }
+
+      this.ws.onclose = () => {
+        this.stopHeartbeat()
+        this.emit('close')
+        this.scheduleReconnect()
+      }
+
+      this.ws.onerror = () => {
+        this.emit('error', new Error('WebSocket error'))
+      }
+    } catch {
+      this.scheduleReconnect()
+    }
+  }
+
+  private handleMessage(msg: WSMessage): void {
+    switch (msg.type) {
+      case 'append':
+        if (msg.path && msg.entries) {
+          this.emit('append', msg.path, msg.entries, msg.seq)
+          if (msg.seq !== undefined) {
+            this.subscriptions.set(msg.path, msg.seq)
+          }
+        }
+        break
+      case 'catchup':
+        if (msg.path && msg.entries) {
+          this.emit('catchup', msg.path, msg.entries, msg.seq)
+          if (msg.seq !== undefined) {
+            this.subscriptions.set(msg.path, msg.seq)
+          }
+        }
+        break
+      case 'truncate':
+        if (msg.path) {
+          this.emit('truncate', msg.path)
+        }
+        break
+      case 'delete':
+        if (msg.path) {
+          this.emit('delete', msg.path)
+        }
+        break
+      case 'error':
+        this.emit('error', new Error(msg.message ?? 'Unknown server error'))
+        break
+      case 'pong':
+        break
+    }
+  }
+
+  subscribe(path: string, afterSeq?: number): void {
+    this.subscriptions.set(path, afterSeq ?? 0)
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      const msg: Record<string, unknown> = { type: 'subscribe', path }
+      if (afterSeq !== undefined) {
+        msg.after_seq = afterSeq
+      }
+      this.ws.send(JSON.stringify(msg))
+    }
+  }
+
+  unsubscribe(path: string): void {
+    this.subscriptions.delete(path)
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'unsubscribe', path }))
+    }
+  }
+
+  private resubscribeAll(): void {
+    for (const [path, seq] of this.subscriptions) {
+      const msg: Record<string, unknown> = { type: 'subscribe', path }
+      if (seq > 0) {
+        msg.after_seq = seq
+      }
+      this.ws?.send(JSON.stringify(msg))
+    }
+  }
+
+  on(event: string, callback: Listener): () => void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set())
+    }
+    this.listeners.get(event)!.add(callback)
+    return () => {
+      this.listeners.get(event)?.delete(callback)
+    }
+  }
+
+  private emit(event: string, ...args: unknown[]): void {
+    this.listeners.get(event)?.forEach((fn) => fn(...args))
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat()
+    this.heartbeatTimer = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'ping' }))
+      }
+    }, 30000)
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer !== null) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (!this.shouldConnect) return
+    if (!this.isTabVisible) return
+    if (this.reconnectTimer !== null) return
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      this.connect()
+      this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay)
+    }, this.reconnectDelay)
+  }
+
+  private handleVisibilityChange(): void {
+    this.isTabVisible = !document.hidden
+    if (this.isTabVisible && this.shouldConnect && !this.ws?.readyState) {
+      this.reconnectDelay = 1000
+      if (this.reconnectTimer !== null) {
+        clearTimeout(this.reconnectTimer)
+        this.reconnectTimer = null
+      }
+      this.connect()
+    }
+  }
+
+  disconnect(): void {
+    this.shouldConnect = false
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    this.stopHeartbeat()
+    if (this.ws) {
+      this.ws.close()
+      this.ws = null
+    }
+  }
+
+  destroy(): void {
+    this.disconnect()
+    this.listeners.clear()
+    this.subscriptions.clear()
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange)
+    }
+  }
+}
