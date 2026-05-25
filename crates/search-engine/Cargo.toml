@@ -1,0 +1,20 @@
+[package]
+name = "logtailer-search-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+logtailer-protocol = { path = "../protocol" }
+memmap2 = "0.9"
+grep-matcher = "0.1"
+grep-regex = "0.1"
+grep-searcher = "0.1"
+regex = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
+rayon = "1"
+tracing = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3"

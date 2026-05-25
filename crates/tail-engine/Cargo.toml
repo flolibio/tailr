@@ -1,0 +1,17 @@
+[package]
+name = "logtailer-tail-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+logtailer-protocol = { path = "../protocol" }
+tokio = { workspace = true }
+notify = { workspace = true }
+memmap2 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3"

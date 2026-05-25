@@ -1,0 +1,22 @@
+[package]
+name = "logtailer-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+logtailer-protocol = { path = "../protocol" }
+logtailer-tail-engine = { path = "../tail-engine" }
+logtailer-search-engine = { path = "../search-engine" }
+axum = { version = "0.7", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "fs"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
+dashmap = "6"
+uuid = { version = "1", features = ["v4"] }
+futures = "0.3"
+
+[dev-dependencies]
+tempfile = "3"
