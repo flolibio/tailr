@@ -13,7 +13,14 @@ async fn main() {
 
     let log_dir = std::env::var("LOGTAILER_LOG_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/var/log"));
+        .unwrap_or_else(|_| {
+            // Default to ./logs relative to the binary's location
+            std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join("logs")
+        });
 
     let bind = std::env::var("LOGTAILER_BIND")
         .unwrap_or_else(|_| "0.0.0.0:3000".to_string());

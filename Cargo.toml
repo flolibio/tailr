@@ -1,3 +1,19 @@
+[package]
+name = "logtailer"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "logtailer"
+path = "src/main.rs"
+
+[dependencies]
+logtailer-server = { path = "crates/server" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = "0.7"
+
 [workspace]
 resolver = "2"
 members = [

@@ -19,6 +19,7 @@ export interface FileContent {
   totalLines: number
   offset: number
   limit: number
+  hasMore: boolean
 }
 
 export interface FileInfo {
@@ -28,11 +29,17 @@ export interface FileInfo {
   totalLines: number
 }
 
+export interface SearchMatch {
+  lineNumber: number
+  content: string
+  contextBefore: string[]
+  contextAfter: string[]
+}
+
 export interface SearchResult {
-  matches: LogEntry[]
+  matches: SearchMatch[]
   totalMatches: number
-  query: string
-  elapsedMs: number
+  hasMore: boolean
 }
 
 const BASE = ''
@@ -42,12 +49,18 @@ async function request<T>(url: string): Promise<T> {
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}: ${res.statusText}`)
   }
-  return res.json() as Promise<T>
+  const json = await res.json()
+  if (json.success === false) {
+    throw new Error(json.error || 'Request failed')
+  }
+  // Backend wraps in { success, data }. Unwrap data.
+  return (json.data ?? json) as T
 }
 
 export async function listFiles(path?: string): Promise<FileEntry[]> {
   const qs = path ? `?path=${encodeURIComponent(path)}` : ''
-  return request<FileEntry[]>(`/api/files${qs}`)
+  const data = await request<{ entries: FileEntry[] }>(`/api/files${qs}`)
+  return data.entries ?? []
 }
 
 export async function getFileContent(
@@ -56,7 +69,7 @@ export async function getFileContent(
   limit: number,
 ): Promise<FileContent> {
   return request<FileContent>(
-    `/api/files/content?path=${encodeURIComponent(path)}&offset=${offset}&limit=${limit}`,
+    `/api/file/content?path=${encodeURIComponent(path)}&offset=${offset}&limit=${limit}`,
   )
 }
 
@@ -64,14 +77,15 @@ export async function getFileTail(
   path: string,
   lines: number,
 ): Promise<LogEntry[]> {
-  return request<LogEntry[]>(
-    `/api/files/tail?path=${encodeURIComponent(path)}&lines=${lines}`,
+  const data = await request<{ entries: LogEntry[] }>(
+    `/api/file/tail?path=${encodeURIComponent(path)}&lines=${lines}`,
   )
+  return data.entries ?? []
 }
 
 export async function getFileInfo(path: string): Promise<FileInfo> {
   return request<FileInfo>(
-    `/api/files/info?path=${encodeURIComponent(path)}`,
+    `/api/file/info?path=${encodeURIComponent(path)}`,
   )
 }
 
@@ -87,6 +101,6 @@ export async function searchLogs(
   return request<SearchResult>(`/api/search?${params.toString()}`)
 }
 
-export async function healthCheck(): Promise<{ status: string; uptime: number }> {
-  return request<{ status: string; uptime: number }>('/api/health')
+export async function healthCheck(): Promise<{ status: string; uptimeSeconds: number }> {
+  return request<{ status: string; uptimeSeconds: number }>('/api/health')
 }

@@ -1,13 +1,6 @@
 import { ref } from 'vue'
 import { searchLogs } from '../services/api'
-import type { LogEntry } from '../services/api'
-
-export interface SearchResult {
-  matches: LogEntry[]
-  totalMatches: number
-  query: string
-  elapsedMs: number
-}
+import type { SearchResult } from '../services/api'
 
 export function useSearch() {
   const query = ref('')

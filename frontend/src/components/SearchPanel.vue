@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { LogEntry } from '../services/api'
+import type { SearchResult } from '../services/api'
 
 const props = defineProps<{
   currentFile: string | null
@@ -23,7 +23,7 @@ const query = ref('')
 const isRegex = ref(false)
 const contextLines = ref(3)
 const selectedLevels = ref<string[]>([])
-const results = ref<{ matches: LogEntry[]; totalMatches: number; elapsedMs: number } | null>(null)
+const results = ref<SearchResult | null>(null)
 
 const allLevels = ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE']
 
@@ -55,7 +55,7 @@ function onKeydown(e: KeyboardEvent): void {
   if (e.key === 'Enter') doSearch()
 }
 
-function setResults(data: { matches: LogEntry[]; totalMatches: number; elapsedMs: number }): void {
+function setResults(data: SearchResult): void {
   results.value = data
 }
 
@@ -107,20 +107,17 @@ defineExpose({ setResults })
       </div>
     </div>
     <div v-if="results" class="search-results-info">
-      <span>{{ results.totalMatches }} matches in {{ results.elapsedMs }}ms</span>
+      <span>{{ results.totalMatches }} matches{{ results.hasMore ? ' (showing first 100)' : '' }}</span>
     </div>
     <div v-if="results && results.matches.length > 0" class="search-results">
       <div
         v-for="match in results.matches.slice(0, 100)"
-        :key="match.lineNum"
+        :key="match.lineNumber"
         class="search-result"
-        @click="emit('jumpToLine', match.lineNum)"
+        @click="emit('jumpToLine', match.lineNumber)"
       >
-        <span class="result-line-num">{{ match.lineNum }}</span>
-        <span class="result-level badge" :class="'badge-' + match.level.toLowerCase()">{{
-          match.level
-        }}</span>
-        <span class="result-text">{{ match.raw }}</span>
+        <span class="result-line-num">{{ match.lineNumber }}</span>
+        <span class="result-text">{{ match.content }}</span>
       </div>
       <div v-if="results.matches.length > 100" class="results-truncated">
         Showing first 100 of {{ results.totalMatches }} matches
@@ -274,11 +271,6 @@ defineExpose({ setResults })
   color: var(--line-number);
   min-width: 50px;
   text-align: right;
-}
-
-.result-level {
-  min-width: 40px;
-  text-align: center;
 }
 
 .result-text {
