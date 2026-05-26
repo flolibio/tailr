@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import FileBrowser from './components/FileBrowser.vue'
 import LogViewer from './components/LogViewer.vue'
 import SearchPanel from './components/SearchPanel.vue'
@@ -14,6 +14,7 @@ const {
   currentFile,
   entries,
   isTailMode,
+  maxLines,
   wsClient,
   loadInitial,
 } = useLogStream()
@@ -23,13 +24,20 @@ const searchState = useSearch()
 const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
 const searchPanelRef = ref<InstanceType<typeof SearchPanel> | null>(null)
 const settingsCollapsed = ref(false)
+const selectedLevels = ref<string[]>([])
+
+const filteredEntries = computed(() => {
+  if (selectedLevels.value.length === 0) return entries.value
+  const levels = new Set(selectedLevels.value)
+  return entries.value.filter((e) => levels.has(e.level))
+})
 
 const settings = reactive<Settings>({
-  fontSize: 13,
+  fontSize: 14,
   autoScroll: true,
   lineWrap: false,
   maxVisibleLines: 50000,
-  darkTheme: true,
+  darkTheme: false,
 })
 
 function selectFile(path: string): void {
@@ -56,8 +64,17 @@ function handleJumpToLine(lineNum: number): void {
 }
 
 function handleScrollUp(): void {
-  if (settings.autoScroll) {
+  if (isTailMode.value) {
+    isTailMode.value = false
     settings.autoScroll = false
+  }
+}
+
+function handleAutoScrollChange(enabled: boolean): void {
+  settings.autoScroll = enabled
+  if (enabled) {
+    isTailMode.value = true
+    logViewerRef.value?.scrollToBottom()
   }
 }
 
@@ -66,12 +83,28 @@ function toggleSettings(): void {
 }
 
 onMounted(() => {
-  wsClient.connect()
+  // wsClient.connect() is already called in useLogStream
+  // Default is light theme
+  document.documentElement.dataset.theme = 'light'
 })
 
 onUnmounted(() => {
   wsClient.destroy()
 })
+function handleSettingsUpdate(s: Settings): void {
+  if (s.autoScroll !== settings.autoScroll) {
+    handleAutoScrollChange(s.autoScroll)
+  }
+  maxLines.value = s.maxVisibleLines
+  if (s.darkTheme !== settings.darkTheme) {
+    if (s.darkTheme) {
+      delete document.documentElement.dataset.theme
+    } else {
+      document.documentElement.dataset.theme = 'light'
+    }
+  }
+  Object.assign(settings, s)
+}
 </script>
 
 <template>
@@ -81,29 +114,32 @@ onUnmounted(() => {
     </aside>
 
     <main class="main-area">
-      <SearchPanel
-        ref="searchPanelRef"
-        :current-file="currentFile"
-        :is-searching="searchState.isSearching.value"
-        @search="handleSearch"
-        @clear="searchState.clear"
-        @jump-to-line="handleJumpToLine"
-      />
+        <SearchPanel
+          ref="searchPanelRef"
+          :current-file="currentFile"
+          :is-searching="searchState.isSearching.value"
+          @search="handleSearch"
+          @clear="searchState.clear"
+          @jump-to-line="handleJumpToLine"
+          @filter-levels="(l) => selectedLevels = l"
+        />
       <div class="log-container" :style="{ fontSize: settings.fontSize + 'px' }">
         <div v-if="!currentFile" class="empty-state">
           <div class="empty-icon">📋</div>
           <div class="empty-text">Select a file from the sidebar to start viewing logs</div>
         </div>
-        <div v-else-if="entries.length === 0" class="empty-state">
+        <div v-else-if="filteredEntries.length === 0" class="empty-state">
           <div class="empty-icon">⏳</div>
           <div class="empty-text">Waiting for log data...</div>
         </div>
         <LogViewer
           v-else
           ref="logViewerRef"
-          :entries="entries"
+          :entries="filteredEntries"
           :line-height="Math.max(16, settings.fontSize + 6)"
           :is-tail-mode="isTailMode"
+          :line-wrap="settings.lineWrap"
+          :max-visible-lines="settings.maxVisibleLines"
           @scroll-up="handleScrollUp"
         />
       </div>
@@ -113,7 +149,7 @@ onUnmounted(() => {
       <SettingsPanel
         :settings="settings"
         :collapsed="settingsCollapsed"
-        @update="(s) => Object.assign(settings, s)"
+        @update="handleSettingsUpdate"
         @toggle-collapse="toggleSettings"
       />
     </aside>

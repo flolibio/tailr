@@ -9,8 +9,10 @@ export function useLogStream() {
   const isTailMode = ref(true)
   const totalLines = ref(0)
   const isLoading = ref(false)
+  const maxLines = ref(50000)
 
   const wsClient = new WSClient()
+  wsClient.connect()
 
   let unsubscribeAppend: (() => void) | null = null
   let unsubscribeCatchup: (() => void) | null = null
@@ -74,6 +76,35 @@ export function useLogStream() {
 
   async function loadInitial(path: string, lines: number = 1000): Promise<void> {
     isLoading.value = true
+    cleanupWsListeners()
+
+    // Register WS listeners for real-time updates
+    unsubscribeAppend = wsClient.on('append', (p: unknown, newEntries: unknown) => {
+      if (p === path && Array.isArray(newEntries)) {
+        let merged = [...entries.value, ...(newEntries as LogEntry[])]
+        if (merged.length > maxLines.value) {
+          merged = merged.slice(merged.length - maxLines.value)
+        }
+        entries.value = merged
+        totalLines.value = entries.value.length
+      }
+    })
+
+    unsubscribeTruncate = wsClient.on('truncate', (p: unknown) => {
+      if (p === path) {
+        entries.value = []
+        totalLines.value = 0
+      }
+    })
+
+    unsubscribeDelete = wsClient.on('delete', (p: unknown) => {
+      if (p === path) {
+        entries.value = []
+        totalLines.value = 0
+        currentFile.value = null
+      }
+    })
+
     try {
       const data = await getFileTail(path, lines)
       entries.value = data
@@ -115,6 +146,7 @@ export function useLogStream() {
     isTailMode,
     totalLines,
     isLoading,
+    maxLines,
     wsClient,
     selectFile,
     loadInitial,

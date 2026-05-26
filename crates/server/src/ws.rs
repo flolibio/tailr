@@ -272,8 +272,23 @@ pub fn spawn_watcher_loop(state: Arc<AppState>) {
                 let key = path.to_string_lossy().to_string();
                 let file_sub = match subs.get_mut(&key) {
                     Some(fs) => fs,
-                    None => continue,
+                    None => {
+                        debug!(path = %key, "no subscribers for path, skipping");
+                        continue;
+                    }
                 };
+
+                if file_sub.subscriber_count() == 0 {
+                    debug!(path = %key, "zero subscribers for path");
+                    continue;
+                }
+
+                debug!(
+                    path = %key,
+                    new_entries = entries.len(),
+                    subscribers = file_sub.subscriber_count(),
+                    "fan-out: sending entries to subscribers"
+                );
 
                 for entry in entries {
                     let seq = file_sub.push_entry(entry.clone());
@@ -299,6 +314,7 @@ pub fn spawn_watcher_loop(state: Arc<AppState>) {
                         }
 
                         if sender.try_send(msg.clone()).is_err() {
+                            warn!(client_id = %cid, path = %key, "try_send failed, marking as dead client");
                             dead_clients.push(cid.clone());
                         }
                     }

@@ -134,6 +134,8 @@ struct SearchParams {
     #[serde(default)]
     level: Option<String>,
     #[serde(default)]
+    levels: Option<String>,
+    #[serde(default)]
     from: Option<String>,
     #[serde(default)]
     to: Option<String>,
@@ -343,6 +345,30 @@ async fn search(
         _ => None,
     });
 
+    let levels: Vec<logtailer_protocol::LogLevel> = params
+        .levels
+        .map(|s| {
+            s.split(',')
+                .filter_map(|l| match l.trim().to_uppercase().as_str() {
+                    "ERROR" => Some(logtailer_protocol::LogLevel::ERROR),
+                    "WARN" => Some(logtailer_protocol::LogLevel::WARN),
+                    "INFO" => Some(logtailer_protocol::LogLevel::INFO),
+                    "DEBUG" => Some(logtailer_protocol::LogLevel::DEBUG),
+                    "TRACE" => Some(logtailer_protocol::LogLevel::TRACE),
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Merge single level into levels vec
+    let mut all_levels = levels;
+    if let Some(lf) = level_filter {
+        if !all_levels.contains(&lf) {
+            all_levels.push(lf);
+        }
+    }
+
     let time_from = params.from.and_then(|s| {
         DateTime::parse_from_rfc3339(&s)
             .ok()
@@ -361,7 +387,7 @@ async fn search(
         context_before: context,
         context_after: context,
         max_results: limit,
-        level_filter: level_filter.clone(),
+        level_filter: all_levels.first().cloned(),
     };
 
     let result = match state.search_engine.search(&path, &opts) {
@@ -370,7 +396,7 @@ async fn search(
     };
 
     let filter = LogFilter {
-        level: level_filter,
+        levels: all_levels,
         time_from,
         time_to,
         pattern: None,
@@ -380,11 +406,11 @@ async fn search(
         .matches
         .into_iter()
         .filter(|m| {
-            if filter.level.is_some() || filter.time_from.is_some() || filter.time_to.is_some() {
+            if !filter.levels.is_empty() || filter.time_from.is_some() || filter.time_to.is_some() {
                 let entry = logtailer_protocol::LogEntry {
                     line_num: m.line_num,
                     raw: m.content.clone(),
-                    level: logtailer_protocol::LogLevel::UNKNOWN,
+                    level: detect_level(&m.content),
                     timestamp: None,
                     fields: None,
                 };

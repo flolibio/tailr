@@ -13,6 +13,7 @@ pub enum LogLevel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LogEntry {
     pub line_num: u64,
     pub raw: String,

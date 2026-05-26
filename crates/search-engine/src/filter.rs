@@ -5,7 +5,7 @@ use tracing::debug;
 
 #[derive(Debug, Clone)]
 pub struct LogFilter {
-    pub level: Option<LogLevel>,
+    pub levels: Vec<LogLevel>,
     pub time_from: Option<DateTime<Utc>>,
     pub time_to: Option<DateTime<Utc>>,
     pub pattern: Option<String>,
@@ -14,7 +14,7 @@ pub struct LogFilter {
 impl LogFilter {
     pub fn new() -> Self {
         Self {
-            level: None,
+            levels: Vec::new(),
             time_from: None,
             time_to: None,
             pattern: None,
@@ -22,10 +22,8 @@ impl LogFilter {
     }
 
     pub fn matches(&self, entry: &LogEntry) -> bool {
-        if let Some(ref level) = self.level {
-            if entry.level != *level {
-                return false;
-            }
+        if !self.levels.is_empty() && !self.levels.contains(&entry.level) {
+            return false;
         }
 
         if let Some(ref timestamp) = entry.timestamp {
@@ -72,7 +70,7 @@ pub fn apply_filter(entries: &[LogEntry], filter: &LogFilter) -> Vec<LogEntry> {
     debug!(
         before = before_count,
         after = result.len(),
-        level = ?filter.level,
+        level = ?filter.levels,
         time_from = ?filter.time_from,
         time_to = ?filter.time_to,
         pattern = ?filter.pattern,

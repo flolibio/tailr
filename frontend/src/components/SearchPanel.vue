@@ -11,6 +11,7 @@ const emit = defineEmits<{
   search: [query: string, options: SearchOptions]
   clear: []
   jumpToLine: [lineNum: number]
+  filterLevels: [levels: string[]]
 }>()
 
 export interface SearchOptions {
@@ -34,6 +35,7 @@ function toggleLevel(level: string): void {
   } else {
     selectedLevels.value.push(level)
   }
+  emit('filterLevels', [...selectedLevels.value])
 }
 
 function doSearch(): void {
@@ -113,11 +115,33 @@ defineExpose({ setResults })
       <div
         v-for="match in results.matches.slice(0, 100)"
         :key="match.lineNumber"
-        class="search-result"
-        @click="emit('jumpToLine', match.lineNumber)"
+        class="search-result-group"
       >
-        <span class="result-line-num">{{ match.lineNumber }}</span>
-        <span class="result-text">{{ match.content }}</span>
+        <div
+          v-for="(line, i) in match.contextBefore"
+          :key="'b' + i"
+          class="search-context-line"
+          @click="emit('jumpToLine', match.lineNumber - match.contextBefore.length + i)"
+        >
+          <span class="result-line-num">{{ match.lineNumber - match.contextBefore.length + i }}</span>
+          <span class="result-text context">{{ line }}</span>
+        </div>
+        <div
+          class="search-result match"
+          @click="emit('jumpToLine', match.lineNumber)"
+        >
+          <span class="result-line-num">{{ match.lineNumber }}</span>
+          <span class="result-text">{{ match.content }}</span>
+        </div>
+        <div
+          v-for="(line, i) in match.contextAfter"
+          :key="'a' + i"
+          class="search-context-line"
+          @click="emit('jumpToLine', match.lineNumber + 1 + i)"
+        >
+          <span class="result-line-num">{{ match.lineNumber + 1 + i }}</span>
+          <span class="result-text context">{{ line }}</span>
+        </div>
       </div>
       <div v-if="results.matches.length > 100" class="results-truncated">
         Showing first 100 of {{ results.totalMatches }} matches
@@ -251,11 +275,20 @@ defineExpose({ setResults })
   background: var(--bg-primary);
 }
 
-.search-result {
+.search-result-group {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.search-result-group:last-child {
+  border-bottom: none;
+}
+
+.search-result,
+.search-context-line {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 3px 8px;
+  padding: 2px 8px;
   font-family: var(--font-mono);
   font-size: 12px;
   cursor: pointer;
@@ -263,8 +296,22 @@ defineExpose({ setResults })
   overflow: hidden;
 }
 
-.search-result:hover {
+.search-result:hover,
+.search-context-line:hover {
   background: var(--bg-hover);
+}
+
+.search-result.match {
+  background: rgba(55, 148, 255, 0.08);
+  font-weight: 600;
+}
+
+.search-context-line {
+  opacity: 0.6;
+}
+
+.result-text.context {
+  color: var(--text-muted);
 }
 
 .result-line-num {

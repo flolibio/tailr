@@ -6,6 +6,8 @@ const props = defineProps<{
   entries: LogEntry[]
   lineHeight?: number
   isTailMode?: boolean
+  lineWrap?: boolean
+  maxVisibleLines?: number
 }>()
 
 const emit = defineEmits<{
@@ -19,6 +21,9 @@ const scrollTop = ref(0)
 const containerHeight = ref(600)
 const showNewLogsButton = ref(false)
 const copiedLine = ref<number | null>(null)
+const userScrolledUp = ref(false)
+const highlightedLine = ref<number | null>(null)
+let highlightTimer: ReturnType<typeof setTimeout> | null = null
 
 const visibleRange = computed(() => {
   const start = Math.floor(scrollTop.value / lineHeight.value)
@@ -53,9 +58,11 @@ function onScroll(): void {
     containerRef.value.scrollHeight - containerRef.value.scrollTop - containerRef.value.clientHeight
   if (distFromBottom > 100) {
     showNewLogsButton.value = true
+    userScrolledUp.value = true
     emit('scrollUp')
   } else {
     showNewLogsButton.value = false
+    userScrolledUp.value = false
   }
 }
 
@@ -63,12 +70,21 @@ function scrollToBottom(): void {
   if (!containerRef.value) return
   containerRef.value.scrollTop = containerRef.value.scrollHeight
   showNewLogsButton.value = false
+  userScrolledUp.value = false
 }
 
 function scrollToLine(lineNum: number): void {
+  // First, disable tail mode so we can scroll freely
+  userScrolledUp.value = true
   const index = props.entries.findIndex((e) => e.lineNum === lineNum)
   if (index >= 0 && containerRef.value) {
     containerRef.value.scrollTop = index * lineHeight.value
+    // Highlight the line
+    if (highlightTimer) clearTimeout(highlightTimer)
+    highlightedLine.value = lineNum
+    highlightTimer = setTimeout(() => {
+      highlightedLine.value = null
+    }, 3000)
   }
 }
 
@@ -106,7 +122,17 @@ function toggleExpand(lineNum: number): void {
 watch(
   () => props.entries.length,
   () => {
-    if (props.isTailMode) {
+    if (props.isTailMode && !userScrolledUp.value) {
+      nextTick(scrollToBottom)
+    }
+  },
+)
+
+watch(
+  () => props.isTailMode,
+  (val) => {
+    if (val) {
+      userScrolledUp.value = false
       nextTick(scrollToBottom)
     }
   },
@@ -147,7 +173,10 @@ defineExpose({ scrollToBottom, scrollToLine })
             v-for="entry in visibleEntries"
             :key="entry.lineNum"
             class="log-line"
-            :class="[getLevelClass(entry.level), { 'is-copied': copiedLine === entry.lineNum }]"
+            :class="[
+              getLevelClass(entry.level),
+              { 'is-copied': copiedLine === entry.lineNum, 'wrap': lineWrap, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
+            ]"
             @click="copyLine(entry)"
           >
             <span class="line-number">{{ entry.lineNum }}</span>
@@ -216,12 +245,34 @@ defineExpose({ scrollToBottom, scrollToLine })
   position: relative;
 }
 
+.log-line.wrap {
+  white-space: pre-wrap;
+  word-break: break-all;
+  height: auto;
+  min-height: var(--line-height);
+}
+
+.log-line.expanded {
+  height: auto;
+  align-items: flex-start;
+  position: relative;
+  z-index: 5;
+  background: var(--bg-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
 .log-line:hover {
   background: var(--bg-hover);
 }
 
 .log-line.is-copied {
   background: rgba(38, 79, 120, 0.3);
+}
+
+.log-line.is-highlighted {
+  background: rgba(255, 220, 0, 0.25);
+  box-shadow: inset 3px 0 0 #e6a800;
+  transition: background 0.5s ease;
 }
 
 .line-number {

@@ -113,8 +113,8 @@ function update<K extends keyof Settings>(key: K, value: Settings[K]): void {
 }
 
 .settings-panel.collapsed {
-  width: 0;
-  min-width: 0;
+  width: 32px;
+  min-width: 32px;
 }
 
 .settings-body {
