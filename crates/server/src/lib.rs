@@ -19,12 +19,15 @@ pub struct AppState {
     pub line_indices: DashMap<PathBuf, LineIndex>,
     pub file_subscribers: Mutex<HashMap<String, ws::FileSubscribers>>,
     pub log_dir: PathBuf,
+    pub log_dirs: Vec<PathBuf>,
     pub start_time: Instant,
 }
 
-pub fn app(log_dir: PathBuf) -> Router {
+pub fn app(log_dirs: Vec<PathBuf>) -> Router {
     let watcher = FileWatcher::new(Duration::from_millis(100))
         .expect("failed to create FileWatcher");
+
+    let log_dir = log_dirs.first().cloned().unwrap_or_else(|| PathBuf::from("."));
 
     let state = Arc::new(AppState {
         watcher: Arc::new(Mutex::new(watcher)),
@@ -32,6 +35,7 @@ pub fn app(log_dir: PathBuf) -> Router {
         line_indices: DashMap::new(),
         file_subscribers: Mutex::new(HashMap::new()),
         log_dir,
+        log_dirs,
         start_time: Instant::now(),
     });
 

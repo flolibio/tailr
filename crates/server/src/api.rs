@@ -167,17 +167,53 @@ async fn list_files(
     Query(params): Query<FileListParams>,
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<FileListData>> {
-    let dir = match params.path {
-        Some(p) => PathBuf::from(p),
-        None => state.log_dir.clone(),
-    };
-
-    let read_dir = match std::fs::read_dir(&dir) {
-        Ok(rd) => rd,
-        Err(e) => return Json(ApiResponse::err(format!("failed to read directory: {}", e))),
-    };
-
     let mut entries: Vec<FileEntry> = Vec::new();
+
+    match params.path {
+        Some(p) => {
+            // List a specific directory
+            let dir = PathBuf::from(p);
+            if let Err(e) = read_dir_entries(&dir, &mut entries) {
+                return Json(ApiResponse::err(format!("failed to read directory: {}", e)));
+            }
+        }
+        None => {
+            // List all configured log directories
+            for dir in &state.log_dirs {
+                if dir.exists() && dir.is_dir() {
+                    entries.push(FileEntry {
+                        name: dir
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_else(|| dir.display().to_string()),
+                        path: dir.to_string_lossy().to_string(),
+                        size: 0,
+                        modified: None,
+                        is_dir: true,
+                    });
+                }
+            }
+            // If only one dir configured, list its contents directly
+            if state.log_dirs.len() == 1 {
+                entries.clear();
+                if let Err(e) = read_dir_entries(&state.log_dirs[0], &mut entries) {
+                    return Json(ApiResponse::err(format!("failed to read directory: {}", e)));
+                }
+            }
+        }
+    }
+
+    entries.sort_by(|a, b| {
+        b.is_dir
+            .cmp(&a.is_dir)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+
+    Json(ApiResponse::ok(FileListData { entries }))
+}
+
+fn read_dir_entries(dir: &std::path::Path, entries: &mut Vec<FileEntry>) -> std::io::Result<()> {
+    let read_dir = std::fs::read_dir(dir)?;
     for entry in read_dir {
         let entry = match entry {
             Ok(e) => e,
@@ -205,14 +241,7 @@ async fn list_files(
             is_dir,
         });
     }
-
-    entries.sort_by(|a, b| {
-        b.is_dir
-            .cmp(&a.is_dir)
-            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-    });
-
-    Json(ApiResponse::ok(FileListData { entries }))
+    Ok(())
 }
 
 async fn file_content(

@@ -25,6 +25,13 @@ const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
 const searchPanelRef = ref<InstanceType<typeof SearchPanel> | null>(null)
 const settingsCollapsed = ref(false)
 const selectedLevels = ref<string[]>([])
+const highlightInput = ref('')
+
+const highlightKeywords = computed(() => {
+  const raw = highlightInput.value.trim()
+  if (!raw) return []
+  return raw.split(',').map((s) => s.trim()).filter(Boolean)
+})
 
 const filteredEntries = computed(() => {
   if (selectedLevels.value.length === 0) return entries.value
@@ -124,6 +131,16 @@ function handleSettingsUpdate(s: Settings): void {
           @filter-levels="(l) => selectedLevels = l"
         />
       <div class="log-container" :style="{ fontSize: settings.fontSize + 'px' }">
+        <div v-if="currentFile" class="highlight-bar">
+          <span class="highlight-icon">🔍</span>
+          <input
+            v-model="highlightInput"
+            type="text"
+            class="highlight-input"
+            placeholder="Highlight keywords (comma-separated)"
+          />
+          <button v-if="highlightInput" class="highlight-clear" @click="highlightInput = ''">✕</button>
+        </div>
         <div v-if="!currentFile" class="empty-state">
           <div class="empty-icon">📋</div>
           <div class="empty-text">Select a file from the sidebar to start viewing logs</div>
@@ -140,6 +157,7 @@ function handleSettingsUpdate(s: Settings): void {
           :is-tail-mode="isTailMode"
           :line-wrap="settings.lineWrap"
           :max-visible-lines="settings.maxVisibleLines"
+          :highlight-keywords="highlightKeywords"
           @scroll-up="handleScrollUp"
         />
       </div>
@@ -163,6 +181,45 @@ function handleSettingsUpdate(s: Settings): void {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.highlight-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.highlight-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.highlight-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  padding: 3px 0;
+  outline: none;
+  color: var(--text-primary);
+}
+
+.highlight-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.highlight-clear:hover {
+  color: var(--text-primary);
 }
 
 .empty-state {

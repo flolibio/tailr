@@ -8,6 +8,7 @@ const props = defineProps<{
   isTailMode?: boolean
   lineWrap?: boolean
   maxVisibleLines?: number
+  highlightKeywords?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -111,6 +112,41 @@ function formatJson(raw: string): string {
 
 const expandedLines = ref<Set<number>>(new Set())
 
+const HIGHLIGHT_COLORS = [
+  'rgba(255, 220, 0, 0.4)',
+  'rgba(0, 200, 255, 0.3)',
+  'rgba(255, 100, 255, 0.3)',
+  'rgba(100, 255, 100, 0.3)',
+  'rgba(255, 150, 0, 0.3)',
+]
+
+function highlightText(text: string): string {
+  const keywords = props.highlightKeywords
+  if (!keywords || keywords.length === 0) return escapeHtml(text)
+
+  // Build a combined regex for all keywords
+  const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  if (escaped.length === 0) return escapeHtml(text)
+
+  const regex = new RegExp(`(${escaped.join('|')})`, 'gi')
+  const parts = text.split(regex)
+
+  return parts
+    .map((part) => {
+      const idx = keywords.findIndex((k) => k.toLowerCase() === part.toLowerCase())
+      if (idx >= 0) {
+        const color = HIGHLIGHT_COLORS[idx % HIGHLIGHT_COLORS.length]
+        return `<mark style="background:${color};color:inherit;padding:0 1px;border-radius:2px">${escapeHtml(part)}</mark>`
+      }
+      return escapeHtml(part)
+    })
+    .join('')
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function toggleExpand(lineNum: number): void {
   if (expandedLines.value.has(lineNum)) {
     expandedLines.value.delete(lineNum)
@@ -187,13 +223,13 @@ defineExpose({ scrollToBottom, scrollToLine })
                 <button class="json-toggle" @click.stop="toggleExpand(entry.lineNum)">
                   {{ expandedLines.has(entry.lineNum) ? '▼' : '▶' }}
                 </button>
-                <span v-if="!expandedLines.has(entry.lineNum)" class="json-preview">{{
-                  entry.raw.length > 200 ? entry.raw.slice(0, 200) + '...' : entry.raw
-                }}</span>
-                <pre v-else class="json-expanded">{{ formatJson(entry.raw) }}</pre>
+                <span v-if="!expandedLines.has(entry.lineNum)" class="json-preview" v-html="
+                  highlightText(entry.raw.length > 200 ? entry.raw.slice(0, 200) + '...' : entry.raw)
+                "></span>
+                <pre v-else class="json-expanded" v-html="highlightText(formatJson(entry.raw))"></pre>
               </template>
               <template v-else>
-                {{ entry.raw }}
+                <span v-html="highlightText(entry.raw)"></span>
               </template>
             </span>
             <span v-if="copiedLine === entry.lineNum" class="copied-toast">Copied!</span>

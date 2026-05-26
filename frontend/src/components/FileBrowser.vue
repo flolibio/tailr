@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { listFiles } from '../services/api'
 import type { FileEntry } from '../services/api'
 
@@ -24,6 +24,26 @@ interface TreeNode {
 
 const tree = ref<TreeNode[]>([])
 const loading = ref(false)
+const filterText = ref('')
+
+const filteredTree = computed(() => {
+  const q = filterText.value.trim().toLowerCase()
+  if (!q) return tree.value
+  return tree.value
+    .map((node) => {
+      if (node.isDir) {
+        const filteredChildren = node.children.filter((c) =>
+          c.name.toLowerCase().includes(q)
+        )
+        if (filteredChildren.length > 0 || node.name.toLowerCase().includes(q)) {
+          return { ...node, children: filteredChildren, expanded: true }
+        }
+        return null
+      }
+      return node.name.toLowerCase().includes(q) ? node : null
+    })
+    .filter(Boolean) as TreeNode[]
+})
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -80,7 +100,7 @@ function selectFile(node: TreeNode): void {
   }
 }
 
-onMounted(async () => {
+async function refresh(): Promise<void> {
   loading.value = true
   try {
     const entries = await listFiles()
@@ -90,6 +110,10 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(() => {
+  refresh()
 })
 </script>
 
@@ -97,10 +121,19 @@ onMounted(async () => {
   <div class="file-browser">
     <div class="sidebar-header">
       <span>Files</span>
-      <button @click="onMounted" title="Refresh">↻</button>
+      <button @click="refresh" title="Refresh">↻</button>
     </div>
-    <div class="file-tree" v-if="tree.length > 0">
-      <template v-for="node in tree" :key="node.path">
+    <div class="file-filter">
+      <input
+        v-model="filterText"
+        type="text"
+        placeholder="Filter files..."
+        class="file-filter-input"
+      />
+      <button v-if="filterText" class="file-filter-clear" @click="filterText = ''">✕</button>
+    </div>
+    <div class="file-tree" v-if="filteredTree.length > 0">
+      <template v-for="node in filteredTree" :key="node.path">
         <div
           class="tree-node"
           :class="{
@@ -140,6 +173,7 @@ onMounted(async () => {
       </template>
     </div>
     <div v-else-if="loading" class="file-empty">Loading...</div>
+    <div v-else-if="filterText" class="file-empty">No matching files</div>
     <div v-else class="file-empty">No files found</div>
   </div>
 </template>
@@ -156,6 +190,34 @@ onMounted(async () => {
   flex: 1;
   overflow-y: auto;
   padding: 4px 0;
+}
+
+.file-filter {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 4px;
+}
+
+.file-filter-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  padding: 3px 4px;
+  outline: none;
+  color: var(--text-primary);
+}
+
+.file-filter-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 11px;
+  line-height: 1;
 }
 
 .tree-node {

@@ -105,7 +105,7 @@ mod tests {
         ];
 
         let filter = LogFilter {
-            level: Some(LogLevel::ERROR),
+            levels: vec![LogLevel::ERROR],
             ..Default::default()
         };
 
@@ -184,7 +184,7 @@ mod tests {
         ];
 
         let filter = LogFilter {
-            level: Some(LogLevel::ERROR),
+            levels: vec![LogLevel::ERROR],
             time_from: Some(Utc.with_ymd_and_hms(2024, 1, 1, 11, 0, 0).unwrap()),
             ..Default::default()
         };
