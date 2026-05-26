@@ -227,12 +227,12 @@ defineExpose({ scrollToBottom, scrollToLine })
       <div class="scroll-spacer" :style="{ height: totalHeight + 'px' }">
         <div :style="{ transform: `translateY(${offsetY}px)` }">
           <div
-            v-for="entry in visibleEntries"
+            v-for="(entry, idx) in visibleEntries"
             :key="entry.lineNum"
             class="log-row"
             :class="[
               getLevelClass(entry.level),
-              { 'is-copied': copiedLine === entry.lineNum, 'wrap': lineWrap, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
+              { 'odd': (visibleRange.startIndex + idx) % 2 === 1, 'is-copied': copiedLine === entry.lineNum, 'wrap': lineWrap, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
             ]"
             @click="copyLine(entry)"
           >
@@ -301,16 +301,21 @@ defineExpose({ scrollToBottom, scrollToLine })
   cursor: pointer;
   white-space: nowrap;
   position: relative;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-2);
   transition: background .08s;
+  background: var(--bg);
 }
 
 .log-row:last-child {
   border-bottom: none;
 }
 
-.log-row:hover {
+.log-row.odd {
   background: var(--bg-2);
+}
+
+.log-row:hover {
+  background: var(--bg-3);
 }
 
 .log-row.wrap {
@@ -341,16 +346,16 @@ defineExpose({ scrollToBottom, scrollToLine })
 
 /* Level row backgrounds */
 .log-row.lv-error {
-  background: rgba(252, 235, 235, 0.35);
+  background: var(--c-error-bg);
 }
 .log-row.lv-error:hover {
-  background: rgba(252, 235, 235, 0.6);
+  filter: brightness(0.95);
 }
 .log-row.lv-warn {
-  background: rgba(250, 238, 218, 0.25);
+  background: var(--c-warn-bg);
 }
 .log-row.lv-warn:hover {
-  background: rgba(250, 238, 218, 0.5);
+  filter: brightness(0.95);
 }
 
 /* ── Columns ── */
@@ -359,7 +364,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   min-width: 48px;
   padding-left: 16px;
   padding-right: 10px;
-  color: var(--text-3);
+  color: var(--text-2);
   text-align: right;
   user-select: none;
   font-size: 11px;
@@ -369,7 +374,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   width: 96px;
   min-width: 96px;
   padding-right: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
   font-size: 11px;
   white-space: nowrap;
   flex-shrink: 0;
@@ -386,7 +391,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   display: inline-block;
   padding: 1px 7px;
   border-radius: 5px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   font-family: var(--font-sans);
