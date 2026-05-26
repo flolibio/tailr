@@ -24,7 +24,10 @@ impl TailSession {
 
         let file = File::open(&path).await?;
 
-        info!(path = %path.display(), inode, size, "TailSession opened");
+        // Count existing non-empty lines so line_num continues correctly
+        let existing_lines = count_lines_from_file(&path).await;
+
+        info!(path = %path.display(), inode, size, existing_lines, "TailSession opened");
 
         Ok(Self {
             path,
@@ -32,7 +35,7 @@ impl TailSession {
             offset: size,
             inode,
             seq: 0,
-            line_num: 0,
+            line_num: existing_lines,
         })
     }
 
@@ -159,6 +162,27 @@ impl TailSession {
 
 fn path_display(path: &PathBuf) -> &std::path::Path {
     path.as_path()
+}
+
+async fn count_lines_from_file(path: &std::path::Path) -> u64 {
+    use tokio::io::{AsyncBufReadExt, BufReader};
+
+    let file = match tokio::fs::File::open(path).await {
+        Ok(f) => f,
+        Err(_) => return 0,
+    };
+
+    let reader = BufReader::new(file);
+    let mut lines = reader.lines();
+    let mut count: u64 = 0;
+
+    while let Ok(Some(line)) = lines.next_line().await {
+        if !line.trim().is_empty() {
+            count += 1;
+        }
+    }
+
+    count
 }
 
 fn detect_level(line: &str) -> LogLevel {

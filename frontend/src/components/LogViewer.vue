@@ -322,12 +322,15 @@ defineExpose({ scrollToBottom, scrollToLine })
 }
 
 .line-level {
-  width: 50px;
-  min-width: 50px;
+  min-width: 56px;
+  max-width: 56px;
   font-weight: 600;
   text-transform: uppercase;
   font-size: 11px;
   padding-right: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .line-timestamp {
