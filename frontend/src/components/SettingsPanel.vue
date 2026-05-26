@@ -11,12 +11,10 @@ export interface Settings {
 
 const props = defineProps<{
   settings: Settings
-  collapsed: boolean
 }>()
 
 const emit = defineEmits<{
   update: [settings: Settings]
-  toggleCollapse: []
 }>()
 
 const local = ref<Settings>({ ...props.settings })
@@ -33,53 +31,55 @@ function update<K extends keyof Settings>(key: K, value: Settings[K]): void {
   local.value[key] = value
   emit('update', { ...local.value })
 }
+
+function setTheme(theme: 'light' | 'dark' | 'system'): void {
+  if (theme === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    update('darkTheme', prefersDark)
+  } else {
+    update('darkTheme', theme === 'dark')
+  }
+}
+
+const currentTheme = ref<'light' | 'dark' | 'system'>('light')
+
+watch(() => local.value.darkTheme, (isDark) => {
+  currentTheme.value = isDark ? 'dark' : 'light'
+}, { immediate: true })
+
+function formatMaxLines(v: number): string {
+  return v.toLocaleString()
+}
 </script>
 
 <template>
-  <div class="settings-panel" :class="{ collapsed: collapsed }">
-    <div class="sidebar-header">
-      <span v-if="!collapsed">Settings</span>
-      <button @click="emit('toggleCollapse')" :title="collapsed ? 'Open settings' : 'Close settings'">
-        {{ collapsed ? '◀' : '▶' }}
-      </button>
+  <div class="settings-panel-inner">
+    <div class="settings-header">
+      <span class="settings-title">Settings</span>
     </div>
-    <div v-if="!collapsed" class="settings-body">
-      <div class="setting-group">
-        <div class="setting-label">Font Size: {{ local.fontSize }}px</div>
+    <div class="settings-body">
+      <!-- Font size -->
+      <div class="s-group">
+        <div class="s-label">
+          <span class="s-lname">Font size</span>
+          <span class="s-lval">{{ local.fontSize }}px</span>
+        </div>
         <input
           type="range"
           :value="local.fontSize"
-          min="12"
+          min="10"
           max="20"
           step="1"
           @input="update('fontSize', +($event.target as HTMLInputElement).value)"
         />
       </div>
 
-      <div class="setting-group">
-        <label class="setting-checkbox">
-          <input
-            type="checkbox"
-            :checked="local.autoScroll"
-            @change="update('autoScroll', ($event.target as HTMLInputElement).checked)"
-          />
-          <span>Auto-scroll</span>
-        </label>
-      </div>
-
-      <div class="setting-group">
-        <label class="setting-checkbox">
-          <input
-            type="checkbox"
-            :checked="local.lineWrap"
-            @change="update('lineWrap', ($event.target as HTMLInputElement).checked)"
-          />
-          <span>Line wrap</span>
-        </label>
-      </div>
-
-      <div class="setting-group">
-        <div class="setting-label">Max visible lines: {{ local.maxVisibleLines }}</div>
+      <!-- Max visible lines -->
+      <div class="s-group">
+        <div class="s-label">
+          <span class="s-lname">Max visible lines</span>
+          <span class="s-lval">{{ formatMaxLines(local.maxVisibleLines) }}</span>
+        </div>
         <input
           type="range"
           :value="local.maxVisibleLines"
@@ -90,58 +90,176 @@ function update<K extends keyof Settings>(key: K, value: Settings[K]): void {
         />
       </div>
 
-      <div class="setting-group">
-        <label class="setting-checkbox">
-          <input
-            type="checkbox"
-            :checked="local.darkTheme"
-            @change="update('darkTheme', ($event.target as HTMLInputElement).checked)"
-          />
-          <span>Dark theme</span>
-        </label>
+      <div class="s-divider"></div>
+
+      <!-- Toggles -->
+      <div class="s-group">
+        <div class="toggle-row">
+          <span class="toggle-name">Auto-scroll</span>
+          <button
+            class="toggle"
+            :class="{ on: local.autoScroll }"
+            @click="update('autoScroll', !local.autoScroll)"
+            :aria-pressed="local.autoScroll"
+          ></button>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-name">Line wrap</span>
+          <button
+            class="toggle"
+            :class="{ on: local.lineWrap }"
+            @click="update('lineWrap', !local.lineWrap)"
+            :aria-pressed="local.lineWrap"
+          ></button>
+        </div>
+      </div>
+
+      <div class="s-divider"></div>
+
+      <!-- Theme -->
+      <div class="s-group">
+        <div class="s-label"><span class="s-lname">Theme</span></div>
+        <div class="theme-opts">
+          <button
+            class="theme-opt"
+            :class="{ on: currentTheme === 'light' }"
+            @click="setTheme('light')"
+          >Light</button>
+          <button
+            class="theme-opt"
+            :class="{ on: currentTheme === 'dark' }"
+            @click="setTheme('dark')"
+          >Dark</button>
+          <button
+            class="theme-opt"
+            :class="{ on: currentTheme === 'system' }"
+            @click="setTheme('system')"
+          >System</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.settings-panel {
+.settings-panel-inner {
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: hidden;
 }
 
-.settings-panel.collapsed {
-  width: 32px;
-  min-width: 32px;
-}
-
 .settings-body {
-  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   overflow-y: auto;
-  padding: 12px;
+  flex: 1;
 }
 
-.setting-group {
-  margin-bottom: 16px;
+.s-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.setting-label {
+.s-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.s-lname {
   font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
+  color: var(--text-2);
 }
 
-.setting-group input[type="range"] {
-  width: 100%;
+.s-lval {
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  color: var(--text);
 }
 
-.setting-checkbox {
+.s-divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.toggle-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  padding: 5px 0;
+}
+
+.toggle-name {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.toggle {
+  width: 34px;
+  height: 19px;
+  border-radius: 10px;
+  background: var(--border-2);
+  position: relative;
   cursor: pointer;
-  font-size: 13px;
+  border: none;
+  outline: none;
+  padding: 0;
+  transition: background .18s;
+  flex-shrink: 0;
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: white;
+  top: 3px;
+  left: 3px;
+  transition: left .16s;
+}
+
+.toggle.on {
+  background: var(--accent);
+}
+
+.toggle.on::after {
+  left: 18px;
+}
+
+.theme-opts {
+  display: flex;
+  gap: 5px;
+}
+
+.theme-opt {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-2);
+  background: transparent;
+  transition: all .12s;
+  height: auto;
+}
+
+.theme-opt:hover {
+  background: var(--bg-2);
+}
+
+.theme-opt.on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
 }
 </style>

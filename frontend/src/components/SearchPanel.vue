@@ -11,7 +11,6 @@ const emit = defineEmits<{
   search: [query: string, options: SearchOptions]
   clear: []
   jumpToLine: [lineNum: number]
-  filterLevels: [levels: string[]]
 }>()
 
 export interface SearchOptions {
@@ -23,26 +22,15 @@ export interface SearchOptions {
 const query = ref('')
 const isRegex = ref(false)
 const contextLines = ref(3)
-const selectedLevels = ref<string[]>([])
 const results = ref<SearchResult | null>(null)
-
-const allLevels = ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE']
-
-function toggleLevel(level: string): void {
-  const idx = selectedLevels.value.indexOf(level)
-  if (idx >= 0) {
-    selectedLevels.value.splice(idx, 1)
-  } else {
-    selectedLevels.value.push(level)
-  }
-  emit('filterLevels', [...selectedLevels.value])
-}
+const showResults = ref(false)
 
 function doSearch(): void {
   if (!props.currentFile || !query.value.trim()) return
+  showResults.value = true
   emit('search', query.value, {
     regex: isRegex.value,
-    levels: selectedLevels.value,
+    levels: [],
     context: contextLines.value,
   })
 }
@@ -50,6 +38,7 @@ function doSearch(): void {
 function doClear(): void {
   query.value = ''
   results.value = null
+  showResults.value = false
   emit('clear')
 }
 
@@ -65,259 +54,274 @@ defineExpose({ setResults })
 </script>
 
 <template>
-  <div class="search-panel">
-    <div class="search-row">
-      <div class="search-input-group">
-        <input
-          v-model="query"
-          type="text"
-          class="search-input"
-          placeholder="Search logs..."
-          @keydown="onKeydown"
-          :disabled="!currentFile"
-        />
-        <label class="regex-toggle" title="Use regex">
-          <input v-model="isRegex" type="checkbox" />
-          <span>.*</span>
-        </label>
-      </div>
-      <button class="primary" @click="doSearch" :disabled="!currentFile || !query.trim() || isSearching">
-        {{ isSearching ? 'Searching...' : 'Search' }}
-      </button>
-      <button @click="doClear" :disabled="!query && !results">Clear</button>
+  <div class="search-inline">
+    <div class="search-wrap">
+      <span class="search-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+      </span>
+      <input
+        v-model="query"
+        type="text"
+        class="search-input"
+        placeholder="Search logs…"
+        @keydown="onKeydown"
+        :disabled="!currentFile"
+      />
+      <button
+        class="regex-badge"
+        :class="{ active: isRegex }"
+        @click="isRegex = !isRegex"
+        title="Use regex"
+      >.*</button>
     </div>
-    <div class="search-filters">
-      <div class="level-filters">
-        <span class="filter-label">Levels:</span>
-        <label
-          v-for="level in allLevels"
-          :key="level"
-          class="level-chip"
-          :class="['level-' + level.toLowerCase(), { active: selectedLevels.includes(level) }]"
-        >
-          <input
-            type="checkbox"
-            :checked="selectedLevels.includes(level)"
-            @change="toggleLevel(level)"
-          />
-          {{ level }}
-        </label>
+    <button class="btn-search" @click="doSearch" :disabled="!currentFile || !query.trim() || isSearching">
+      {{ isSearching ? '…' : 'Search' }}
+    </button>
+    <button class="btn-clear" @click="doClear" :disabled="!query && !results">Clear</button>
+
+    <!-- Results dropdown -->
+    <div v-if="showResults && results" class="results-dropdown">
+      <div class="results-header">
+        <span>{{ results.totalMatches }} matches{{ results.hasMore ? ' (showing first 100)' : '' }}</span>
+        <button class="results-close" @click="showResults = false">✕</button>
       </div>
-      <div class="context-control">
-        <span class="filter-label">Context: {{ contextLines }}</span>
-        <input v-model.number="contextLines" type="range" min="0" max="10" step="1" />
-      </div>
-    </div>
-    <div v-if="results" class="search-results-info">
-      <span>{{ results.totalMatches }} matches{{ results.hasMore ? ' (showing first 100)' : '' }}</span>
-    </div>
-    <div v-if="results && results.matches.length > 0" class="search-results">
-      <div
-        v-for="match in results.matches.slice(0, 100)"
-        :key="match.lineNumber"
-        class="search-result-group"
-      >
+      <div v-if="results.matches.length > 0" class="results-list">
         <div
-          v-for="(line, i) in match.contextBefore"
-          :key="'b' + i"
-          class="search-context-line"
-          @click="emit('jumpToLine', match.lineNumber - match.contextBefore.length + i)"
+          v-for="match in results.matches.slice(0, 100)"
+          :key="match.lineNumber"
+          class="result-group"
         >
-          <span class="result-line-num">{{ match.lineNumber - match.contextBefore.length + i }}</span>
-          <span class="result-text context">{{ line }}</span>
+          <div
+            v-for="(line, i) in match.contextBefore"
+            :key="'b' + i"
+            class="result-line context"
+            @click="emit('jumpToLine', match.lineNumber - match.contextBefore.length + i)"
+          >
+            <span class="result-ln">{{ match.lineNumber - match.contextBefore.length + i }}</span>
+            <span class="result-text">{{ line }}</span>
+          </div>
+          <div
+            class="result-line match"
+            @click="emit('jumpToLine', match.lineNumber)"
+          >
+            <span class="result-ln">{{ match.lineNumber }}</span>
+            <span class="result-text">{{ match.content }}</span>
+          </div>
+          <div
+            v-for="(line, i) in match.contextAfter"
+            :key="'a' + i"
+            class="result-line context"
+            @click="emit('jumpToLine', match.lineNumber + 1 + i)"
+          >
+            <span class="result-ln">{{ match.lineNumber + 1 + i }}</span>
+            <span class="result-text">{{ line }}</span>
+          </div>
         </div>
-        <div
-          class="search-result match"
-          @click="emit('jumpToLine', match.lineNumber)"
-        >
-          <span class="result-line-num">{{ match.lineNumber }}</span>
-          <span class="result-text">{{ match.content }}</span>
+        <div v-if="results.matches.length > 100" class="results-truncated">
+          Showing first 100 of {{ results.totalMatches }} matches
         </div>
-        <div
-          v-for="(line, i) in match.contextAfter"
-          :key="'a' + i"
-          class="search-context-line"
-          @click="emit('jumpToLine', match.lineNumber + 1 + i)"
-        >
-          <span class="result-line-num">{{ match.lineNumber + 1 + i }}</span>
-          <span class="result-text context">{{ line }}</span>
-        </div>
-      </div>
-      <div v-if="results.matches.length > 100" class="results-truncated">
-        Showing first 100 of {{ results.totalMatches }} matches
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.search-panel {
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-secondary);
-  padding: 8px 12px;
-}
-
-.search-row {
+.search-inline {
   display: flex;
+  align-items: center;
   gap: 8px;
+  flex: 1;
+  position: relative;
+}
+
+.search-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
   align-items: center;
 }
 
-.search-input-group {
-  flex: 1;
+.search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-3);
+  pointer-events: none;
   display: flex;
   align-items: center;
-  gap: 0;
 }
 
 .search-input {
-  flex: 1;
-  border-radius: 3px 0 0 3px;
-  padding: 6px 10px;
-  font-size: 13px;
-}
-
-.regex-toggle {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 8px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-left: none;
-  border-radius: 0 3px 3px 0;
-  cursor: pointer;
+  width: 100%;
+  height: 36px;
+  padding: 0 42px 0 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
   font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--text-secondary);
-  user-select: none;
+  font-size: 12.5px;
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s, background .15s;
 }
 
-.regex-toggle:has(input:checked) {
-  color: var(--level-info);
-  background: rgba(55, 148, 255, 0.1);
+.search-input:focus {
+  border-color: var(--border-2);
+  background: var(--bg);
 }
 
-.regex-toggle input {
-  display: none;
-}
-
-.search-filters {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-
-.filter-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-right: 4px;
-}
-
-.level-filters {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.level-chip {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
+.regex-badge {
+  position: absolute;
+  right: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-3);
   cursor: pointer;
-  opacity: 0.4;
-  transition: opacity 0.15s;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  transition: all .12s;
   user-select: none;
+  line-height: 1.4;
+  height: auto;
 }
 
-.level-chip.active {
-  opacity: 1;
+.regex-badge:hover,
+.regex-badge.active {
+  border-color: var(--border-2);
+  color: var(--text);
+  background: var(--bg-2);
 }
 
-.level-chip input {
-  display: none;
+.btn-search {
+  height: 36px;
+  padding: 0 16px;
+  background: var(--accent);
+  color: var(--accent-light);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .12s;
+  flex-shrink: 0;
 }
 
-.level-error { background: rgba(244, 71, 71, 0.15); color: var(--level-error); }
-.level-warn { background: rgba(204, 167, 0, 0.15); color: var(--level-warn); }
-.level-info { background: rgba(55, 148, 255, 0.15); color: var(--level-info); }
-.level-debug { background: rgba(106, 153, 85, 0.15); color: var(--level-debug); }
-.level-trace { background: rgba(128, 128, 128, 0.15); color: var(--level-trace); }
+.btn-search:hover {
+  opacity: 0.88;
+}
 
-.context-control {
+.btn-clear {
+  height: 36px;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .12s;
+  flex-shrink: 0;
+}
+
+.btn-clear:hover {
+  background: var(--bg-2);
+}
+
+/* Results dropdown */
+.results-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  z-index: 100;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.results-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.context-control input[type="range"] {
-  width: 80px;
-}
-
-.search-results-info {
-  margin-top: 6px;
+  justify-content: space-between;
+  padding: 8px 12px;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 1;
 }
 
-.search-results {
-  margin-top: 6px;
-  max-height: 200px;
-  overflow-y: auto;
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  background: var(--bg-primary);
+.results-close {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  padding: 0;
+  border-radius: 4px;
 }
 
-.search-result-group {
-  border-bottom: 1px solid var(--border-color);
+.results-close:hover {
+  background: var(--bg-2);
+  color: var(--text);
 }
 
-.search-result-group:last-child {
+.result-group {
+  border-bottom: 1px solid var(--border);
+}
+
+.result-group:last-child {
   border-bottom: none;
 }
 
-.search-result,
-.search-context-line {
+.result-line {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 2px 8px;
+  padding: 2px 12px;
   font-family: var(--font-mono);
   font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
+  height: auto;
+  border: none;
 }
 
-.search-result:hover,
-.search-context-line:hover {
-  background: var(--bg-hover);
+.result-line:hover {
+  background: var(--bg-2);
 }
 
-.search-result.match {
-  background: rgba(55, 148, 255, 0.08);
+.result-line.match {
+  background: rgba(24, 95, 165, 0.06);
   font-weight: 600;
 }
 
-.search-context-line {
-  opacity: 0.6;
+.result-line.context {
+  opacity: 0.5;
 }
 
-.result-text.context {
-  color: var(--text-muted);
-}
-
-.result-line-num {
-  color: var(--line-number);
+.result-ln {
+  color: var(--text-3);
   min-width: 50px;
   text-align: right;
+  flex-shrink: 0;
 }
 
 .result-text {
@@ -327,10 +331,10 @@ defineExpose({ setResults })
 }
 
 .results-truncated {
-  padding: 4px 8px;
+  padding: 6px 12px;
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-3);
   text-align: center;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border);
 }
 </style>

@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Log Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #ffffff;
+  --bg-2: #f5f5f4;
+  --bg-3: #efefed;
+  --text: #1a1a18;
+  --text-2: #6b6b68;
+  --text-3: #a8a8a4;
+  --border: rgba(0,0,0,0.1);
+  --border-2: rgba(0,0,0,0.18);
+  --radius: 8px;
+  --radius-lg: 12px;
+  --sidebar-w: 220px;
+  --settings-w: 210px;
+  --topbar-h: 56px;
+  --filterbar-h: 48px;
+
+  --c-error-bg: #FCEBEB; --c-error-text: #A32D2D; --c-error-border: #F7C1C1;
+  --c-warn-bg: #FAEEDA;  --c-warn-text: #854F0B;  --c-warn-border: #FAC775;
+  --c-info-bg: #E6F1FB;  --c-info-text: #0C447C;  --c-info-border: #B5D4F4;
+  --c-debug-bg:#EAF3DE;  --c-debug-text:#3B6D11;  --c-debug-border:#C0DD97;
+  --c-trace-bg:#F1EFE8;  --c-trace-text:#5F5E5A;  --c-trace-border:#D3D1C7;
+}
+
+body.dark {
+  --bg: #1a1a18;
+  --bg-2: #232320;
+  --bg-3: #2c2c29;
+  --text: #f0ede8;
+  --text-2: #9a9893;
+  --text-3: #5e5d59;
+  --border: rgba(255,255,255,0.08);
+  --border-2: rgba(255,255,255,0.14);
+  --c-error-bg: #2e1515; --c-error-text: #F09595; --c-error-border: #501313;
+  --c-warn-bg: #2b1f08;  --c-warn-text: #EF9F27;  --c-warn-border: #412402;
+  --c-info-bg: #091e35;  --c-info-text: #85B7EB;  --c-info-border: #042C53;
+  --c-debug-bg:#152108;  --c-debug-text:#97C459;  --c-debug-border:#173404;
+  --c-trace-bg:#242420;  --c-trace-text:#B4B2A9;  --c-trace-border:#444441;
+}
+
+html, body { height: 100%; }
+body {
+  font-family: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-3);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── App Shell ── */
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr var(--settings-w);
+  grid-template-rows: var(--topbar-h) var(--filterbar-h) 1fr;
+  height: 100vh;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  grid-row: 1 / 4;
+  grid-column: 1;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.sidebar-header {
+  height: var(--topbar-h);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-title {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.icon-btn {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  transition: background .12s, color .12s;
+}
+.icon-btn:hover { background: var(--bg-2); color: var(--text); }
+.icon-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.file-list { padding: 8px; overflow-y: auto; flex: 1; }
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background .1s;
+  user-select: none;
+}
+.file-item:hover { background: var(--bg-2); }
+.file-item.active { background: var(--bg-2); }
+.file-item.active .file-name { color: var(--text); font-weight: 500; }
+.file-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.file-dot.live { background: #1D9E75; }
+.file-dot.off  { background: var(--border-2); }
+.file-meta { flex: 1; min-width: 0; }
+.file-name { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-size { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+/* ── Top Bar ── */
+.topbar {
+  grid-column: 2;
+  grid-row: 1;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+}
+.search-wrap { flex: 1; position: relative; display: flex; align-items: center; }
+.search-icon { position: absolute; left: 10px; color: var(--text-3); pointer-events: none; }
+.search-icon svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.search-input {
+  width: 100%; height: 36px;
+  padding: 0 38px 0 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+.search-input:focus { border-color: var(--border-2); background: var(--bg); }
+.search-input::placeholder { color: var(--text-3); }
+.regex-badge {
+  position: absolute; right: 8px;
+  font-size: 10px; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  transition: all .12s;
+  user-select: none;
+}
+.regex-badge:hover, .regex-badge.on { border-color: var(--border-2); color: var(--text); background: var(--bg-2); }
+.btn-primary {
+  height: 36px; padding: 0 16px;
+  background: #185FA5; color: #E6F1FB;
+  border: none; border-radius: var(--radius);
+  font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  transition: opacity .12s;
+}
+.btn-primary:hover { opacity: .88; }
+.btn-ghost {
+  height: 36px; padding: 0 14px;
+  background: transparent; color: var(--text-2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  font-family: 'Sora', sans-serif; font-size: 13px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.btn-ghost:hover { background: var(--bg-2); }
+
+/* ── Filter Bar ── */
+.filterbar {
+  grid-column: 2; grid-row: 2;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg);
+  overflow-x: auto;
+}
+.level-tag {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all .12s;
+  user-select: none;
+  flex-shrink: 0;
+}
+.level-tag .dot { width: 5px; height: 5px; border-radius: 50%; }
+.level-tag.error { color: var(--c-error-text); background: var(--c-error-bg); border-color: var(--c-error-border); }
+.level-tag.warn  { color: var(--c-warn-text);  background: var(--c-warn-bg);  border-color: var(--c-warn-border); }
+.level-tag.info  { color: var(--c-info-text);  background: var(--c-info-bg);  border-color: var(--c-info-border); }
+.level-tag.debug { color: var(--c-debug-text); background: var(--c-debug-bg); border-color: var(--c-debug-border); }
+.level-tag.trace { color: var(--c-trace-text); background: var(--c-trace-bg); border-color: var(--c-trace-border); }
+.level-tag.off   { opacity: .35; }
+.vsep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+.ctx-wrap { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.ctx-label { font-size: 12px; color: var(--text-2); }
+.ctx-input {
+  width: 44px; height: 28px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-2);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--text); text-align: center; outline: none;
+}
+.ctx-input:focus { border-color: var(--border-2); }
+
+/* ── Log Body ── */
+.log-body {
+  grid-column: 2; grid-row: 3;
+  overflow-y: auto;
+  background: var(--bg);
+}
+.log-empty {
+  height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; color: var(--text-3);
+}
+.log-empty svg { width: 40px; height: 40px; stroke: currentColor; fill: none; stroke-width: 1.5; opacity: .35; }
+.log-empty span { font-size: 13px; }
+
+.log-table { width: 100%; border-collapse: collapse; }
+.log-row { border-bottom: 1px solid var(--border); cursor: pointer; transition: background .08s; }
+.log-row:last-child { border-bottom: none; }
+.log-row:hover { background: var(--bg-2); }
+.log-row.row-error { background: rgba(252,235,235,.35); }
+.log-row.row-error:hover { background: rgba(252,235,235,.6); }
+.log-row.row-warn  { background: rgba(250,238,218,.25); }
+.log-row.row-warn:hover  { background: rgba(250,238,218,.5); }
+
+.log-row td { padding: 6px 0; vertical-align: top; }
+.td-ln  { padding-left: 16px; padding-right: 10px; width: 42px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-3); user-select: none; text-align: right; white-space: nowrap; }
+.td-ts  { padding-right: 12px; width: 96px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-3); white-space: nowrap; }
+.td-badge { padding-right: 12px; width: 56px; }
+.badge {
+  display: inline-block;
+  padding: 2px 7px; border-radius: 5px;
+  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  font-family: 'Sora', sans-serif;
+}
+.b-error { background: var(--c-error-bg); color: var(--c-error-text); }
+.b-warn  { background: var(--c-warn-bg);  color: var(--c-warn-text); }
+.b-info  { background: var(--c-info-bg);  color: var(--c-info-text); }
+.b-debug { background: var(--c-debug-bg); color: var(--c-debug-text); }
+.b-trace { background: var(--c-trace-bg); color: var(--c-trace-text); }
+.td-msg { padding-right: 16px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.65; color: var(--text); }
+.td-msg.m-error { color: var(--c-error-text); }
+.td-msg.m-warn  { color: var(--c-warn-text); }
+
+/* ── Settings ── */
+.settings {
+  grid-row: 1 / 4;
+  grid-column: 3;
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  background: var(--bg);
+}
+.settings-header {
+  height: var(--topbar-h);
+  padding: 0 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.settings-title { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
+.settings-body { padding: 16px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; flex: 1; }
+
+.s-group { display: flex; flex-direction: column; gap: 8px; }
+.s-label { display: flex; justify-content: space-between; align-items: center; }
+.s-lname { font-size: 12px; color: var(--text-2); }
+.s-lval  { font-size: 12px; font-weight: 500; font-family: 'JetBrains Mono', monospace; color: var(--text); }
+
+input[type=range] {
+  width: 100%; height: 4px; cursor: pointer;
+  accent-color: #185FA5;
+  border-radius: 2px;
+}
+
+.s-divider { height: 1px; background: var(--border); }
+
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0;
+}
+.toggle-name { font-size: 12.5px; color: var(--text); }
+.toggle {
+  width: 34px; height: 19px;
+  border-radius: 10px;
+  background: var(--border-2);
+  position: relative; cursor: pointer;
+  border: none; outline: none;
+  transition: background .18s;
+  flex-shrink: 0;
+}
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 13px; height: 13px;
+  border-radius: 50%; background: white;
+  top: 3px; left: 3px;
+  transition: left .16s;
+}
+.toggle.on { background: #185FA5; }
+.toggle.on::after { left: 18px; }
+
+.theme-opts { display: flex; gap: 5px; }
+.theme-opt {
+  flex: 1; padding: 6px 0;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 11px; font-weight: 500;
+  text-align: center; cursor: pointer;
+  color: var(--text-2); background: transparent;
+  transition: all .12s;
+}
+.theme-opt:hover { background: var(--bg-2); }
+.theme-opt.on { border-color: #185FA5; color: #185FA5; background: #E6F1FB; }
+body.dark .theme-opt.on { background: #091e35; color: #85B7EB; border-color: #185FA5; }
+
+/* ── Status bar ── */
+.statusbar {
+  grid-column: 1 / 4;
+  height: 26px;
+  border-top: 1px solid var(--border);
+  padding: 0 16px;
+  display: flex; align-items: center; gap: 16px;
+  background: var(--bg-2);
+  font-size: 11px; color: var(--text-3);
+  flex-shrink: 0;
+}
+.status-chip { display: flex; align-items: center; gap: 5px; }
+.status-chip .dot { width: 5px; height: 5px; border-radius: 50%; }
+
+/* scrollbars */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Files</span>
+      <button class="icon-btn" title="Refresh" onclick="refreshFiles()">
+        <svg viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+      </button>
+    </div>
+    <div class="file-list" id="fileList"></div>
+  </aside>
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="search-wrap">
+      <span class="search-icon">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </span>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search logs…" />
+      <span class="regex-badge" id="regexBadge" onclick="toggleRegex()">.*</span>
+    </div>
+    <button class="btn-primary" onclick="doSearch()">Search</button>
+    <button class="btn-ghost" onclick="clearSearch()">Clear</button>
+  </header>
+
+  <!-- Filter bar -->
+  <div class="filterbar">
+    <div class="level-tag error" data-lv="error" onclick="toggleLevel(this)">
+      <span class="dot" style="background:#E24B4A"></span>ERROR
+    </div>
+    <div class="level-tag warn" data-lv="warn" onclick="toggleLevel(this)">
+      <span class="dot" style="background:#BA7517"></span>WARN
+    </div>
+    <div class="level-tag info" data-lv="info" onclick="toggleLevel(this)">
+      <span class="dot" style="background:#378ADD"></span>INFO
+    </div>
+    <div class="level-tag debug" data-lv="debug" onclick="toggleLevel(this)">
+      <span class="dot" style="background:#639922"></span>DEBUG
+    </div>
+    <div class="level-tag trace" data-lv="trace" onclick="toggleLevel(this)">
+      <span class="dot" style="background:#888780"></span>TRACE
+    </div>
+    <div class="vsep"></div>
+    <div class="ctx-wrap">
+      <span class="ctx-label">Context</span>
+      <input class="ctx-input" id="ctxInput" type="number" value="3" min="0" max="20" />
+    </div>
+  </div>
+
+  <!-- Log body -->
+  <main class="log-body" id="logBody">
+    <div class="log-empty" id="emptyState">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      <span>Select a file to start viewing logs</span>
+    </div>
+    <table class="log-table" id="logTable" style="display:none">
+      <tbody id="logBody2"></tbody>
+    </table>
+  </main>
+
+  <!-- Settings -->
+  <aside class="settings">
+    <div class="settings-header">
+      <span class="settings-title">Settings</span>
+    </div>
+    <div class="settings-body">
+      <div class="s-group">
+        <div class="s-label">
+          <span class="s-lname">Font size</span>
+          <span class="s-lval" id="fontSizeVal">14px</span>
+        </div>
+        <input type="range" id="fontSlider" min="10" max="20" value="14" oninput="setFontSize(this.value)" />
+      </div>
+
+      <div class="s-group">
+        <div class="s-label">
+          <span class="s-lname">Max visible lines</span>
+          <span class="s-lval" id="maxLinesVal">50,000</span>
+        </div>
+        <input type="range" id="maxLinesSlider" min="1000" max="100000" step="1000" value="50000" oninput="setMaxLines(this.value)" />
+      </div>
+
+      <div class="s-divider"></div>
+
+      <div class="s-group">
+        <div class="toggle-row">
+          <span class="toggle-name">Auto-scroll</span>
+          <button class="toggle on" id="autoScrollToggle" onclick="toggleBtn(this)" aria-pressed="true"></button>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-name">Line wrap</span>
+          <button class="toggle" id="wrapToggle" onclick="toggleWrap(this)" aria-pressed="false"></button>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-name">Timestamps</span>
+          <button class="toggle on" id="tsToggle" onclick="toggleTs(this)" aria-pressed="true"></button>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-name">Line numbers</span>
+          <button class="toggle on" id="lnToggle" onclick="toggleLn(this)" aria-pressed="true"></button>
+        </div>
+      </div>
+
+      <div class="s-divider"></div>
+
+      <div class="s-group">
+        <div class="s-label"><span class="s-lname">Theme</span></div>
+        <div class="theme-opts">
+          <div class="theme-opt on" onclick="setTheme('light',this)">Light</div>
+          <div class="theme-opt" onclick="setTheme('dark',this)">Dark</div>
+          <div class="theme-opt" onclick="setTheme('system',this)">System</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Status bar -->
+  <div class="statusbar" id="statusBar">
+    <div class="status-chip">
+      <div class="dot" style="background:#1D9E75"></div>
+      <span id="statusFile">app.log</span>
+    </div>
+    <span id="statusCount">20 lines</span>
+    <span id="statusFiltered"></span>
+  </div>
+
+</div>
+
+<script>
+const FILES = [
+  { name: 'app.log', size: '304.1 KB', live: true },
+  { name: 'error.log', size: '12.8 KB', live: false },
+  { name: 'access.log', size: '1.2 MB', live: false },
+];
+
+const LOGS = [
+  {level:'info',  ts:'10:42:01.003', msg:'Server started on port 3000'},
+  {level:'debug', ts:'10:42:01.115', msg:'Connecting to database at db.internal:5432'},
+  {level:'info',  ts:'10:42:01.442', msg:'Database connection established (pool=10)'},
+  {level:'trace', ts:'10:42:01.550', msg:'Health check endpoint registered at /health'},
+  {level:'info',  ts:'10:42:03.221', msg:'GET /api/users 200 42ms'},
+  {level:'debug', ts:'10:42:03.222', msg:'Cache miss for key users:list'},
+  {level:'warn',  ts:'10:42:04.019', msg:'Slow query detected: SELECT * FROM events took 312ms'},
+  {level:'info',  ts:'10:42:05.113', msg:'POST /api/auth/login 200 18ms'},
+  {level:'error', ts:'10:42:06.778', msg:'Unhandled exception in worker thread: TypeError: Cannot read property "id" of undefined'},
+  {level:'error', ts:'10:42:06.779', msg:'Stack trace: at processRequest (worker.js:142) at run (pool.js:88)'},
+  {level:'warn',  ts:'10:42:07.002', msg:'Retrying failed job #4829, attempt 2 of 3'},
+  {level:'debug', ts:'10:42:07.215', msg:'Redis SETEX users:cache TTL=300s'},
+  {level:'info',  ts:'10:42:08.001', msg:'GET /api/metrics 200 7ms'},
+  {level:'trace', ts:'10:42:08.002', msg:'Outgoing webhook dispatched to https://hooks.internal/notify'},
+  {level:'info',  ts:'10:42:09.330', msg:'PUT /api/settings 204 11ms'},
+  {level:'warn',  ts:'10:42:10.000', msg:'Memory usage at 78% — approaching threshold'},
+  {level:'error', ts:'10:42:11.441', msg:'Connection pool exhausted — waiting for available slot'},
+  {level:'debug', ts:'10:42:11.500', msg:'Queue depth: 14 pending jobs'},
+  {level:'info',  ts:'10:42:12.003', msg:'GET /api/dashboard 200 55ms'},
+  {level:'trace', ts:'10:42:12.004', msg:'Session token refreshed for user 982'},
+];
+
+let activeLevels = new Set(['error','warn','info','debug','trace']);
+let showTs = true, showLn = true, lineWrap = false;
+let regexOn = false;
+let currentFile = null;
+
+// Build sidebar
+const fileList = document.getElementById('fileList');
+FILES.forEach((f, i) => {
+  const el = document.createElement('div');
+  el.className = 'file-item' + (i === 0 ? ' active' : '');
+  el.innerHTML = `<div class="file-dot ${f.live ? 'live' : 'off'}"></div><div class="file-meta"><div class="file-name">${f.name}</div><div class="file-size">${f.size}</div></div>`;
+  el.onclick = () => selectFile(el, f.name);
+  fileList.appendChild(el);
+});
+
+function selectFile(el, name) {
+  document.querySelectorAll('.file-item').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  currentFile = name;
+  document.getElementById('statusFile').textContent = name;
+  renderLogs();
+}
+
+selectFile(fileList.children[0], 'app.log');
+
+function renderLogs() {
+  const q = document.getElementById('searchInput').value.trim();
+  const body2 = document.getElementById('logBody2');
+  const empty = document.getElementById('emptyState');
+  const table = document.getElementById('logTable');
+
+  let filtered = LOGS.filter(l => activeLevels.has(l.level));
+  if (q) {
+    try {
+      const re = regexOn ? new RegExp(q, 'i') : null;
+      filtered = filtered.filter(l => re ? re.test(l.msg) : l.msg.toLowerCase().includes(q.toLowerCase()));
+    } catch(e) {}
+  }
+
+  document.getElementById('statusCount').textContent = LOGS.length + ' total';
+  document.getElementById('statusFiltered').textContent = filtered.length < LOGS.length ? filtered.length + ' shown' : '';
+
+  if (!filtered.length) {
+    empty.style.display = 'flex'; table.style.display = 'none'; return;
+  }
+  empty.style.display = 'none'; table.style.display = 'table';
+
+  body2.innerHTML = filtered.map((l, i) => {
+    const lvl = l.level;
+    const rowCls = lvl === 'error' ? ' row-error' : lvl === 'warn' ? ' row-warn' : '';
+    const lnCell = showLn ? `<td class="td-ln">${i+1}</td>` : '';
+    const tsCell = showTs ? `<td class="td-ts">${l.ts}</td>` : '';
+    const msgCls = lvl === 'error' ? ' m-error' : lvl === 'warn' ? ' m-warn' : '';
+    const wrapStyle = lineWrap ? '' : ' style="white-space:nowrap"';
+    return `<tr class="log-row${rowCls}">${lnCell}${tsCell}<td class="td-badge"><span class="badge b-${lvl}">${lvl.toUpperCase()}</span></td><td class="td-msg${msgCls}"${wrapStyle}>${escHtml(l.msg)}</td></tr>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toggleLevel(el) {
+  const lv = el.dataset.lv;
+  if (activeLevels.has(lv)) { activeLevels.delete(lv); el.classList.add('off'); }
+  else { activeLevels.add(lv); el.classList.remove('off'); }
+  renderLogs();
+}
+
+function doSearch() { renderLogs(); }
+function clearSearch() { document.getElementById('searchInput').value = ''; renderLogs(); }
+document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') renderLogs(); });
+
+function toggleRegex() {
+  regexOn = !regexOn;
+  document.getElementById('regexBadge').classList.toggle('on', regexOn);
+}
+
+function setFontSize(v) {
+  document.getElementById('fontSizeVal').textContent = v + 'px';
+  document.getElementById('logTable').style.fontSize = v + 'px';
+}
+function setMaxLines(v) {
+  document.getElementById('maxLinesVal').textContent = Number(v).toLocaleString();
+}
+
+function toggleBtn(btn) {
+  const on = btn.classList.toggle('on');
+  btn.setAttribute('aria-pressed', on);
+}
+function toggleTs(btn) {
+  const on = btn.classList.toggle('on');
+  btn.setAttribute('aria-pressed', on);
+  showTs = on; renderLogs();
+}
+function toggleLn(btn) {
+  const on = btn.classList.toggle('on');
+  btn.setAttribute('aria-pressed', on);
+  showLn = on; renderLogs();
+}
+function toggleWrap(btn) {
+  const on = btn.classList.toggle('on');
+  btn.setAttribute('aria-pressed', on);
+  lineWrap = on; renderLogs();
+}
+
+function setTheme(t, el) {
+  document.querySelectorAll('.theme-opt').forEach(e => e.classList.remove('on'));
+  el.classList.add('on');
+  const body = document.body;
+  if (t === 'dark') body.classList.add('dark');
+  else if (t === 'light') body.classList.remove('dark');
+  else {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    body.classList.toggle('dark', prefersDark);
+  }
+}
+
+function refreshFiles() {
+  const icon = document.querySelector('.icon-btn svg');
+  icon.style.transition = 'transform .5s';
+  icon.style.transform = 'rotate(360deg)';
+  setTimeout(() => { icon.style.transition = ''; icon.style.transform = ''; }, 520);
+}
+</script>
+</body>
+</html>
+

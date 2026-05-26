@@ -120,59 +120,62 @@ onMounted(() => {
 <template>
   <div class="file-browser">
     <div class="sidebar-header">
-      <span>Files</span>
-      <button @click="refresh" title="Refresh">↻</button>
+      <span class="sidebar-title">Files</span>
+      <button class="icon-btn" @click="refresh" title="Refresh">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+          <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
+        </svg>
+      </button>
     </div>
     <div class="file-filter">
       <input
         v-model="filterText"
         type="text"
-        placeholder="Filter files..."
+        placeholder="Filter…"
         class="file-filter-input"
       />
       <button v-if="filterText" class="file-filter-clear" @click="filterText = ''">✕</button>
     </div>
-    <div class="file-tree" v-if="filteredTree.length > 0">
+    <div class="file-list" v-if="filteredTree.length > 0">
       <template v-for="node in filteredTree" :key="node.path">
         <div
-          class="tree-node"
+          class="file-item"
           :class="{
             'is-dir': node.isDir,
-            'is-file': !node.isDir,
             'is-selected': !node.isDir && props.selectedFile === node.path,
           }"
           @click="selectFile(node)"
         >
-          <span class="node-icon">{{ node.isDir ? (node.expanded ? '📂' : '📁') : '📄' }}</span>
-          <span class="node-name">{{ node.name }}</span>
-          <span v-if="!node.isDir && node.size !== undefined" class="node-size">{{
-            formatSize(node.size)
-          }}</span>
+          <div v-if="!node.isDir" class="file-dot" :class="props.selectedFile === node.path ? 'live' : 'off'"></div>
+          <div v-else class="file-dir-icon">{{ node.expanded ? '▾' : '▸' }}</div>
+          <div class="file-meta">
+            <div class="file-name">{{ node.name }}</div>
+            <div v-if="!node.isDir && node.size !== undefined" class="file-size">{{ formatSize(node.size) }}</div>
+          </div>
         </div>
         <template v-if="node.isDir && node.expanded">
           <div
             v-for="child in node.children"
             :key="child.path"
-            class="tree-node child"
+            class="file-item child"
             :class="{
               'is-dir': child.isDir,
-              'is-file': !child.isDir,
               'is-selected': !child.isDir && props.selectedFile === child.path,
             }"
             @click="selectFile(child)"
           >
-            <span class="node-icon">{{
-              child.isDir ? (child.expanded ? '📂' : '📁') : '📄'
-            }}</span>
-            <span class="node-name">{{ child.name }}</span>
-            <span v-if="!child.isDir && child.size !== undefined" class="node-size">{{
-              formatSize(child.size)
-            }}</span>
+            <div v-if="!child.isDir" class="file-dot" :class="props.selectedFile === child.path ? 'live' : 'off'"></div>
+            <div v-else class="file-dir-icon">{{ child.expanded ? '▾' : '▸' }}</div>
+            <div class="file-meta">
+              <div class="file-name">{{ child.name }}</div>
+              <div v-if="!child.isDir && child.size !== undefined" class="file-size">{{ formatSize(child.size) }}</div>
+            </div>
           </div>
         </template>
       </template>
     </div>
-    <div v-else-if="loading" class="file-empty">Loading...</div>
+    <div v-else-if="loading" class="file-empty">Loading…</div>
     <div v-else-if="filterText" class="file-empty">No matching files</div>
     <div v-else class="file-empty">No files found</div>
   </div>
@@ -186,17 +189,11 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.file-tree {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 0;
-}
-
 .file-filter {
   display: flex;
   align-items: center;
   padding: 4px 8px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border);
   gap: 4px;
 }
 
@@ -204,67 +201,117 @@ onMounted(() => {
   flex: 1;
   border: none;
   background: transparent;
+  font-family: var(--font-sans);
   font-size: 12px;
-  padding: 3px 4px;
+  padding: 4px 6px;
   outline: none;
-  color: var(--text-primary);
+  color: var(--text);
+  height: 28px;
+}
+
+.file-filter-input::placeholder {
+  color: var(--text-3);
 }
 
 .file-filter-clear {
-  background: none;
+  width: 20px;
+  height: 20px;
   border: none;
-  color: var(--text-muted);
+  background: transparent;
+  color: var(--text-3);
   cursor: pointer;
-  padding: 2px 4px;
-  font-size: 11px;
-  line-height: 1;
-}
-
-.tree-node {
   display: flex;
   align-items: center;
-  padding: 3px 12px;
-  cursor: pointer;
-  user-select: none;
-  gap: 6px;
-  font-size: 13px;
-  white-space: nowrap;
+  justify-content: center;
+  font-size: 11px;
+  padding: 0;
+  border-radius: 4px;
 }
 
-.tree-node:hover {
-  background: var(--bg-hover);
+.file-filter-clear:hover {
+  background: var(--bg-3);
+  color: var(--text);
 }
 
-.tree-node.is-selected {
-  background: var(--bg-selected);
-}
-
-.tree-node.child {
-  padding-left: 28px;
-}
-
-.node-icon {
-  font-size: 14px;
-  flex-shrink: 0;
-  width: 18px;
-  text-align: center;
-}
-
-.node-name {
+.file-list {
+  padding: 8px;
+  overflow-y: auto;
   flex: 1;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .1s;
+  user-select: none;
+}
+
+.file-item:hover {
+  background: var(--bg-2);
+}
+
+.file-item.is-selected {
+  background: var(--bg-2);
+}
+
+.file-item.is-selected .file-name {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.file-item.child {
+  padding-left: 24px;
+}
+
+.file-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.file-dot.live {
+  background: #1D9E75;
+}
+
+.file-dot.off {
+  background: var(--border-2);
+}
+
+.file-dir-icon {
+  width: 14px;
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.file-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  font-size: 13px;
+  color: var(--text-2);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.node-size {
+.file-size {
   font-size: 11px;
-  color: var(--text-muted);
-  flex-shrink: 0;
+  color: var(--text-3);
+  margin-top: 2px;
 }
 
 .file-empty {
   padding: 16px 12px;
-  color: var(--text-muted);
+  color: var(--text-3);
   font-size: 13px;
   text-align: center;
 }

@@ -44,12 +44,36 @@ const offsetY = computed(() => visibleRange.value.startIndex * lineHeight.value)
 
 function getLevelClass(level: string): string {
   const l = level.toLowerCase()
-  if (l === 'error' || l === 'err') return 'level-error'
-  if (l === 'warn' || l === 'warning') return 'level-warn'
-  if (l === 'info') return 'level-info'
-  if (l === 'debug') return 'level-debug'
-  if (l === 'trace') return 'level-trace'
-  return ''
+  if (l === 'error' || l === 'err') return 'lv-error'
+  if (l === 'warn' || l === 'warning') return 'lv-warn'
+  if (l === 'info') return 'lv-info'
+  if (l === 'debug') return 'lv-debug'
+  if (l === 'trace') return 'lv-trace'
+  return 'lv-unknown'
+}
+
+function getBadgeClass(level: string): string {
+  const l = level.toLowerCase()
+  if (l === 'error' || l === 'err') return 'badge-error'
+  if (l === 'warn' || l === 'warning') return 'badge-warn'
+  if (l === 'info') return 'badge-info'
+  if (l === 'debug') return 'badge-debug'
+  if (l === 'trace') return 'badge-trace'
+  return 'badge-unknown'
+}
+
+function formatTimestamp(ts: string | null | undefined): string {
+  if (!ts) return ''
+  try {
+    const d = new Date(ts)
+    const hh = String(d.getHours()).padStart(2, '0')
+    const mm = String(d.getMinutes()).padStart(2, '0')
+    const ss = String(d.getSeconds()).padStart(2, '0')
+    const ms = String(d.getMilliseconds()).padStart(3, '0')
+    return `${hh}:${mm}:${ss}.${ms}`
+  } catch {
+    return ts
+  }
 }
 
 function onScroll(): void {
@@ -75,12 +99,10 @@ function scrollToBottom(): void {
 }
 
 function scrollToLine(lineNum: number): void {
-  // First, disable tail mode so we can scroll freely
   userScrolledUp.value = true
   const index = props.entries.findIndex((e) => e.lineNum === lineNum)
   if (index >= 0 && containerRef.value) {
     containerRef.value.scrollTop = index * lineHeight.value
-    // Highlight the line
     if (highlightTimer) clearTimeout(highlightTimer)
     highlightedLine.value = lineNum
     highlightTimer = setTimeout(() => {
@@ -124,7 +146,6 @@ function highlightText(text: string): string {
   const keywords = props.highlightKeywords
   if (!keywords || keywords.length === 0) return escapeHtml(text)
 
-  // Build a combined regex for all keywords
   const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   if (escaped.length === 0) return escapeHtml(text)
 
@@ -208,23 +229,23 @@ defineExpose({ scrollToBottom, scrollToLine })
           <div
             v-for="entry in visibleEntries"
             :key="entry.lineNum"
-            class="log-line"
+            class="log-row"
             :class="[
               getLevelClass(entry.level),
               { 'is-copied': copiedLine === entry.lineNum, 'wrap': lineWrap, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
             ]"
             @click="copyLine(entry)"
           >
-            <span class="line-number">{{ entry.lineNum }}</span>
-            <span class="line-level">{{ entry.level }}</span>
-            <span v-if="entry.timestamp" class="line-timestamp">{{ entry.timestamp }}</span>
-            <span class="line-content">
+            <span class="col-ln">{{ entry.lineNum }}</span>
+            <span class="col-ts">{{ formatTimestamp(entry.timestamp) }}</span>
+            <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)">{{ entry.level.toUpperCase() }}</span></span>
+            <span class="col-msg">
               <template v-if="isJson(entry.raw)">
                 <button class="json-toggle" @click.stop="toggleExpand(entry.lineNum)">
-                  {{ expandedLines.has(entry.lineNum) ? '▼' : '▶' }}
+                  {{ expandedLines.has(entry.lineNum) ? '▾' : '▸' }}
                 </button>
                 <span v-if="!expandedLines.has(entry.lineNum)" class="json-preview" v-html="
-                  highlightText(entry.raw.length > 200 ? entry.raw.slice(0, 200) + '...' : entry.raw)
+                  highlightText(entry.raw.length > 200 ? entry.raw.slice(0, 200) + '…' : entry.raw)
                 "></span>
                 <pre v-else class="json-expanded" v-html="highlightText(formatJson(entry.raw))"></pre>
               </template>
@@ -261,8 +282,8 @@ defineExpose({ scrollToBottom, scrollToLine })
   overflow-y: auto;
   overflow-x: auto;
   font-family: var(--font-mono);
-  font-size: 13px;
-  background: var(--bg-primary);
+  font-size: 12.5px;
+  background: var(--bg);
 }
 
 .scroll-spacer {
@@ -270,164 +291,195 @@ defineExpose({ scrollToBottom, scrollToLine })
   width: 100%;
 }
 
-.log-line {
+/* ── Log Row ── */
+.log-row {
   display: flex;
   align-items: flex-start;
   height: var(--line-height);
   line-height: var(--line-height);
-  padding: 0 8px;
+  padding: 0;
   cursor: pointer;
   white-space: nowrap;
   position: relative;
+  border-bottom: 1px solid var(--border);
+  transition: background .08s;
 }
 
-.log-line.wrap {
+.log-row:last-child {
+  border-bottom: none;
+}
+
+.log-row:hover {
+  background: var(--bg-2);
+}
+
+.log-row.wrap {
   white-space: pre-wrap;
   word-break: break-all;
   height: auto;
   min-height: var(--line-height);
 }
 
-.log-line.expanded {
+.log-row.expanded {
   height: auto;
   align-items: flex-start;
   position: relative;
   z-index: 5;
-  background: var(--bg-primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  background: var(--bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
-.log-line:hover {
-  background: var(--bg-hover);
+.log-row.is-copied {
+  background: rgba(24, 95, 165, 0.1);
 }
 
-.log-line.is-copied {
-  background: rgba(38, 79, 120, 0.3);
-}
-
-.log-line.is-highlighted {
-  background: rgba(255, 220, 0, 0.25);
+.log-row.is-highlighted {
+  background: rgba(255, 220, 0, 0.2);
   box-shadow: inset 3px 0 0 #e6a800;
   transition: background 0.5s ease;
 }
 
-.line-number {
-  width: 60px;
-  min-width: 60px;
-  color: var(--line-number);
+/* Level row backgrounds */
+.log-row.lv-error {
+  background: rgba(252, 235, 235, 0.35);
+}
+.log-row.lv-error:hover {
+  background: rgba(252, 235, 235, 0.6);
+}
+.log-row.lv-warn {
+  background: rgba(250, 238, 218, 0.25);
+}
+.log-row.lv-warn:hover {
+  background: rgba(250, 238, 218, 0.5);
+}
+
+/* ── Columns ── */
+.col-ln {
+  width: 48px;
+  min-width: 48px;
+  padding-left: 16px;
+  padding-right: 10px;
+  color: var(--text-3);
   text-align: right;
-  padding-right: 12px;
   user-select: none;
-  font-size: 12px;
-}
-
-.line-level {
-  min-width: 56px;
-  max-width: 56px;
-  font-weight: 600;
-  text-transform: uppercase;
   font-size: 11px;
-  padding-right: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.line-timestamp {
-  color: var(--text-secondary);
+.col-ts {
+  width: 96px;
+  min-width: 96px;
   padding-right: 12px;
-  font-size: 12px;
+  color: var(--text-3);
+  font-size: 11px;
+  white-space: nowrap;
   flex-shrink: 0;
 }
 
-.line-content {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
+.col-badge {
+  width: 56px;
+  min-width: 56px;
+  padding-right: 12px;
+  flex-shrink: 0;
 }
 
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-family: var(--font-sans);
+}
+
+.badge-error { background: var(--c-error-bg); color: var(--c-error-text); }
+.badge-warn  { background: var(--c-warn-bg);  color: var(--c-warn-text); }
+.badge-info  { background: var(--c-info-bg);  color: var(--c-info-text); }
+.badge-debug { background: var(--c-debug-bg); color: var(--c-debug-text); }
+.badge-trace { background: var(--c-trace-bg); color: var(--c-trace-text); }
+.badge-unknown { background: var(--bg-2); color: var(--text-3); }
+
+.col-msg {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.65;
+}
+
+.log-row.lv-error .col-msg {
+  color: var(--c-error-text);
+}
+
+.log-row.lv-warn .col-msg {
+  color: var(--c-warn-text);
+}
+
+/* ── JSON ── */
 .json-toggle {
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: var(--text-3);
   cursor: pointer;
   padding: 0 4px;
-  font-size: 10px;
+  font-size: 11px;
   line-height: var(--line-height);
+  height: auto;
 }
 
 .json-toggle:hover {
-  color: var(--text-primary);
+  color: var(--text);
   background: none;
 }
 
 .json-preview {
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .json-expanded {
   display: block;
   white-space: pre-wrap;
-  background: var(--bg-tertiary);
+  background: var(--bg-2);
   padding: 8px;
   margin: 2px 0;
-  border-radius: 3px;
+  border-radius: 5px;
   max-height: 200px;
   overflow-y: auto;
   font-size: 12px;
   line-height: 1.4;
 }
 
+/* ── Toast ── */
 .copied-toast {
   position: absolute;
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  background: #0e639c;
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-light);
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: 5px;
   font-size: 11px;
   pointer-events: none;
 }
 
+/* ── New Logs Button ── */
 .new-logs-button {
   position: absolute;
   bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  background: #0e639c;
-  border-color: #0e639c;
-  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-light);
   padding: 6px 16px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   font-size: 13px;
   z-index: 10;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .new-logs-button:hover {
-  background: #1177bb;
-}
-
-.log-line.level-error .line-level {
-  color: var(--level-error);
-}
-
-.log-line.level-warn .line-level {
-  color: var(--level-warn);
-}
-
-.log-line.level-info .line-level {
-  color: var(--level-info);
-}
-
-.log-line.level-debug .line-level {
-  color: var(--level-debug);
-}
-
-.log-line.level-trace .line-level {
-  color: var(--level-trace);
+  opacity: 0.88;
 }
 </style>

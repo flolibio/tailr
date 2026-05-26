@@ -23,7 +23,6 @@ const searchState = useSearch()
 
 const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
 const searchPanelRef = ref<InstanceType<typeof SearchPanel> | null>(null)
-const settingsCollapsed = ref(false)
 const selectedLevels = ref<string[]>([])
 const highlightInput = ref('')
 
@@ -47,8 +46,29 @@ const settings = reactive<Settings>({
   darkTheme: false,
 })
 
+const allLevels = ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'] as const
+
+const levelDotColors: Record<string, string> = {
+  ERROR: '#E24B4A',
+  WARN: '#BA7517',
+  INFO: '#378ADD',
+  DEBUG: '#639922',
+  TRACE: '#888780',
+}
+
+function toggleLevel(lv: string): void {
+  const idx = selectedLevels.value.indexOf(lv)
+  if (idx >= 0) {
+    selectedLevels.value.splice(idx, 1)
+  } else {
+    selectedLevels.value.push(lv)
+  }
+}
+
 function selectFile(path: string): void {
   searchState.clear()
+  selectedLevels.value = []
+  highlightInput.value = ''
   loadInitial(path)
 }
 
@@ -85,19 +105,14 @@ function handleAutoScrollChange(enabled: boolean): void {
   }
 }
 
-function toggleSettings(): void {
-  settingsCollapsed.value = !settingsCollapsed.value
-}
-
 onMounted(() => {
-  // wsClient.connect() is already called in useLogStream
-  // Default is light theme
   document.documentElement.dataset.theme = 'light'
 })
 
 onUnmounted(() => {
   wsClient.destroy()
 })
+
 function handleSettingsUpdate(s: Settings): void {
   if (s.autoScroll !== settings.autoScroll) {
     handleAutoScrollChange(s.autoScroll)
@@ -106,8 +121,10 @@ function handleSettingsUpdate(s: Settings): void {
   if (s.darkTheme !== settings.darkTheme) {
     if (s.darkTheme) {
       delete document.documentElement.dataset.theme
+      document.documentElement.classList.add('dark')
     } else {
       document.documentElement.dataset.theme = 'light'
+      document.documentElement.classList.remove('dark')
     }
   }
   Object.assign(settings, s)
@@ -115,129 +132,88 @@ function handleSettingsUpdate(s: Settings): void {
 </script>
 
 <template>
-  <div class="app-layout">
-    <aside class="sidebar-left">
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
       <FileBrowser :selected-file="currentFile" @select="selectFile" />
     </aside>
 
-    <main class="main-area">
-        <SearchPanel
-          ref="searchPanelRef"
-          :current-file="currentFile"
-          :is-searching="searchState.isSearching.value"
-          @search="handleSearch"
-          @clear="searchState.clear"
-          @jump-to-line="handleJumpToLine"
-          @filter-levels="(l) => selectedLevels = l"
-        />
-      <div class="log-container" :style="{ fontSize: settings.fontSize + 'px' }">
-        <div v-if="currentFile" class="highlight-bar">
-          <span class="highlight-icon">🔍</span>
-          <input
-            v-model="highlightInput"
-            type="text"
-            class="highlight-input"
-            placeholder="Highlight keywords (comma-separated)"
-          />
-          <button v-if="highlightInput" class="highlight-clear" @click="highlightInput = ''">✕</button>
-        </div>
-        <div v-if="!currentFile" class="empty-state">
-          <div class="empty-icon">📋</div>
-          <div class="empty-text">Select a file from the sidebar to start viewing logs</div>
-        </div>
-        <div v-else-if="filteredEntries.length === 0" class="empty-state">
-          <div class="empty-icon">⏳</div>
-          <div class="empty-text">Waiting for log data...</div>
-        </div>
-        <LogViewer
-          v-else
-          ref="logViewerRef"
-          :entries="filteredEntries"
-          :line-height="Math.max(16, settings.fontSize + 6)"
-          :is-tail-mode="isTailMode"
-          :line-wrap="settings.lineWrap"
-          :max-visible-lines="settings.maxVisibleLines"
-          :highlight-keywords="highlightKeywords"
-          @scroll-up="handleScrollUp"
-        />
+    <!-- Top bar (search) -->
+    <header class="topbar">
+      <SearchPanel
+        ref="searchPanelRef"
+        :current-file="currentFile"
+        :is-searching="searchState.isSearching.value"
+        @search="handleSearch"
+        @clear="searchState.clear"
+        @jump-to-line="handleJumpToLine"
+      />
+    </header>
+
+    <!-- Filter bar (levels + highlight) -->
+    <div class="filterbar">
+      <div
+        v-for="lv in allLevels"
+        :key="lv"
+        class="level-tag"
+        :class="[lv.toLowerCase(), { off: selectedLevels.length > 0 && !selectedLevels.includes(lv) }]"
+        @click="toggleLevel(lv)"
+      >
+        <span class="dot" :style="{ background: levelDotColors[lv] }"></span>
+        {{ lv }}
       </div>
+      <div class="filter-sep"></div>
+      <div class="highlight-wrap">
+        <span class="highlight-label">Highlight</span>
+        <input
+          v-model="highlightInput"
+          type="text"
+          class="highlight-input"
+          placeholder="keywords (comma-separated)"
+        />
+        <button v-if="highlightInput" class="highlight-clear" @click="highlightInput = ''">✕</button>
+      </div>
+    </div>
+
+    <!-- Log body -->
+    <main class="log-body" :style="{ fontSize: settings.fontSize + 'px' }">
+      <div v-if="!currentFile" class="empty-state">
+        <div class="empty-icon">📋</div>
+        <div class="empty-text">Select a file to start viewing logs</div>
+      </div>
+      <div v-else-if="filteredEntries.length === 0" class="empty-state">
+        <div class="empty-icon">⏳</div>
+        <div class="empty-text">Waiting for log data...</div>
+      </div>
+      <LogViewer
+        v-else
+        ref="logViewerRef"
+        :entries="filteredEntries"
+        :line-height="Math.max(16, settings.fontSize + 6)"
+        :is-tail-mode="isTailMode"
+        :line-wrap="settings.lineWrap"
+        :max-visible-lines="settings.maxVisibleLines"
+        :highlight-keywords="highlightKeywords"
+        @scroll-up="handleScrollUp"
+      />
     </main>
 
-    <aside class="sidebar-right" :class="{ collapsed: settingsCollapsed }">
+    <!-- Settings panel -->
+    <aside class="settings-panel">
       <SettingsPanel
         :settings="settings"
-        :collapsed="settingsCollapsed"
         @update="handleSettingsUpdate"
-        @toggle-collapse="toggleSettings"
       />
     </aside>
+
+    <!-- Status bar -->
+    <div class="statusbar">
+      <div class="status-chip">
+        <div class="status-dot"></div>
+        <span>{{ currentFile ? currentFile.split('/').pop() : 'No file' }}</span>
+      </div>
+      <span>{{ entries.length }} lines</span>
+      <span v-if="filteredEntries.length < entries.length">{{ filteredEntries.length }} shown</span>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.log-container {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.highlight-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-.highlight-icon {
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-.highlight-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  font-size: 12px;
-  padding: 3px 0;
-  outline: none;
-  color: var(--text-primary);
-}
-
-.highlight-clear {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 2px 4px;
-  font-size: 12px;
-  line-height: 1;
-}
-
-.highlight-clear:hover {
-  color: var(--text-primary);
-}
-
-.empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: var(--text-muted);
-}
-
-.empty-icon {
-  font-size: 48px;
-  opacity: 0.5;
-}
-
-.empty-text {
-  font-size: 14px;
-}
-</style>
