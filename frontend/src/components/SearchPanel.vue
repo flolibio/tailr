@@ -174,19 +174,20 @@ defineExpose({ setResults })
 .regex-badge {
   position: absolute;
   right: 8px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   color: var(--text-3);
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 3px 8px;
+  border-radius: 5px;
   border: 1px solid var(--border);
   background: transparent;
   transition: all .12s;
   user-select: none;
-  line-height: 1.4;
+  line-height: 1;
   height: auto;
+  letter-spacing: 0.5px;
 }
 
 .regex-badge:hover,
