@@ -285,7 +285,7 @@ defineExpose({ scrollToBottom, scrollToLine })
 /* ── Log Row ── */
 .log-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   height: var(--line-height);
   line-height: var(--line-height);
   padding: 0 10px;
