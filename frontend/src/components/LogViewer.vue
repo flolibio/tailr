@@ -360,49 +360,49 @@ defineExpose({ scrollToBottom, scrollToLine })
 
 /* ── Columns ── */
 .col-ln {
-  width: 48px;
-  min-width: 48px;
-  padding-left: 16px;
-  padding-right: 10px;
-  color: var(--text-2);
+  width: 36px;
+  min-width: 36px;
+  padding-left: 12px;
+  padding-right: 8px;
+  color: var(--log-ln);
   text-align: right;
   user-select: none;
   font-size: 11px;
 }
 
 .col-ts {
-  width: 96px;
-  min-width: 96px;
-  padding-right: 12px;
-  color: var(--text-2);
+  width: 84px;
+  min-width: 84px;
+  padding-right: 10px;
+  color: var(--log-ts);
   font-size: 11px;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .col-badge {
-  width: 56px;
-  min-width: 56px;
-  padding-right: 12px;
+  width: 48px;
+  min-width: 48px;
+  padding-right: 10px;
   flex-shrink: 0;
 }
 
 .badge {
   display: inline-block;
-  padding: 1px 7px;
-  border-radius: 5px;
+  padding: 0;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
   font-family: var(--font-sans);
+  background: transparent;
 }
 
-.badge-error { background: var(--c-error-bg); color: var(--c-error-text); }
-.badge-warn  { background: var(--c-warn-bg);  color: var(--c-warn-text); }
-.badge-info  { background: var(--c-info-bg);  color: var(--c-info-text); }
-.badge-debug { background: var(--c-debug-bg); color: var(--c-debug-text); }
-.badge-trace { background: var(--c-trace-bg); color: var(--c-trace-text); }
-.badge-unknown { background: var(--bg-2); color: var(--text-3); }
+.badge-error { color: var(--c-error-text); }
+.badge-warn  { color: var(--c-warn-text); }
+.badge-info  { color: var(--c-info-text); }
+.badge-debug { color: var(--c-debug-text); }
+.badge-trace { color: var(--c-trace-text); }
+.badge-unknown { color: var(--text-3); }
 
 .col-msg {
   flex: 1;
@@ -410,6 +410,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.65;
+  color: var(--log-msg);
 }
 
 .log-row.lv-error .col-msg {

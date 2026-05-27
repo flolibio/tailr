@@ -9,6 +9,11 @@
   --text-3: #a8a8a4;
   --border: rgba(0,0,0,0.1);
   --border-2: rgba(0,0,0,0.18);
+
+  /* Log area layered text (light theme) */
+  --log-msg: #3a3a38;
+  --log-ln: #b0b0ac;
+  --log-ts: #9a9a96;
   --radius: 8px;
   --radius-lg: 12px;
   --sidebar-w: 220px;
@@ -40,6 +45,11 @@
   --text-3: #5e5d59;
   --border: rgba(255,255,255,0.08);
   --border-2: rgba(255,255,255,0.14);
+
+  /* Log area layered text (dark theme) */
+  --log-msg: #d8d5d0;
+  --log-ln: #4a4945;
+  --log-ts: #6b6a66;
 
   --c-error-bg: #2e1515; --c-error-text: #F09595; --c-error-border: #501313;
   --c-warn-bg: #2b1f08;  --c-warn-text: #EF9F27;  --c-warn-border: #412402;
