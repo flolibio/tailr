@@ -5,15 +5,15 @@
   --bg-2: #f5f5f4;
   --bg-3: #efefed;
   --text: #1a1a18;
-  --text-2: #6b6b68;
-  --text-3: #a8a8a4;
-  --border: rgba(0,0,0,0.1);
-  --border-2: rgba(0,0,0,0.18);
+  --text-2: #4a4a48;
+  --text-3: #767672;
+  --border: rgba(0,0,0,0.12);
+  --border-2: rgba(0,0,0,0.22);
 
   /* Log area layered text (light theme) */
   --log-msg: #2a2a28;
-  --log-ln: #b0b0ac;
-  --log-ts: #9a9a96;
+  --log-ln: #8a8a86;
+  --log-ts: #6a6a66;
   --radius: 8px;
   --radius-lg: 12px;
   --sidebar-w: 220px;
@@ -41,15 +41,15 @@
   --bg-2: #232320;
   --bg-3: #2c2c29;
   --text: #f0ede8;
-  --text-2: #9a9893;
-  --text-3: #5e5d59;
-  --border: rgba(255,255,255,0.08);
-  --border-2: rgba(255,255,255,0.14);
+  --text-2: #b8b5b0;
+  --text-3: #8a8782;
+  --border: rgba(255,255,255,0.1);
+  --border-2: rgba(255,255,255,0.18);
 
   /* Log area layered text (dark theme) */
   --log-msg: #e0ddd8;
-  --log-ln: #4a4945;
-  --log-ts: #6b6a66;
+  --log-ln: #5a5955;
+  --log-ts: #7b7a76;
 
   --c-error-bg: #2e1515; --c-error-text: #F09595; --c-error-border: #501313;
   --c-warn-bg: #2b1f08;  --c-warn-text: #EF9F27;  --c-warn-border: #412402;
@@ -57,7 +57,7 @@
   --c-debug-bg:#152108;  --c-debug-text:#97C459;  --c-debug-border:#173404;
   --c-trace-bg:#242420;  --c-trace-text:#B4B2A9;  --c-trace-border:#444441;
 
-  --accent-light: #091e35;
+  --accent-light: #E6F1FB;
 }
 
 /* Light theme explicit */
@@ -66,10 +66,10 @@
   --bg-2: #f5f5f4;
   --bg-3: #efefed;
   --text: #1a1a18;
-  --text-2: #6b6b68;
-  --text-3: #a8a8a4;
-  --border: rgba(0,0,0,0.1);
-  --border-2: rgba(0,0,0,0.18);
+  --text-2: #4a4a48;
+  --text-3: #767672;
+  --border: rgba(0,0,0,0.12);
+  --border-2: rgba(0,0,0,0.22);
 
   --c-error-bg: #FCEBEB; --c-error-text: #A32D2D; --c-error-border: #F7C1C1;
   --c-warn-bg: #FAEEDA;  --c-warn-text: #854F0B;  --c-warn-border: #FAC775;
@@ -167,7 +167,7 @@ button.primary:hover {
 }
 
 button:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -397,8 +397,8 @@ input[type="range"] {
   height: 36px;
   padding: 0 14px;
   background: transparent;
-  color: var(--text-2);
-  border: 1px solid var(--border);
+  color: var(--text);
+  border: 1px solid var(--border-2);
   border-radius: var(--radius);
   font-size: 13px;
   cursor: pointer;

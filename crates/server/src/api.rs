@@ -178,6 +178,30 @@ async fn list_files(
             }
         }
         None => {
+            // Add individually specified log files
+            for file in &state.log_files {
+                if file.exists() && file.is_file() {
+                    let metadata = std::fs::metadata(file).ok();
+                    let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
+                    let modified = metadata
+                        .and_then(|m| m.modified().ok())
+                        .and_then(|t| {
+                            let dt: chrono::DateTime<chrono::Utc> = t.into();
+                            Some(dt.to_rfc3339())
+                        });
+                    entries.push(FileEntry {
+                        name: file
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_else(|| file.display().to_string()),
+                        path: file.to_string_lossy().to_string(),
+                        size,
+                        modified,
+                        is_dir: false,
+                    });
+                }
+            }
+
             // List all configured log directories
             for dir in &state.log_dirs {
                 if dir.exists() && dir.is_dir() {
@@ -193,8 +217,8 @@ async fn list_files(
                     });
                 }
             }
-            // If only one dir configured, list its contents directly
-            if state.log_dirs.len() == 1 {
+            // If only one dir configured and no files, list its contents directly
+            if state.log_dirs.len() == 1 && state.log_files.is_empty() {
                 entries.clear();
                 if let Err(e) = read_dir_entries(&state.log_dirs[0], &mut entries) {
                     return Json(ApiResponse::err(format!("failed to read directory: {}", e)));
