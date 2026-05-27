@@ -11,7 +11,7 @@
   --border-2: rgba(0,0,0,0.18);
 
   /* Log area layered text (light theme) */
-  --log-msg: #3a3a38;
+  --log-msg: #2a2a28;
   --log-ln: #b0b0ac;
   --log-ts: #9a9a96;
   --radius: 8px;
@@ -47,7 +47,7 @@
   --border-2: rgba(255,255,255,0.14);
 
   /* Log area layered text (dark theme) */
-  --log-msg: #d8d5d0;
+  --log-msg: #e0ddd8;
   --log-ln: #4a4945;
   --log-ts: #6b6a66;
 

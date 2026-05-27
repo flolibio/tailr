@@ -42,16 +42,6 @@ const totalHeight = computed(() => props.entries.length * lineHeight.value)
 
 const offsetY = computed(() => visibleRange.value.startIndex * lineHeight.value)
 
-function getLevelClass(level: string): string {
-  const l = level.toLowerCase()
-  if (l === 'error' || l === 'err') return 'lv-error'
-  if (l === 'warn' || l === 'warning') return 'lv-warn'
-  if (l === 'info') return 'lv-info'
-  if (l === 'debug') return 'lv-debug'
-  if (l === 'trace') return 'lv-trace'
-  return 'lv-unknown'
-}
-
 function getBadgeClass(level: string): string {
   const l = level.toLowerCase()
   if (l === 'error' || l === 'err') return 'badge-error'
@@ -231,12 +221,10 @@ defineExpose({ scrollToBottom, scrollToLine })
             :key="entry.lineNum"
             class="log-row"
             :class="[
-              getLevelClass(entry.level),
               { 'odd': (visibleRange.startIndex + idx) % 2 === 1, 'is-copied': copiedLine === entry.lineNum, 'wrap': lineWrap, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
             ]"
             @click="copyLine(entry)"
           >
-            <span class="col-ln">{{ entry.lineNum }}</span>
             <span v-if="entry.timestamp" class="col-ts">{{ formatTimestamp(entry.timestamp) }}</span>
             <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)">{{ entry.level.toUpperCase() }}</span></span>
             <span class="col-msg">
@@ -346,32 +334,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   transition: background 0.5s ease;
 }
 
-/* Level row backgrounds */
-.log-row.lv-error {
-  background: var(--c-error-bg);
-}
-.log-row.lv-error:hover {
-  filter: brightness(0.95);
-}
-.log-row.lv-warn {
-  background: var(--c-warn-bg);
-}
-.log-row.lv-warn:hover {
-  filter: brightness(0.95);
-}
-
 /* ── Columns ── */
-.col-ln {
-  width: 36px;
-  min-width: 36px;
-  padding-left: 12px;
-  padding-right: 8px;
-  color: var(--log-ln);
-  text-align: right;
-  user-select: none;
-  font-size: 11px;
-}
-
 .col-ts {
   width: 84px;
   min-width: 84px;
@@ -383,9 +346,9 @@ defineExpose({ scrollToBottom, scrollToLine })
 }
 
 .col-badge {
-  width: 48px;
-  min-width: 48px;
-  padding-right: 10px;
+  width: auto;
+  min-width: 52px;
+  padding-right: 14px;
   flex-shrink: 0;
 }
 
@@ -413,14 +376,6 @@ defineExpose({ scrollToBottom, scrollToLine })
   text-overflow: ellipsis;
   line-height: 1.65;
   color: var(--log-msg);
-}
-
-.log-row.lv-error .col-msg {
-  color: var(--c-error-text);
-}
-
-.log-row.lv-warn .col-msg {
-  color: var(--c-warn-text);
 }
 
 /* ── JSON ── */
