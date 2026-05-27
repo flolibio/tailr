@@ -369,6 +369,9 @@ defineExpose({ scrollToBottom, scrollToLine })
   line-height: 1.65;
   color: var(--text);
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* ── JSON ── */
@@ -394,10 +397,16 @@ defineExpose({ scrollToBottom, scrollToLine })
 
 .json-preview {
   color: var(--text-2);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .json-expanded {
   display: block;
+  flex: 1;
+  min-width: 0;
   white-space: pre-wrap;
   background: var(--bg-2);
   padding: 8px;
