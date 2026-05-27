@@ -15,6 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   update: [settings: Settings]
+  collapse: []
 }>()
 
 const local = ref<Settings>({ ...props.settings })
@@ -56,6 +57,9 @@ function formatMaxLines(v: number): string {
   <div class="settings-panel-inner">
     <div class="settings-header">
       <span class="settings-title">Settings</span>
+      <button class="collapse-btn" @click="emit('collapse')" title="Collapse settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
     </div>
     <div class="settings-body">
       <!-- Font size -->
@@ -261,5 +265,24 @@ function formatMaxLines(v: number): string {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-light);
+}
+.collapse-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s, color .12s;
+}
+
+.collapse-btn:hover {
+  background: var(--bg-2);
+  color: var(--text);
 }
 </style>

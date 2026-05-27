@@ -229,6 +229,31 @@ input[type="range"] {
   overflow: hidden;
 }
 
+.app-shell.settings-collapsed {
+  grid-template-columns: var(--sidebar-w) 1fr 40px;
+}
+
+.settings-reopen {
+  width: 32px;
+  height: 32px;
+  margin: 8px auto;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s, color .12s;
+}
+
+.settings-reopen:hover {
+  background: var(--bg-2);
+  color: var(--text);
+}
+
 /* ── Sidebar ── */
 .sidebar {
   grid-row: 1 / 5;

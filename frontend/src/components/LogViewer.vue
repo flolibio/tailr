@@ -217,11 +217,11 @@ defineExpose({ scrollToBottom, scrollToLine })
       <div class="scroll-spacer" :style="{ height: totalHeight + 'px' }">
         <div :style="{ transform: `translateY(${offsetY}px)` }">
           <div
-            v-for="(entry, idx) in visibleEntries"
+            v-for="entry in visibleEntries"
             :key="entry.lineNum"
             class="log-row"
             :class="[
-              { 'odd': (visibleRange.startIndex + idx) % 2 === 1, 'is-copied': copiedLine === entry.lineNum, 'wrap': lineWrap, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
+              { 'is-copied': copiedLine === entry.lineNum, 'wrap': lineWrap, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
             ]"
             @click="copyLine(entry)"
           >
@@ -272,8 +272,9 @@ defineExpose({ scrollToBottom, scrollToLine })
   overflow-y: auto;
   overflow-x: auto;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 14px;
   background: var(--bg);
+  padding: 10px;
 }
 
 .scroll-spacer {
@@ -287,21 +288,12 @@ defineExpose({ scrollToBottom, scrollToLine })
   align-items: flex-start;
   height: var(--line-height);
   line-height: var(--line-height);
-  padding: 0;
+  padding: 0 10px;
   cursor: pointer;
   white-space: nowrap;
   position: relative;
-  border-bottom: 1px solid var(--border-2);
   transition: background .08s;
   background: var(--bg);
-}
-
-.log-row:last-child {
-  border-bottom: none;
-}
-
-.log-row.odd {
-  background: var(--bg-2);
 }
 
 .log-row:hover {
@@ -375,7 +367,8 @@ defineExpose({ scrollToBottom, scrollToLine })
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.65;
-  color: var(--log-msg);
+  color: var(--text);
+  font-size: 14px;
 }
 
 /* ── JSON ── */
@@ -384,10 +377,14 @@ defineExpose({ scrollToBottom, scrollToLine })
   border: none;
   color: var(--text-3);
   cursor: pointer;
-  padding: 0 4px;
-  font-size: 11px;
+  padding: 0 8px;
+  font-size: 28px;
   line-height: var(--line-height);
   height: auto;
+  min-width: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .json-toggle:hover {

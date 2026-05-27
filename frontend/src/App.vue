@@ -25,6 +25,7 @@ const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
 const searchPanelRef = ref<InstanceType<typeof SearchPanel> | null>(null)
 const selectedLevels = ref<string[]>([])
 const highlightInput = ref('')
+const settingsCollapsed = ref(false)
 
 const highlightKeywords = computed(() => {
   const raw = highlightInput.value.trim()
@@ -132,7 +133,7 @@ function handleSettingsUpdate(s: Settings): void {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'settings-collapsed': settingsCollapsed }">
     <!-- Sidebar -->
     <aside class="sidebar">
       <FileBrowser :selected-file="currentFile" @select="selectFile" />
@@ -201,9 +202,14 @@ function handleSettingsUpdate(s: Settings): void {
     <!-- Settings panel -->
     <aside class="settings-panel">
       <SettingsPanel
+        v-if="!settingsCollapsed"
         :settings="settings"
         @update="handleSettingsUpdate"
+        @collapse="settingsCollapsed = true"
       />
+      <button v-else class="settings-reopen" @click="settingsCollapsed = false" title="Open settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
     </aside>
 
     <!-- Status bar -->
