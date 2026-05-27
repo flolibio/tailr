@@ -189,7 +189,7 @@ function handleSettingsUpdate(s: Settings): void {
         v-else
         ref="logViewerRef"
         :entries="filteredEntries"
-        :line-height="Math.max(16, settings.fontSize + 6)"
+        :line-height="Math.max(18, settings.fontSize + 8)"
         :is-tail-mode="isTailMode"
         :line-wrap="settings.lineWrap"
         :max-visible-lines="settings.maxVisibleLines"

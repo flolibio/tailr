@@ -237,7 +237,7 @@ defineExpose({ scrollToBottom, scrollToLine })
             @click="copyLine(entry)"
           >
             <span class="col-ln">{{ entry.lineNum }}</span>
-            <span class="col-ts">{{ formatTimestamp(entry.timestamp) }}</span>
+            <span v-if="entry.timestamp" class="col-ts">{{ formatTimestamp(entry.timestamp) }}</span>
             <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)">{{ entry.level.toUpperCase() }}</span></span>
             <span class="col-msg">
               <template v-if="isJson(entry.raw)">
@@ -253,7 +253,9 @@ defineExpose({ scrollToBottom, scrollToLine })
                 <span v-html="highlightText(entry.raw)"></span>
               </template>
             </span>
-            <span v-if="copiedLine === entry.lineNum" class="copied-toast">Copied!</span>
+            <span v-if="copiedLine === entry.lineNum" class="copied-toast">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
           </div>
         </div>
       </div>
@@ -461,11 +463,10 @@ defineExpose({ scrollToBottom, scrollToLine })
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  background: var(--accent);
-  color: var(--accent-light);
-  padding: 2px 8px;
-  border-radius: 5px;
-  font-size: 11px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
 }
 
