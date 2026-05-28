@@ -179,7 +179,7 @@ defineExpose({ setResults })
   font-family: var(--font-sans);
   color: var(--text-3);
   cursor: pointer;
-  padding: 3px 8px;
+  padding: 5px 8px;
   border-radius: 5px;
   border: 1px solid var(--border);
   background: transparent;

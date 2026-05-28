@@ -233,7 +233,16 @@ input[type="range"] {
   grid-template-columns: var(--sidebar-w) 1fr 40px;
 }
 
-.settings-reopen {
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 40px 1fr var(--settings-w);
+}
+
+.app-shell.sidebar-collapsed.settings-collapsed {
+  grid-template-columns: 40px 1fr 40px;
+}
+
+.settings-reopen,
+.sidebar-reopen {
   width: 32px;
   height: 32px;
   margin: 8px auto;
@@ -249,7 +258,8 @@ input[type="range"] {
   transition: background .12s, color .12s;
 }
 
-.settings-reopen:hover {
+.settings-reopen:hover,
+.sidebar-reopen:hover {
   background: var(--bg-2);
   color: var(--text);
 }
@@ -263,6 +273,7 @@ input[type="range"] {
   flex-direction: column;
   background: var(--bg);
   overflow: hidden;
+  padding-bottom: var(--statusbar-h);
 }
 
 .sidebar-header {

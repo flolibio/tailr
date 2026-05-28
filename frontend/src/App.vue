@@ -25,7 +25,8 @@ const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
 const searchPanelRef = ref<InstanceType<typeof SearchPanel> | null>(null)
 const selectedLevels = ref<string[]>([])
 const highlightInput = ref('')
-const settingsCollapsed = ref(false)
+const settingsCollapsed = ref(true)
+const sidebarCollapsed = ref(false)
 
 const highlightKeywords = computed(() => {
   const raw = highlightInput.value.trim()
@@ -133,10 +134,20 @@ function handleSettingsUpdate(s: Settings): void {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'settings-collapsed': settingsCollapsed }">
+  <div class="app-shell" :class="{ 'settings-collapsed': settingsCollapsed, 'sidebar-collapsed': sidebarCollapsed }">
     <!-- Sidebar -->
     <aside class="sidebar">
-      <FileBrowser :selected-file="currentFile" @select="selectFile" />
+      <FileBrowser
+        v-if="!sidebarCollapsed"
+        :selected-file="currentFile"
+        @select="selectFile"
+        @collapse="sidebarCollapsed = true"
+      />
+      <button v-else class="sidebar-reopen" @click="sidebarCollapsed = false" title="Open files">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
     </aside>
 
     <!-- Top bar (search) -->
@@ -179,11 +190,9 @@ function handleSettingsUpdate(s: Settings): void {
     <!-- Log body -->
     <main class="log-body" :style="{ fontSize: settings.fontSize + 'px' }">
       <div v-if="!currentFile" class="empty-state">
-        <div class="empty-icon">📋</div>
         <div class="empty-text">Select a file to start viewing logs</div>
       </div>
       <div v-else-if="filteredEntries.length === 0" class="empty-state">
-        <div class="empty-icon">⏳</div>
         <div class="empty-text">Waiting for log data...</div>
       </div>
       <LogViewer
