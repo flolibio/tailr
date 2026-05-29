@@ -22,6 +22,7 @@
   --filterbar-h: 48px;
   --statusbar-h: 26px;
 
+  --c-alert-bg: #FFEBE9; --c-alert-text: #CC2D26; --c-alert-border: #FFC9C5;
   --c-error-bg: #FCEBEB; --c-error-text: #A32D2D; --c-error-border: #F7C1C1;
   --c-warn-bg: #FAEEDA;  --c-warn-text: #854F0B;  --c-warn-border: #FAC775;
   --c-info-bg: #E6F1FB;  --c-info-text: #0C447C;  --c-info-border: #B5D4F4;
@@ -51,6 +52,7 @@
   --log-ln: #5a5955;
   --log-ts: #7b7a76;
 
+  --c-alert-bg: #3a1412; --c-alert-text: #FF6B63; --c-alert-border: #5c1a17;
   --c-error-bg: #2e1515; --c-error-text: #F09595; --c-error-border: #501313;
   --c-warn-bg: #2b1f08;  --c-warn-text: #EF9F27;  --c-warn-border: #412402;
   --c-info-bg: #091e35;  --c-info-text: #85B7EB;  --c-info-border: #042C53;
@@ -456,6 +458,7 @@ input[type="range"] {
   flex-shrink: 0;
 }
 
+.level-tag.alert { color: var(--c-alert-text); background: var(--c-alert-bg); border-color: var(--c-alert-border); }
 .level-tag.error { color: var(--c-error-text); background: var(--c-error-bg); border-color: var(--c-error-border); }
 .level-tag.warn  { color: var(--c-warn-text);  background: var(--c-warn-bg);  border-color: var(--c-warn-border); }
 .level-tag.info  { color: var(--c-info-text);  background: var(--c-info-bg);  border-color: var(--c-info-border); }

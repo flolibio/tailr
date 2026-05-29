@@ -192,7 +192,9 @@ fn detect_level(line: &str) -> LogLevel {
         .map(|c| c.to_ascii_uppercase())
         .collect();
 
-    if upper.contains("ERROR") || upper.contains("[ERROR]") || upper.contains(" E ") {
+    if upper.contains("ALERT") || upper.contains("[ALERT]") {
+        LogLevel::ALERT
+    } else if upper.contains("ERROR") || upper.contains("[ERROR]") || upper.contains(" E ") {
         LogLevel::ERROR
     } else if upper.contains("WARN") || upper.contains("[WARN]") || upper.contains(" W ") {
         LogLevel::WARN

@@ -44,12 +44,24 @@ const offsetY = computed(() => visibleRange.value.startIndex * lineHeight.value)
 
 function getBadgeClass(level: string): string {
   const l = level.toLowerCase()
+  if (l === 'alert') return 'badge-alert'
   if (l === 'error' || l === 'err') return 'badge-error'
   if (l === 'warn' || l === 'warning') return 'badge-warn'
   if (l === 'info') return 'badge-info'
   if (l === 'debug') return 'badge-debug'
   if (l === 'trace') return 'badge-trace'
   return 'badge-unknown'
+}
+
+function getBadgeText(level: string): string {
+  const l = level.toUpperCase()
+  if (l === 'ALERT') return 'ALERT'
+  if (l === 'ERROR' || l === 'ERR') return 'ERROR'
+  if (l === 'WARN' || l === 'WARNING') return 'WARN '
+  if (l === 'INFO') return 'INFO '
+  if (l === 'DEBUG') return 'DEBUG'
+  if (l === 'TRACE') return 'TRACE'
+  return 'UNK  '
 }
 
 function formatTimestamp(ts: string | null | undefined): string {
@@ -101,12 +113,26 @@ function scrollToLine(lineNum: number): void {
   }
 }
 
-function copyLine(entry: LogEntry): void {
-  navigator.clipboard.writeText(entry.raw).catch(() => {})
-  copiedLine.value = entry.lineNum
-  setTimeout(() => {
-    if (copiedLine.value === entry.lineNum) copiedLine.value = null
-  }, 1500)
+async function copyLine(entry: LogEntry, event: MouseEvent): Promise<void> {
+  event.stopPropagation()
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(entry.raw)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = entry.raw
+      textarea.style.position = 'fixed'
+      textarea.style.left = '-9999px'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    copiedLine.value = entry.lineNum
+    setTimeout(() => {
+      if (copiedLine.value === entry.lineNum) copiedLine.value = null
+    }, 1500)
+  } catch {}
 }
 
 function isJson(str: string): boolean {
@@ -122,7 +148,59 @@ function formatJson(raw: string): string {
   }
 }
 
+function highlightJson(json: string): string {
+  return json.replace(
+    /("(?:\\.|[^"\\])*")\s*:/g,
+    '<span class="json-key">$1</span>:'
+  ).replace(
+    /:\s*("(?:\\.|[^"\\])*")/g,
+    ': <span class="json-str">$1</span>'
+  ).replace(
+    /:\s*(\d+\.?\d*)/g,
+    ': <span class="json-num">$1</span>'
+  ).replace(
+    /:\s*(true|false|null)/g,
+    ': <span class="json-bool">$1</span>'
+  )
+}
+
 const expandedLines = ref<Set<number>>(new Set())
+const truncatedLines = ref<Set<number>>(new Set())
+const msgRefs = ref<Map<number, HTMLSpanElement>>(new Map())
+
+function setMsgRef(lineNum: number, el: any): void {
+  if (el) {
+    msgRefs.value.set(lineNum, el as HTMLSpanElement)
+  }
+}
+
+function checkTruncation(): void {
+  nextTick(() => {
+    for (const [lineNum, el] of msgRefs.value.entries()) {
+      if (expandedLines.value.has(lineNum)) {
+        truncatedLines.value.delete(lineNum)
+        continue
+      }
+      const textEl = el.querySelector('.truncate-check')
+      if (textEl) {
+        const isTruncated = textEl.scrollWidth > textEl.clientWidth + 2
+        if (isTruncated) {
+          truncatedLines.value.add(lineNum)
+        } else {
+          truncatedLines.value.delete(lineNum)
+        }
+      }
+    }
+  })
+}
+
+watch(() => props.entries.length, () => {
+  checkTruncation()
+})
+
+watch(visibleEntries, () => {
+  checkTruncation()
+})
 
 const HIGHLIGHT_COLORS = [
   'rgba(255, 220, 0, 0.4)',
@@ -164,6 +242,10 @@ function toggleExpand(lineNum: number): void {
   } else {
     expandedLines.value.add(lineNum)
   }
+}
+
+function shouldExpand(entry: LogEntry): boolean {
+  return isJson(entry.raw) || truncatedLines.value.has(entry.lineNum)
 }
 
 watch(
@@ -223,26 +305,36 @@ defineExpose({ scrollToBottom, scrollToLine })
             :class="[
               { 'is-copied': copiedLine === entry.lineNum, 'wrap': lineWrap, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
             ]"
-            @click="copyLine(entry)"
           >
             <span v-if="entry.timestamp" class="col-ts">{{ formatTimestamp(entry.timestamp) }}</span>
-            <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)">{{ entry.level.toUpperCase() }}</span></span>
-            <span class="col-msg">
+            <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)">{{ getBadgeText(entry.level) }}</span></span>
+            <span class="col-msg" :ref="(el) => setMsgRef(entry.lineNum, el)" @click="(!expandedLines.has(entry.lineNum) && shouldExpand(entry)) ? toggleExpand(entry.lineNum) : null">
               <template v-if="isJson(entry.raw)">
                 <button class="json-toggle" @click.stop="toggleExpand(entry.lineNum)">
                   {{ expandedLines.has(entry.lineNum) ? '▾' : '▸' }}
                 </button>
-                <span v-if="!expandedLines.has(entry.lineNum)" class="json-preview" v-html="
-                  highlightText(entry.raw.length > 200 ? entry.raw.slice(0, 200) + '…' : entry.raw)
+                <span v-if="!expandedLines.has(entry.lineNum)" class="truncate-check" v-html="
+                  highlightText(entry.raw)
                 "></span>
-                <pre v-else class="json-expanded" v-html="highlightText(formatJson(entry.raw))"></pre>
+                <pre v-else class="json-expanded" v-html="highlightJson(formatJson(entry.raw))"></pre>
               </template>
               <template v-else>
-                <span v-html="highlightText(entry.raw)"></span>
+                <span v-if="!expandedLines.has(entry.lineNum)" class="truncate-check" v-html="highlightText(entry.raw)"></span>
+                <pre v-else class="long-line-expanded" v-html="highlightText(entry.raw)"></pre>
               </template>
             </span>
-            <span v-if="copiedLine === entry.lineNum" class="copied-toast">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="col-actions">
+              <span v-if="expandedLines.has(entry.lineNum)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" title="Collapse">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              </span>
+              <span class="action-btn" @click="copyLine(entry, $event)" title="Copy">
+                <span v-if="copiedLine === entry.lineNum" class="copy-icon copied">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span v-else class="copy-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </span>
+              </span>
             </span>
           </div>
         </div>
@@ -286,10 +378,9 @@ defineExpose({ scrollToBottom, scrollToLine })
 .log-row {
   display: flex;
   align-items: center;
-  height: var(--line-height);
-  line-height: var(--line-height);
+  height: 26px;
+  line-height: 26px;
   padding: 0 10px;
-  cursor: pointer;
   white-space: nowrap;
   position: relative;
   transition: background .08s;
@@ -300,11 +391,20 @@ defineExpose({ scrollToBottom, scrollToLine })
   background: var(--bg-3);
 }
 
+.log-row:hover .col-actions {
+  opacity: 1;
+}
+
 .log-row.wrap {
   white-space: pre-wrap;
   word-break: break-all;
   height: auto;
-  min-height: var(--line-height);
+  min-height: 26px;
+}
+
+.log-row.wrap .truncate-check {
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .log-row.expanded {
@@ -313,7 +413,6 @@ defineExpose({ scrollToBottom, scrollToLine })
   position: relative;
   z-index: 5;
   background: var(--bg);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .log-row.is-copied {
@@ -335,13 +434,17 @@ defineExpose({ scrollToBottom, scrollToLine })
   font-size: 11px;
   white-space: nowrap;
   flex-shrink: 0;
+  align-self: flex-start;
+  padding-top: 3px;
 }
 
 .col-badge {
-  width: auto;
+  width: 52px;
   min-width: 52px;
   padding-right: 14px;
   flex-shrink: 0;
+  align-self: flex-start;
+  padding-top: 3px;
 }
 
 .badge {
@@ -350,16 +453,19 @@ defineExpose({ scrollToBottom, scrollToLine })
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   background: transparent;
+  width: 48px;
+  text-align: center;
 }
 
-.badge-error { color: var(--c-error-text); }
-.badge-warn  { color: var(--c-warn-text); }
-.badge-info  { color: var(--c-info-text); }
-.badge-debug { color: var(--c-debug-text); }
-.badge-trace { color: var(--c-trace-text); }
-.badge-unknown { color: var(--text-3); }
+.badge-alert { color: #FF3B30; }
+.badge-error { color: #FF453A; }
+.badge-warn  { color: #FF9F0A; }
+.badge-info  { color: #30D158; }
+.badge-debug { color: #64D2FF; }
+.badge-trace { color: #BF5AF2; }
+.badge-unknown { color: #666666; }
 
 .col-msg {
   flex: 1;
@@ -372,6 +478,51 @@ defineExpose({ scrollToBottom, scrollToLine })
   display: flex;
   align-items: center;
   gap: 4px;
+  cursor: pointer;
+}
+
+.col-msg:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.col-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.action-btn {
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  color: var(--text-3);
+  border-radius: 4px;
+  justify-content: center;
+  align-items: center;
+  transition: background .1s, color .1s;
+  display: flex;
+}
+
+.action-btn:hover {
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+.copy-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-icon.copied {
+  color: var(--accent);
 }
 
 /* ── JSON ── */
@@ -395,12 +546,12 @@ defineExpose({ scrollToBottom, scrollToLine })
   background: none;
 }
 
-.json-preview {
-  color: var(--text-2);
+.truncate-check {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .json-expanded {
@@ -409,26 +560,68 @@ defineExpose({ scrollToBottom, scrollToLine })
   min-width: 0;
   white-space: pre-wrap;
   background: var(--bg-2);
-  padding: 8px;
+  padding: 12px;
   margin: 2px 0;
-  border-radius: 5px;
-  max-height: 200px;
+  border-radius: 6px;
+  max-height: 400px;
   overflow-y: auto;
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid var(--border);
 }
 
-/* ── Toast ── */
-.copied-toast {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
+.json-expanded :deep(.json-key) {
+  color: #a626a4;
+}
+
+.json-expanded :deep(.json-str) {
+  color: #50a14f;
+}
+
+.json-expanded :deep(.json-num) {
+  color: #986801;
+}
+
+.json-expanded :deep(.json-bool) {
+  color: #e45649;
+}
+
+/* Dark theme JSON colors */
+:root.dark .json-expanded :deep(.json-key) {
+  color: #c678dd;
+}
+
+:root.dark .json-expanded :deep(.json-str) {
+  color: #98c379;
+}
+
+:root.dark .json-expanded :deep(.json-num) {
+  color: #d19a66;
+}
+
+:root.dark .json-expanded :deep(.json-bool) {
+  color: #e06c75;
+}
+
+/* ── Long Line ── */
+.long-line-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.long-line-expanded {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 400px;
+  margin: 2px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-y: auto;
 }
 
 /* ── New Logs Button ── */

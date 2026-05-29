@@ -390,6 +390,7 @@ async fn search(
     let is_regex = params.regex.unwrap_or(false);
 
     let level_filter = params.level.and_then(|l| match l.to_uppercase().as_str() {
+        "ALERT" => Some(logtailer_protocol::LogLevel::ALERT),
         "ERROR" => Some(logtailer_protocol::LogLevel::ERROR),
         "WARN" => Some(logtailer_protocol::LogLevel::WARN),
         "INFO" => Some(logtailer_protocol::LogLevel::INFO),
@@ -403,6 +404,7 @@ async fn search(
         .map(|s| {
             s.split(',')
                 .filter_map(|l| match l.trim().to_uppercase().as_str() {
+                    "ALERT" => Some(logtailer_protocol::LogLevel::ALERT),
                     "ERROR" => Some(logtailer_protocol::LogLevel::ERROR),
                     "WARN" => Some(logtailer_protocol::LogLevel::WARN),
                     "INFO" => Some(logtailer_protocol::LogLevel::INFO),
@@ -574,7 +576,9 @@ fn detect_level(line: &str) -> logtailer_protocol::LogLevel {
         .map(|c| c.to_ascii_uppercase())
         .collect();
 
-    if upper.contains("ERROR") || upper.contains("[ERROR]") || upper.contains(" E ") {
+    if upper.contains("ALERT") || upper.contains("[ALERT]") {
+        LogLevel::ALERT
+    } else if upper.contains("ERROR") || upper.contains("[ERROR]") || upper.contains(" E ") {
         LogLevel::ERROR
     } else if upper.contains("WARN") || upper.contains("[WARN]") || upper.contains(" W ") {
         LogLevel::WARN

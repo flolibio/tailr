@@ -48,14 +48,15 @@ const settings = reactive<Settings>({
   darkTheme: false,
 })
 
-const allLevels = ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'] as const
+const allLevels = ['ALERT', 'ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'] as const
 
 const levelDotColors: Record<string, string> = {
-  ERROR: '#E24B4A',
-  WARN: '#BA7517',
-  INFO: '#378ADD',
-  DEBUG: '#639922',
-  TRACE: '#888780',
+  ALERT: '#FF3B30',
+  ERROR: '#FF453A',
+  WARN: '#FF9F0A',
+  INFO: '#30D158',
+  DEBUG: '#64D2FF',
+  TRACE: '#BF5AF2',
 }
 
 function toggleLevel(lv: string): void {
@@ -138,12 +139,12 @@ function handleSettingsUpdate(s: Settings): void {
     <!-- Sidebar -->
     <aside class="sidebar">
       <FileBrowser
-        v-if="!sidebarCollapsed"
+        v-show="!sidebarCollapsed"
         :selected-file="currentFile"
         @select="selectFile"
         @collapse="sidebarCollapsed = true"
       />
-      <button v-else class="sidebar-reopen" @click="sidebarCollapsed = false" title="Open files">
+      <button v-if="sidebarCollapsed" class="sidebar-reopen" @click="sidebarCollapsed = false" title="Open files">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="9 18 15 12 9 6"/>
         </svg>
