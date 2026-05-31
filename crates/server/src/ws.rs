@@ -23,7 +23,7 @@ const SLOW_THRESHOLD: f64 = 0.8;
 const WATCHER_POLL_MS: u64 = 100;
 
 pub struct FileSubscribers {
-    ring_buffer: VecDeque<LogEntry>,
+    ring_buffer: VecDeque<Arc<LogEntry>>,
     next_seq: u64,
     subscribers: HashMap<String, mpsc::Sender<WSMessage>>,
 }
@@ -37,7 +37,7 @@ impl FileSubscribers {
         }
     }
 
-    fn push_entry(&mut self, entry: LogEntry) -> u64 {
+    fn push_entry(&mut self, entry: Arc<LogEntry>) -> u64 {
         let seq = self.next_seq;
         self.next_seq += 1;
 
@@ -49,10 +49,15 @@ impl FileSubscribers {
         seq
     }
 
-    fn catchup(&self, after_seq: u64) -> Vec<LogEntry> {
+    fn catchup(&self, after_seq: u64) -> Vec<Arc<LogEntry>> {
+        let buffer_start_seq = self.next_seq.saturating_sub(self.ring_buffer.len() as u64);
+        if after_seq < buffer_start_seq {
+            return self.ring_buffer.iter().cloned().collect();
+        }
+        let offset = (after_seq - buffer_start_seq) as usize;
         self.ring_buffer
             .iter()
-            .skip(after_seq as usize)
+            .skip(offset)
             .cloned()
             .collect()
     }
@@ -194,10 +199,11 @@ async fn handle_subscribe(
         let catchup_entries = file_sub.catchup(after);
         if !catchup_entries.is_empty() {
             let last_seq = after + catchup_entries.len() as u64;
+            let entries: Vec<LogEntry> = catchup_entries.iter().map(|e| (**e).clone()).collect();
             let _ = tx
                 .send(WSMessage::Catchup {
                     path: path.to_string(),
-                    entries: catchup_entries,
+                    entries,
                     last_seq,
                 })
                 .await;
@@ -290,39 +296,45 @@ pub fn spawn_watcher_loop(state: Arc<AppState>) {
                     "fan-out: sending entries to subscribers"
                 );
 
+                let mut batch: Vec<(u64, Arc<LogEntry>)> = Vec::with_capacity(entries.len());
                 for entry in entries {
-                    let seq = file_sub.push_entry(entry.clone());
+                    let arc_entry = Arc::new(entry);
+                    let seq = file_sub.push_entry(arc_entry.clone());
+                    batch.push((seq, arc_entry));
+                }
 
-                    let msg = WSMessage::Append {
-                        path: key.clone(),
-                        seq,
-                        entries: vec![entry],
-                    };
+                let entries_for_msg: Vec<LogEntry> = batch.iter().map(|(_, e)| (**e).clone()).collect();
+                let last_seq = batch.last().map(|(s, _)| *s).unwrap_or(0);
 
-                    let mut dead_clients = Vec::new();
+                let msg = WSMessage::Append {
+                    path: key.clone(),
+                    seq: last_seq,
+                    entries: entries_for_msg,
+                };
 
-                    for (cid, sender) in &file_sub.subscribers {
-                        let remaining = sender.capacity();
-                        let threshold = (CLIENT_CHANNEL_SIZE as f64 * (1.0 - SLOW_THRESHOLD)) as usize;
-                        if remaining <= threshold {
-                            let _ = sender
-                                .send(WSMessage::Error {
-                                    code: "SLOW".to_string(),
-                                    message: "client is falling behind".to_string(),
-                                })
-                                .await;
-                        }
+                let mut dead_clients = Vec::new();
 
-                        if sender.try_send(msg.clone()).is_err() {
-                            warn!(client_id = %cid, path = %key, "try_send failed, marking as dead client");
-                            dead_clients.push(cid.clone());
-                        }
+                for (cid, sender) in &file_sub.subscribers {
+                    let remaining = sender.capacity();
+                    let threshold = (CLIENT_CHANNEL_SIZE as f64 * (1.0 - SLOW_THRESHOLD)) as usize;
+                    if remaining <= threshold {
+                        let _ = sender
+                            .send(WSMessage::Error {
+                                code: "SLOW".to_string(),
+                                message: "client is falling behind".to_string(),
+                            })
+                            .await;
                     }
 
-                    for cid in dead_clients {
-                        file_sub.unsubscribe(&cid);
-                        debug!(client_id = %cid, path = %key, "removed dead client");
+                    if sender.try_send(msg.clone()).is_err() {
+                        warn!(client_id = %cid, path = %key, "try_send failed, marking as dead client");
+                        dead_clients.push(cid.clone());
                     }
+                }
+
+                for cid in dead_clients {
+                    file_sub.unsubscribe(&cid);
+                    debug!(client_id = %cid, path = %key, "removed dead client");
                 }
             }
         }

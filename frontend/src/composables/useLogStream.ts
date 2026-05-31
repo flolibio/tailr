@@ -1,4 +1,4 @@
-import { ref, shallowRef } from 'vue'
+import { ref, shallowRef, triggerRef } from 'vue'
 import { WSClient } from '../services/websocket'
 import type { LogEntry } from '../services/api'
 import { getFileTail, getFileContent } from '../services/api'
@@ -30,6 +30,16 @@ export function useLogStream() {
     unsubscribeDelete = null
   }
 
+  function appendEntries(newEntries: LogEntry[]): void {
+    const arr = entries.value
+    arr.push(...newEntries)
+    if (arr.length > maxLines.value) {
+      arr.splice(0, arr.length - maxLines.value)
+    }
+    totalLines.value = arr.length
+    triggerRef(entries)
+  }
+
   function selectFile(path: string): void {
     if (currentFile.value) {
       wsClient.unsubscribe(currentFile.value)
@@ -43,8 +53,7 @@ export function useLogStream() {
 
     unsubscribeAppend = wsClient.on('append', (p: unknown, newEntries: unknown) => {
       if (p === path && Array.isArray(newEntries)) {
-        entries.value = [...entries.value, ...(newEntries as LogEntry[])]
-        totalLines.value = entries.value.length
+        appendEntries(newEntries as LogEntry[])
       }
     })
 
@@ -81,12 +90,7 @@ export function useLogStream() {
     // Register WS listeners for real-time updates
     unsubscribeAppend = wsClient.on('append', (p: unknown, newEntries: unknown) => {
       if (p === path && Array.isArray(newEntries)) {
-        let merged = [...entries.value, ...(newEntries as LogEntry[])]
-        if (merged.length > maxLines.value) {
-          merged = merged.slice(merged.length - maxLines.value)
-        }
-        entries.value = merged
-        totalLines.value = entries.value.length
+        appendEntries(newEntries as LogEntry[])
       }
     })
 

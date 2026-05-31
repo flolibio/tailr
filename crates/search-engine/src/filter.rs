@@ -9,6 +9,7 @@ pub struct LogFilter {
     pub time_from: Option<DateTime<Utc>>,
     pub time_to: Option<DateTime<Utc>>,
     pub pattern: Option<String>,
+    pub compiled_regex: Option<Regex>,
 }
 
 impl LogFilter {
@@ -18,7 +19,14 @@ impl LogFilter {
             time_from: None,
             time_to: None,
             pattern: None,
+            compiled_regex: None,
         }
+    }
+
+    pub fn with_pattern(mut self, pattern: Option<String>) -> Self {
+        self.compiled_regex = pattern.as_ref().and_then(|p| Regex::new(p).ok());
+        self.pattern = pattern;
+        self
     }
 
     pub fn matches(&self, entry: &LogEntry) -> bool {
@@ -43,12 +51,12 @@ impl LogFilter {
             }
         }
 
-        if let Some(ref pattern) = self.pattern {
-            if let Ok(re) = Regex::new(pattern) {
-                if !re.is_match(&entry.raw) {
-                    return false;
-                }
-            } else if !entry.raw.contains(pattern) {
+        if let Some(ref re) = self.compiled_regex {
+            if !re.is_match(&entry.raw) {
+                return false;
+            }
+        } else if let Some(ref pattern) = self.pattern {
+            if !entry.raw.contains(pattern) {
                 return false;
             }
         }

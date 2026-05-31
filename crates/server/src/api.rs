@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use logtailer_protocol::LogEntry;
+use logtailer_protocol::{detect_level, try_parse_timestamp, LogEntry};
 use logtailer_search_engine::{LogFilter, SearchOptions};
 use logtailer_tail_engine::LineIndex;
 
@@ -455,6 +455,7 @@ async fn search(
         time_from,
         time_to,
         pattern: None,
+        compiled_regex: None,
     };
 
     let matches: Vec<SearchMatchResult> = result
@@ -504,7 +505,17 @@ async fn health(
 
 async fn get_or_build_index(state: &AppState, path: &PathBuf) -> LineIndex {
     if let Some(entry) = state.line_indices.get(path) {
-        return entry.value().clone();
+        let idx = entry.value().clone();
+        let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        if file_size > idx.file_size {
+            drop(entry);
+            let mut idx_mut = idx.clone();
+            if idx_mut.update(path, file_size).is_ok() {
+                state.line_indices.insert(path.clone(), idx_mut.clone());
+                return idx_mut;
+            }
+        }
+        return idx;
     }
     match LineIndex::build(path) {
         Ok(idx) => {
@@ -566,54 +577,4 @@ async fn read_lines_from(path: &PathBuf, start_byte: u64, max_lines: usize, base
     }
 
     entries
-}
-
-fn detect_level(line: &str) -> logtailer_protocol::LogLevel {
-    use logtailer_protocol::LogLevel;
-    let upper: String = line
-        .chars()
-        .take(256)
-        .map(|c| c.to_ascii_uppercase())
-        .collect();
-
-    if upper.contains("ALERT") || upper.contains("[ALERT]") {
-        LogLevel::ALERT
-    } else if upper.contains("ERROR") || upper.contains("[ERROR]") || upper.contains(" E ") {
-        LogLevel::ERROR
-    } else if upper.contains("WARN") || upper.contains("[WARN]") || upper.contains(" W ") {
-        LogLevel::WARN
-    } else if upper.contains("INFO") || upper.contains("[INFO]") || upper.contains(" I ") {
-        LogLevel::INFO
-    } else if upper.contains("DEBUG") || upper.contains("[DEBUG]") || upper.contains(" D ") {
-        LogLevel::DEBUG
-    } else if upper.contains("TRACE") || upper.contains("[TRACE]") {
-        LogLevel::TRACE
-    } else {
-        LogLevel::UNKNOWN
-    }
-}
-
-fn try_parse_timestamp(line: &str) -> Option<DateTime<Utc>> {
-    use chrono::NaiveDateTime;
-
-    if let Ok(dt) = DateTime::parse_from_rfc3339(line.get(..30).unwrap_or(line)) {
-        return Some(dt.with_timezone(&Utc));
-    }
-
-    let patterns: &[&str] = &[
-        "%Y-%m-%d %H:%M:%S%.3f",
-        "%Y-%m-%d %H:%M:%S",
-        "%d/%b/%Y:%H:%M:%S",
-    ];
-
-    for pattern in patterns {
-        let len = pattern.len() + 10;
-        if let Some(slice) = line.get(..len.min(line.len())) {
-            if let Ok(dt) = NaiveDateTime::parse_from_str(slice.trim(), pattern) {
-                return Some(dt.and_utc());
-            }
-        }
-    }
-
-    None
 }
