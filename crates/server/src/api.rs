@@ -250,6 +250,15 @@ fn read_dir_entries(dir: &std::path::Path, entries: &mut Vec<FileEntry>) -> std:
         let metadata = entry.metadata().ok();
         let is_dir = metadata.as_ref().map(|m| m.is_dir()).unwrap_or(false);
         let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
+
+        if is_dir {
+            if !dir_has_text_files(&entry.path()) {
+                continue;
+            }
+        } else if !is_text_file(&entry.path(), &name) {
+            continue;
+        }
+
         let modified = metadata
             .and_then(|m| m.modified().ok())
             .and_then(|t| {
@@ -266,6 +275,79 @@ fn read_dir_entries(dir: &std::path::Path, entries: &mut Vec<FileEntry>) -> std:
         });
     }
     Ok(())
+}
+
+fn dir_has_text_files(dir: &std::path::Path) -> bool {
+    let read_dir = match std::fs::read_dir(dir) {
+        Ok(r) => r,
+        Err(_) => return false,
+    };
+    for entry in read_dir.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        let is_dir = entry.metadata().map(|m| m.is_dir()).unwrap_or(false);
+        if is_dir {
+            if dir_has_text_files(&entry.path()) {
+                return true;
+            }
+        } else if is_text_file(&entry.path(), &name) {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_text_file(path: &std::path::Path, name: &str) -> bool {
+    let text_extensions = [
+        "log", "txt", "text", "out", "err", "stdout", "stderr",
+        "json", "xml", "yaml", "yml", "toml", "ini", "conf", "cfg",
+        "csv", "tsv", "md", "rst",
+        "py", "rb", "js", "ts", "go", "rs", "java", "c", "cpp", "h", "hpp",
+        "sh", "bash", "zsh", "fish",
+        "sql", "html", "css", "scss",
+    ];
+
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        if text_extensions.contains(&ext.to_lowercase().as_str()) {
+            return true;
+        }
+        let binary_extensions = [
+            "exe", "dll", "so", "dylib", "bin", "dat", "db", "sqlite",
+            "zip", "gz", "tar", "bz2", "xz", "7z", "rar",
+            "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "webp",
+            "mp3", "mp4", "avi", "mkv", "mov", "wav", "flac",
+            "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+            "woff", "woff2", "ttf", "otf", "eot",
+        ];
+        if binary_extensions.contains(&ext.to_lowercase().as_str()) {
+            return false;
+        }
+    }
+
+    if name.contains('.') {
+        return false;
+    }
+
+    is_likely_text(path)
+}
+
+fn is_likely_text(path: &std::path::Path) -> bool {
+    use std::io::Read;
+    let mut file = match std::fs::File::open(path) {
+        Ok(f) => f,
+        Err(_) => return false,
+    };
+    let mut buf = [0u8; 512];
+    let n = match file.read(&mut buf) {
+        Ok(n) => n,
+        Err(_) => return false,
+    };
+    if n == 0 {
+        return true;
+    }
+    !buf[..n].contains(&0)
 }
 
 async fn file_content(
