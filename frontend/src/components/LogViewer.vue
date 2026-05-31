@@ -95,7 +95,11 @@ function onScroll(): void {
 
 function scrollToBottom(): void {
   if (!containerRef.value) return
-  containerRef.value.scrollTop = containerRef.value.scrollHeight
+  requestAnimationFrame(() => {
+    if (containerRef.value) {
+      containerRef.value.scrollTop = containerRef.value.scrollHeight
+    }
+  })
   showNewLogsButton.value = false
   userScrolledUp.value = false
 }
@@ -278,6 +282,9 @@ onMounted(() => {
       }
     })
     resizeObserver.observe(containerRef.value)
+  }
+  if (props.isTailMode) {
+    nextTick(scrollToBottom)
   }
 })
 

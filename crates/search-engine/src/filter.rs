@@ -29,6 +29,17 @@ impl LogFilter {
         self
     }
 
+    pub fn with_levels(mut self, levels: Vec<LogLevel>) -> Self {
+        self.levels = levels;
+        self
+    }
+
+    pub fn with_time(mut self, from: Option<DateTime<Utc>>, to: Option<DateTime<Utc>>) -> Self {
+        self.time_from = from;
+        self.time_to = to;
+        self
+    }
+
     pub fn matches(&self, entry: &LogEntry) -> bool {
         if !self.levels.is_empty() && !self.levels.contains(&entry.level) {
             return false;

@@ -23,7 +23,7 @@ const SLOW_THRESHOLD: f64 = 0.8;
 const WATCHER_POLL_MS: u64 = 100;
 
 pub struct FileSubscribers {
-    ring_buffer: VecDeque<Arc<LogEntry>>,
+    ring_buffer: VecDeque<LogEntry>,
     next_seq: u64,
     subscribers: HashMap<String, mpsc::Sender<WSMessage>>,
 }
@@ -37,7 +37,7 @@ impl FileSubscribers {
         }
     }
 
-    fn push_entry(&mut self, entry: Arc<LogEntry>) -> u64 {
+    fn push_entry(&mut self, entry: LogEntry) -> u64 {
         let seq = self.next_seq;
         self.next_seq += 1;
 
@@ -49,7 +49,7 @@ impl FileSubscribers {
         seq
     }
 
-    fn catchup(&self, after_seq: u64) -> Vec<Arc<LogEntry>> {
+    fn catchup(&self, after_seq: u64) -> Vec<LogEntry> {
         let buffer_start_seq = self.next_seq.saturating_sub(self.ring_buffer.len() as u64);
         if after_seq < buffer_start_seq {
             return self.ring_buffer.iter().cloned().collect();
@@ -199,11 +199,10 @@ async fn handle_subscribe(
         let catchup_entries = file_sub.catchup(after);
         if !catchup_entries.is_empty() {
             let last_seq = after + catchup_entries.len() as u64;
-            let entries: Vec<LogEntry> = catchup_entries.iter().map(|e| (**e).clone()).collect();
             let _ = tx
                 .send(WSMessage::Catchup {
                     path: path.to_string(),
-                    entries,
+                    entries: catchup_entries,
                     last_seq,
                 })
                 .await;
@@ -296,14 +295,13 @@ pub fn spawn_watcher_loop(state: Arc<AppState>) {
                     "fan-out: sending entries to subscribers"
                 );
 
-                let mut batch: Vec<(u64, Arc<LogEntry>)> = Vec::with_capacity(entries.len());
+                let mut batch: Vec<(u64, LogEntry)> = Vec::with_capacity(entries.len());
                 for entry in entries {
-                    let arc_entry = Arc::new(entry);
-                    let seq = file_sub.push_entry(arc_entry.clone());
-                    batch.push((seq, arc_entry));
+                    let seq = file_sub.push_entry(entry.clone());
+                    batch.push((seq, entry));
                 }
 
-                let entries_for_msg: Vec<LogEntry> = batch.iter().map(|(_, e)| (**e).clone()).collect();
+                let entries_for_msg: Vec<LogEntry> = batch.iter().map(|(_, e)| e.clone()).collect();
                 let last_seq = batch.last().map(|(s, _)| *s).unwrap_or(0);
 
                 let msg = WSMessage::Append {

@@ -50,20 +50,22 @@ const matchCount = computed(() => {
 
 const SETTINGS_KEY = 'logtailer-settings'
 
+const defaultSettings: Settings = {
+  fontSize: 14,
+  autoScroll: true,
+  lineWrap: false,
+  maxVisibleLines: 50000,
+  darkTheme: false,
+}
+
 function loadSettings(): Settings {
   try {
     const saved = localStorage.getItem(SETTINGS_KEY)
     if (saved) {
-      return JSON.parse(saved)
+      return { ...defaultSettings, ...JSON.parse(saved) }
     }
   } catch {}
-  return {
-    fontSize: 14,
-    autoScroll: true,
-    lineWrap: false,
-    maxVisibleLines: 50000,
-    darkTheme: false,
-  }
+  return { ...defaultSettings }
 }
 
 function saveSettings(s: Settings): void {
@@ -132,7 +134,9 @@ function handleAutoScrollChange(enabled: boolean): void {
 onMounted(() => {
   if (settings.darkTheme) {
     document.documentElement.classList.add('dark')
+    delete document.documentElement.dataset.theme
   } else {
+    document.documentElement.classList.remove('dark')
     document.documentElement.dataset.theme = 'light'
   }
 })

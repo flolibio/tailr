@@ -450,13 +450,9 @@ async fn search(
         Err(e) => return Json(ApiResponse::err(format!("search failed: {}", e))),
     };
 
-    let filter = LogFilter {
-        levels: all_levels,
-        time_from,
-        time_to,
-        pattern: None,
-        compiled_regex: None,
-    };
+    let filter = LogFilter::new()
+        .with_levels(all_levels)
+        .with_time(time_from, time_to);
 
     let matches: Vec<SearchMatchResult> = result
         .matches
