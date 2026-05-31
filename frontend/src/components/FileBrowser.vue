@@ -121,7 +121,18 @@ onMounted(() => {
 <template>
   <div class="file-browser">
     <div class="sidebar-header">
-      <span class="sidebar-title">Files</span>
+      <div class="filter-wrap">
+        <svg class="filter-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input
+          v-model="filterText"
+          type="text"
+          placeholder="Filter files…"
+          class="filter-input"
+        />
+        <button v-if="filterText" class="filter-clear" @click="filterText = ''">✕</button>
+      </div>
       <div class="sidebar-actions">
         <button class="icon-btn" @click="refresh" title="Refresh">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -129,7 +140,7 @@ onMounted(() => {
             <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
           </svg>
         </button>
-        <button class="icon-btn" @click="emit('collapse')" title="Collapse sidebar">
+        <button class="icon-btn" @click="emit('collapse')" title="Collapse">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>
           </svg>
@@ -177,15 +188,6 @@ onMounted(() => {
     <div v-else-if="loading" class="file-empty">Loading…</div>
     <div v-else-if="filterText" class="file-empty">No matching files</div>
     <div v-else class="file-empty">No files found</div>
-    <div class="file-filter">
-      <input
-        v-model="filterText"
-        type="text"
-        placeholder="Filter…"
-        class="file-filter-input"
-      />
-      <button v-if="filterText" class="file-filter-clear" @click="filterText = ''">✕</button>
-    </div>
   </div>
 </template>
 
@@ -197,9 +199,79 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.sidebar-header {
+  height: 44px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.filter-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.filter-icon {
+  position: absolute;
+  left: 8px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.filter-input {
+  width: 100%;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-2);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text);
+  padding: 0 26px 0 28px;
+  outline: none;
+  transition: border-color .15s;
+}
+
+.filter-input:focus {
+  border-color: var(--border-2);
+}
+
+.filter-input::placeholder {
+  color: var(--text-3);
+}
+
+.filter-clear {
+  position: absolute;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  padding: 0;
+  border-radius: 4px;
+}
+
+.filter-clear:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
 .sidebar-actions {
   display: flex;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .file-list {
@@ -284,50 +356,5 @@ onMounted(() => {
   font-size: 13px;
   text-align: center;
   flex: 1;
-}
-
-.file-filter {
-  display: flex;
-  align-items: center;
-  padding: 6px 8px;
-  border-top: 1px solid var(--border);
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.file-filter-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  padding: 4px 6px;
-  outline: none;
-  color: var(--text);
-  height: 28px;
-}
-
-.file-filter-input::placeholder {
-  color: var(--text-3);
-}
-
-.file-filter-clear {
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  color: var(--text-3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  padding: 0;
-  border-radius: 4px;
-}
-
-.file-filter-clear:hover {
-  background: var(--bg-3);
-  color: var(--text);
 }
 </style>

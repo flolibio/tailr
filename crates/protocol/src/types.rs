@@ -23,24 +23,40 @@ pub struct LogEntry {
     pub fields: Option<serde_json::Value>,
 }
 
-pub fn detect_level(line: &str) -> LogLevel {
-    let upper: String = line
-        .chars()
-        .take(256)
-        .map(|c| c.to_ascii_uppercase())
-        .collect();
+fn contains_case_insensitive(haystack: &str, needle: &str) -> bool {
+    let haystack_bytes = haystack.as_bytes();
+    let needle_bytes = needle.as_bytes();
+    if needle_bytes.is_empty() {
+        return true;
+    }
+    if haystack_bytes.len() < needle_bytes.len() {
+        return false;
+    }
+    let limit = haystack_bytes.len().min(256);
+    for i in 0..=limit - needle_bytes.len() {
+        if haystack_bytes[i..i + needle_bytes.len()]
+            .iter()
+            .zip(needle_bytes.iter())
+            .all(|(a, b)| a.to_ascii_uppercase() == b.to_ascii_uppercase())
+        {
+            return true;
+        }
+    }
+    false
+}
 
-    if upper.contains("ALERT") || upper.contains("[ALERT]") {
+pub fn detect_level(line: &str) -> LogLevel {
+    if contains_case_insensitive(line, "ALERT") || contains_case_insensitive(line, "[ALERT]") {
         LogLevel::ALERT
-    } else if upper.contains("ERROR") || upper.contains("[ERROR]") || upper.contains(" E ") {
+    } else if contains_case_insensitive(line, "ERROR") || contains_case_insensitive(line, "[ERROR]") || contains_case_insensitive(line, " E ") {
         LogLevel::ERROR
-    } else if upper.contains("WARN") || upper.contains("[WARN]") || upper.contains(" W ") {
+    } else if contains_case_insensitive(line, "WARN") || contains_case_insensitive(line, "[WARN]") || contains_case_insensitive(line, " W ") {
         LogLevel::WARN
-    } else if upper.contains("INFO") || upper.contains("[INFO]") || upper.contains(" I ") {
+    } else if contains_case_insensitive(line, "INFO") || contains_case_insensitive(line, "[INFO]") || contains_case_insensitive(line, " I ") {
         LogLevel::INFO
-    } else if upper.contains("DEBUG") || upper.contains("[DEBUG]") || upper.contains(" D ") {
+    } else if contains_case_insensitive(line, "DEBUG") || contains_case_insensitive(line, "[DEBUG]") || contains_case_insensitive(line, " D ") {
         LogLevel::DEBUG
-    } else if upper.contains("TRACE") || upper.contains("[TRACE]") {
+    } else if contains_case_insensitive(line, "TRACE") || contains_case_insensitive(line, "[TRACE]") {
         LogLevel::TRACE
     } else {
         LogLevel::UNKNOWN
