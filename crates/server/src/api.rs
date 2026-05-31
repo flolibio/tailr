@@ -278,6 +278,13 @@ fn read_dir_entries(dir: &std::path::Path, entries: &mut Vec<FileEntry>) -> std:
 }
 
 fn dir_has_text_files(dir: &std::path::Path) -> bool {
+    dir_has_text_files_inner(dir, 0)
+}
+
+fn dir_has_text_files_inner(dir: &std::path::Path, depth: u32) -> bool {
+    if depth > 2 {
+        return true;
+    }
     let read_dir = match std::fs::read_dir(dir) {
         Ok(r) => r,
         Err(_) => return false,
@@ -289,7 +296,7 @@ fn dir_has_text_files(dir: &std::path::Path) -> bool {
         }
         let is_dir = entry.metadata().map(|m| m.is_dir()).unwrap_or(false);
         if is_dir {
-            if dir_has_text_files(&entry.path()) {
+            if dir_has_text_files_inner(&entry.path(), depth + 1) {
                 return true;
             }
         } else if is_text_file(&entry.path(), &name) {
@@ -299,35 +306,36 @@ fn dir_has_text_files(dir: &std::path::Path) -> bool {
     false
 }
 
-fn is_text_file(path: &std::path::Path, name: &str) -> bool {
-    let text_extensions = [
+fn is_text_file(path: &std::path::Path, _name: &str) -> bool {
+    let text_extensions: &[&str] = &[
         "log", "txt", "text", "out", "err", "stdout", "stderr",
         "json", "xml", "yaml", "yml", "toml", "ini", "conf", "cfg",
         "csv", "tsv", "md", "rst",
         "py", "rb", "js", "ts", "go", "rs", "java", "c", "cpp", "h", "hpp",
         "sh", "bash", "zsh", "fish",
         "sql", "html", "css", "scss",
+        "bak", "old", "prev", "save",
+    ];
+
+    let binary_extensions: &[&str] = &[
+        "exe", "dll", "so", "dylib", "bin", "dat", "db", "sqlite",
+        "zip", "gz", "tar", "bz2", "xz", "7z", "rar",
+        "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "webp",
+        "mp3", "mp4", "avi", "mkv", "mov", "wav", "flac",
+        "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+        "woff", "woff2", "ttf", "otf", "eot",
+        "pyc", "pyo", "class", "o", "obj",
     ];
 
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-        if text_extensions.contains(&ext.to_lowercase().as_str()) {
+        let lower = ext.to_ascii_lowercase();
+        if text_extensions.iter().any(|e| e.eq_ignore_ascii_case(&lower)) {
             return true;
         }
-        let binary_extensions = [
-            "exe", "dll", "so", "dylib", "bin", "dat", "db", "sqlite",
-            "zip", "gz", "tar", "bz2", "xz", "7z", "rar",
-            "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "webp",
-            "mp3", "mp4", "avi", "mkv", "mov", "wav", "flac",
-            "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
-            "woff", "woff2", "ttf", "otf", "eot",
-        ];
-        if binary_extensions.contains(&ext.to_lowercase().as_str()) {
+        if binary_extensions.iter().any(|e| e.eq_ignore_ascii_case(&lower)) {
             return false;
         }
-    }
-
-    if name.contains('.') {
-        return false;
+        return is_likely_text(path);
     }
 
     is_likely_text(path)

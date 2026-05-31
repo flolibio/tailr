@@ -158,7 +158,10 @@ onMounted(() => {
           @click="selectFile(node)"
         >
           <div v-if="!node.isDir" class="file-dot" :class="props.selectedFile === node.path ? 'live' : 'off'"></div>
-          <div v-else class="file-dir-icon">{{ node.expanded ? '▾' : '▸' }}</div>
+          <div v-else class="file-dir-icon">
+            <svg v-if="node.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
           <div class="file-meta">
             <div class="file-name">{{ node.name }}</div>
             <div v-if="!node.isDir && node.size !== undefined" class="file-size">{{ formatSize(node.size) }}</div>
@@ -176,7 +179,10 @@ onMounted(() => {
             @click="selectFile(child)"
           >
             <div v-if="!child.isDir" class="file-dot" :class="props.selectedFile === child.path ? 'live' : 'off'"></div>
-            <div v-else class="file-dir-icon">{{ child.expanded ? '▾' : '▸' }}</div>
+            <div v-else class="file-dir-icon">
+              <svg v-if="child.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
             <div class="file-meta">
               <div class="file-name">{{ child.name }}</div>
               <div v-if="!child.isDir && child.size !== undefined" class="file-size">{{ formatSize(child.size) }}</div>
@@ -324,10 +330,12 @@ onMounted(() => {
 }
 
 .file-dir-icon {
-  width: 14px;
-  font-size: 11px;
-  color: var(--text-3);
-  text-align: center;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
   flex-shrink: 0;
 }
 

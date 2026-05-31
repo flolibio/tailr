@@ -17,6 +17,7 @@ const {
 } = useLogStream()
 
 const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
+const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
 const selectedLevels = ref<string[]>([])
 const filterKeywords = ref<string[]>([])
 const settingsCollapsed = ref(true)
@@ -139,6 +140,13 @@ onMounted(() => {
     document.documentElement.classList.remove('dark')
     document.documentElement.dataset.theme = 'light'
   }
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      e.preventDefault()
+      filterBarRef.value?.focus()
+    }
+  })
 })
 
 onUnmounted(() => {
@@ -184,6 +192,7 @@ function handleSettingsUpdate(s: Settings): void {
     <!-- Top bar (filter) -->
     <header class="topbar">
       <FilterBar
+        ref="filterBarRef"
         :current-file="currentFile"
         :keywords="filterKeywords"
         @add-keyword="addKeyword"

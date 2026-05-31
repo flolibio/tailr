@@ -13,6 +13,7 @@ const emit = defineEmits<{
 }>()
 
 const input = ref('')
+const inputRef = ref<HTMLInputElement | null>(null)
 
 function onKeydown(e: KeyboardEvent): void {
   if (e.key === 'Enter') {
@@ -35,6 +36,12 @@ function doClearAll(): void {
   input.value = ''
   emit('clearAll')
 }
+
+function focus(): void {
+  inputRef.value?.focus()
+}
+
+defineExpose({ focus })
 </script>
 
 <template>
@@ -51,6 +58,7 @@ function doClearAll(): void {
           <button class="chip-remove" @click="emit('removeKeyword', i)">✕</button>
         </span>
         <input
+          ref="inputRef"
           v-model="input"
           type="text"
           class="filter-input"
