@@ -365,7 +365,6 @@ defineExpose({ scrollToBottom, scrollToLine })
   overflow-y: auto;
   overflow-x: auto;
   font-family: var(--font-mono);
-  font-size: 14px;
   background: var(--bg);
   padding: 10px;
 }
@@ -481,7 +480,6 @@ defineExpose({ scrollToBottom, scrollToLine })
   text-overflow: ellipsis;
   line-height: 1.65;
   color: var(--text);
-  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 4px;

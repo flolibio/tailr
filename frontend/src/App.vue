@@ -48,13 +48,31 @@ const matchCount = computed(() => {
   return filteredEntries.value.length
 })
 
-const settings = reactive<Settings>({
-  fontSize: 14,
-  autoScroll: true,
-  lineWrap: false,
-  maxVisibleLines: 50000,
-  darkTheme: false,
-})
+const SETTINGS_KEY = 'logtailer-settings'
+
+function loadSettings(): Settings {
+  try {
+    const saved = localStorage.getItem(SETTINGS_KEY)
+    if (saved) {
+      return JSON.parse(saved)
+    }
+  } catch {}
+  return {
+    fontSize: 14,
+    autoScroll: true,
+    lineWrap: false,
+    maxVisibleLines: 50000,
+    darkTheme: false,
+  }
+}
+
+function saveSettings(s: Settings): void {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s))
+  } catch {}
+}
+
+const settings = reactive<Settings>(loadSettings())
 
 const allLevels = ['ALERT', 'ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'] as const
 
@@ -112,7 +130,11 @@ function handleAutoScrollChange(enabled: boolean): void {
 }
 
 onMounted(() => {
-  document.documentElement.dataset.theme = 'light'
+  if (settings.darkTheme) {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.dataset.theme = 'light'
+  }
 })
 
 onUnmounted(() => {
@@ -134,6 +156,7 @@ function handleSettingsUpdate(s: Settings): void {
     }
   }
   Object.assign(settings, s)
+  saveSettings(settings)
 }
 </script>
 
