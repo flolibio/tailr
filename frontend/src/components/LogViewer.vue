@@ -303,6 +303,7 @@ defineExpose({ scrollToBottom, scrollToLine })
             :key="entry.lineNum"
             class="log-row"
             :class="[
+              'level-' + entry.level.toLowerCase(),
               { 'is-copied': copiedLine === entry.lineNum, 'wrap': lineWrap, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
             ]"
           >
@@ -391,6 +392,14 @@ defineExpose({ scrollToBottom, scrollToLine })
   background: var(--bg-3);
 }
 
+.log-row.level-alert:hover { background: var(--c-alert-bg); }
+.log-row.level-error:hover { background: var(--c-error-bg); }
+.log-row.level-warn:hover { background: var(--c-warn-bg); }
+.log-row.level-info:hover { background: var(--c-info-bg); }
+.log-row.level-debug:hover { background: var(--c-debug-bg); }
+.log-row.level-trace:hover { background: var(--c-trace-bg); }
+.log-row.level-unknown:hover { background: var(--bg-3); }
+
 .log-row:hover .col-actions {
   opacity: 1;
 }
@@ -435,7 +444,6 @@ defineExpose({ scrollToBottom, scrollToLine })
   white-space: nowrap;
   flex-shrink: 0;
   align-self: flex-start;
-  padding-top: 3px;
 }
 
 .col-badge {
@@ -444,7 +452,6 @@ defineExpose({ scrollToBottom, scrollToLine })
   padding-right: 14px;
   flex-shrink: 0;
   align-self: flex-start;
-  padding-top: 3px;
 }
 
 .badge {

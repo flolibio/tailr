@@ -2,13 +2,10 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import FileBrowser from './components/FileBrowser.vue'
 import LogViewer from './components/LogViewer.vue'
-import SearchPanel from './components/SearchPanel.vue'
+import FilterBar from './components/FilterBar.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import type { Settings } from './components/SettingsPanel.vue'
-import type { SearchOptions } from './components/SearchPanel.vue'
 import { useLogStream } from './composables/useLogStream'
-import { useSearch } from './composables/useSearch'
-import { searchLogs } from './services/api'
 
 const {
   currentFile,
@@ -19,25 +16,36 @@ const {
   loadInitial,
 } = useLogStream()
 
-const searchState = useSearch()
-
 const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
-const searchPanelRef = ref<InstanceType<typeof SearchPanel> | null>(null)
 const selectedLevels = ref<string[]>([])
-const highlightInput = ref('')
+const filterKeywords = ref<string[]>([])
 const settingsCollapsed = ref(true)
 const sidebarCollapsed = ref(false)
 
-const highlightKeywords = computed(() => {
-  const raw = highlightInput.value.trim()
-  if (!raw) return []
-  return raw.split(',').map((s) => s.trim()).filter(Boolean)
-})
+const highlightKeywords = computed(() => filterKeywords.value)
 
 const filteredEntries = computed(() => {
-  if (selectedLevels.value.length === 0) return entries.value
-  const levels = new Set(selectedLevels.value)
-  return entries.value.filter((e) => levels.has(e.level))
+  let result = entries.value
+
+  if (selectedLevels.value.length > 0) {
+    const levels = new Set(selectedLevels.value)
+    result = result.filter((e) => levels.has(e.level))
+  }
+
+  if (filterKeywords.value.length > 0) {
+    const kws = filterKeywords.value.map((k) => k.toLowerCase())
+    result = result.filter((e) => {
+      const lower = e.raw.toLowerCase()
+      return kws.every((kw) => lower.includes(kw))
+    })
+  }
+
+  return result
+})
+
+const matchCount = computed(() => {
+  if (filterKeywords.value.length === 0) return 0
+  return filteredEntries.value.length
 })
 
 const settings = reactive<Settings>({
@@ -69,28 +77,23 @@ function toggleLevel(lv: string): void {
 }
 
 function selectFile(path: string): void {
-  searchState.clear()
   selectedLevels.value = []
-  highlightInput.value = ''
+  filterKeywords.value = []
   loadInitial(path)
 }
 
-async function handleSearch(query: string, options: SearchOptions): Promise<void> {
-  if (!currentFile.value) return
-  try {
-    const data = await searchLogs(currentFile.value, query, {
-      regex: options.regex,
-      levels: options.levels.length > 0 ? options.levels : undefined,
-      context: options.context,
-    })
-    searchPanelRef.value?.setResults(data)
-  } catch (e) {
-    console.error('Search failed:', e)
+function addKeyword(kw: string): void {
+  if (!filterKeywords.value.includes(kw)) {
+    filterKeywords.value = [...filterKeywords.value, kw]
   }
 }
 
-function handleJumpToLine(lineNum: number): void {
-  logViewerRef.value?.scrollToLine(lineNum)
+function removeKeyword(index: number): void {
+  filterKeywords.value = filterKeywords.value.filter((_, i) => i !== index)
+}
+
+function clearAllKeywords(): void {
+  filterKeywords.value = []
 }
 
 function handleScrollUp(): void {
@@ -151,19 +154,18 @@ function handleSettingsUpdate(s: Settings): void {
       </button>
     </aside>
 
-    <!-- Top bar (search) -->
+    <!-- Top bar (filter) -->
     <header class="topbar">
-      <SearchPanel
-        ref="searchPanelRef"
+      <FilterBar
         :current-file="currentFile"
-        :is-searching="searchState.isSearching.value"
-        @search="handleSearch"
-        @clear="searchState.clear"
-        @jump-to-line="handleJumpToLine"
+        :keywords="filterKeywords"
+        @add-keyword="addKeyword"
+        @remove-keyword="removeKeyword"
+        @clear-all="clearAllKeywords"
       />
     </header>
 
-    <!-- Filter bar (levels + highlight) -->
+    <!-- Filter bar (levels) -->
     <div class="filterbar">
       <div
         v-for="lv in allLevels"
@@ -175,17 +177,6 @@ function handleSettingsUpdate(s: Settings): void {
         <span class="dot" :style="{ background: levelDotColors[lv] }"></span>
         {{ lv }}
       </div>
-      <div class="filter-sep"></div>
-      <div class="highlight-wrap">
-        <span class="highlight-label">Highlight</span>
-        <input
-          v-model="highlightInput"
-          type="text"
-          class="highlight-input"
-          placeholder="keywords (comma-separated)"
-        />
-        <button v-if="highlightInput" class="highlight-clear" @click="highlightInput = ''">✕</button>
-      </div>
     </div>
 
     <!-- Log body -->
@@ -194,7 +185,7 @@ function handleSettingsUpdate(s: Settings): void {
         <div class="empty-text">Select a file to start viewing logs</div>
       </div>
       <div v-else-if="filteredEntries.length === 0" class="empty-state">
-        <div class="empty-text">Waiting for log data...</div>
+        <div class="empty-text">{{ filterKeywords.length ? 'No matching logs' : 'Waiting for log data...' }}</div>
       </div>
       <LogViewer
         v-else
@@ -229,6 +220,8 @@ function handleSettingsUpdate(s: Settings): void {
         <span>{{ currentFile ? currentFile.split('/').pop() : 'No file' }}</span>
       </div>
       <span>{{ entries.length }} lines</span>
+      <span v-if="filterKeywords.length" class="status-mode">🔴 Live · {{ matchCount }} matches · {{ filterKeywords.join(' + ') }}</span>
+      <span v-else-if="isTailMode" class="status-mode">🔴 Live</span>
       <span v-if="filteredEntries.length < entries.length">{{ filteredEntries.length }} shown</span>
     </div>
   </div>
