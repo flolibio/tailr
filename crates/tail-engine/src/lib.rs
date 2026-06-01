@@ -6,4 +6,4 @@ pub use index::LineIndex;
 pub use session::TailSession;
 pub use watcher::FileWatcher;
 
-pub use logtailer_protocol::{LogEntry, LogLevel, WSMessage};
+pub use tailr_protocol::{LogEntry, LogLevel, WSMessage};

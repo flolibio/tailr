@@ -13,7 +13,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use logtailer_protocol::{LogEntry, WSMessage};
+use tailr_protocol::{LogEntry, WSMessage};
 
 use crate::AppState;
 

@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use logtailer_protocol::{LogEntry, LogLevel};
+use tailr_protocol::{LogEntry, LogLevel};
 use regex::Regex;
 use tracing::debug;
 

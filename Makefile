@@ -33,8 +33,8 @@ build-linux-arm:
 release: frontend release-linux release-linux-arm
 	@echo ""
 	@echo "✓ Release artifacts:"
-	@echo "  Linux x86_64: target/x86_64-unknown-linux-musl/release/logtailer"
-	@echo "  Linux ARM64:  target/aarch64-unknown-linux-musl/release/logtailer"
+	@echo "  Linux x86_64: target/x86_64-unknown-linux-musl/release/tailr"
+	@echo "  Linux ARM64:  target/aarch64-unknown-linux-musl/release/tailr"
 
 release-linux: frontend
 	docker run --rm --platform linux/amd64 -v "$(CURDIR)":/app -w /app rust:1.94 \

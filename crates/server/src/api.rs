@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use logtailer_protocol::{detect_level, try_parse_timestamp, LogEntry};
-use logtailer_search_engine::{LogFilter, SearchOptions};
-use logtailer_tail_engine::LineIndex;
+use tailr_protocol::{detect_level, try_parse_timestamp, LogEntry};
+use tailr_search_engine::{LogFilter, SearchOptions};
+use tailr_tail_engine::LineIndex;
 
 use crate::AppState;
 
@@ -480,26 +480,26 @@ async fn search(
     let is_regex = params.regex.unwrap_or(false);
 
     let level_filter = params.level.and_then(|l| match l.to_uppercase().as_str() {
-        "ALERT" => Some(logtailer_protocol::LogLevel::ALERT),
-        "ERROR" => Some(logtailer_protocol::LogLevel::ERROR),
-        "WARN" => Some(logtailer_protocol::LogLevel::WARN),
-        "INFO" => Some(logtailer_protocol::LogLevel::INFO),
-        "DEBUG" => Some(logtailer_protocol::LogLevel::DEBUG),
-        "TRACE" => Some(logtailer_protocol::LogLevel::TRACE),
+        "ALERT" => Some(tailr_protocol::LogLevel::ALERT),
+        "ERROR" => Some(tailr_protocol::LogLevel::ERROR),
+        "WARN" => Some(tailr_protocol::LogLevel::WARN),
+        "INFO" => Some(tailr_protocol::LogLevel::INFO),
+        "DEBUG" => Some(tailr_protocol::LogLevel::DEBUG),
+        "TRACE" => Some(tailr_protocol::LogLevel::TRACE),
         _ => None,
     });
 
-    let levels: Vec<logtailer_protocol::LogLevel> = params
+    let levels: Vec<tailr_protocol::LogLevel> = params
         .levels
         .map(|s| {
             s.split(',')
                 .filter_map(|l| match l.trim().to_uppercase().as_str() {
-                    "ALERT" => Some(logtailer_protocol::LogLevel::ALERT),
-                    "ERROR" => Some(logtailer_protocol::LogLevel::ERROR),
-                    "WARN" => Some(logtailer_protocol::LogLevel::WARN),
-                    "INFO" => Some(logtailer_protocol::LogLevel::INFO),
-                    "DEBUG" => Some(logtailer_protocol::LogLevel::DEBUG),
-                    "TRACE" => Some(logtailer_protocol::LogLevel::TRACE),
+                    "ALERT" => Some(tailr_protocol::LogLevel::ALERT),
+                    "ERROR" => Some(tailr_protocol::LogLevel::ERROR),
+                    "WARN" => Some(tailr_protocol::LogLevel::WARN),
+                    "INFO" => Some(tailr_protocol::LogLevel::INFO),
+                    "DEBUG" => Some(tailr_protocol::LogLevel::DEBUG),
+                    "TRACE" => Some(tailr_protocol::LogLevel::TRACE),
                     _ => None,
                 })
                 .collect()
@@ -549,7 +549,7 @@ async fn search(
         .into_iter()
         .filter(|m| {
             if !filter.levels.is_empty() || filter.time_from.is_some() || filter.time_to.is_some() {
-                let entry = logtailer_protocol::LogEntry {
+                let entry = tailr_protocol::LogEntry {
                     line_num: m.line_num,
                     raw: m.content.clone(),
                     level: detect_level(&m.content),

@@ -1,5 +1,5 @@
 use clap::Parser;
-use logtailer_server::app;
+use tailr_server::app;
 use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 

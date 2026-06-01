@@ -1,5 +1,5 @@
 use crate::session::TailSession;
-use logtailer_protocol::LogEntry;
+use tailr_protocol::LogEntry;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;

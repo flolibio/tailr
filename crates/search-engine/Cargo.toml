@@ -1,10 +1,10 @@
 [package]
-name = "logtailer-search-engine"
+name = "tailr-search-engine"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-logtailer-protocol = { path = "../protocol" }
+tailr-protocol = { path = "../protocol" }
 memmap2 = "0.9"
 grep-matcher = "0.1"
 grep-regex = "0.1"

@@ -4,8 +4,8 @@ pub mod ws;
 
 use axum::Router;
 use dashmap::DashMap;
-use logtailer_search_engine::SearchEngine;
-use logtailer_tail_engine::{FileWatcher, LineIndex};
+use tailr_search_engine::SearchEngine;
+use tailr_tail_engine::{FileWatcher, LineIndex};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;

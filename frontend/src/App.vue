@@ -49,7 +49,7 @@ const matchCount = computed(() => {
   return filteredEntries.value.length
 })
 
-const SETTINGS_KEY = 'logtailer-settings'
+const SETTINGS_KEY = 'tailr-settings'
 
 const defaultSettings: Settings = {
   fontSize: 14,

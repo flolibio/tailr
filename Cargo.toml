@@ -1,14 +1,14 @@
 [package]
-name = "logtailer"
+name = "tailr"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "logtailer"
+name = "tailr"
 path = "src/main.rs"
 
 [dependencies]
-logtailer-server = { path = "crates/server" }
+tailr-server = { path = "crates/server" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

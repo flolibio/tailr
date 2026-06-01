@@ -8,7 +8,7 @@ use grep_searcher::{Sink, SinkContext, SinkContextKind, SinkMatch};
 use memmap2::Mmap;
 use tracing::{debug, warn};
 
-use logtailer_protocol::LogLevel;
+use tailr_protocol::LogLevel;
 
 const MAX_RESULTS: usize = 10000;
 

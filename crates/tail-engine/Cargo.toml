@@ -1,10 +1,10 @@
 [package]
-name = "logtailer-tail-engine"
+name = "tailr-tail-engine"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-logtailer-protocol = { path = "../protocol" }
+tailr-protocol = { path = "../protocol" }
 tokio = { workspace = true }
 notify = { workspace = true }
 memmap2 = { workspace = true }

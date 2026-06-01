@@ -1,12 +1,12 @@
 [package]
-name = "logtailer-server"
+name = "tailr-server"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-logtailer-protocol = { path = "../protocol" }
-logtailer-tail-engine = { path = "../tail-engine" }
-logtailer-search-engine = { path = "../search-engine" }
+tailr-protocol = { path = "../protocol" }
+tailr-tail-engine = { path = "../tail-engine" }
+tailr-search-engine = { path = "../search-engine" }
 axum = { version = "0.7", features = ["ws"] }
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.5", features = ["cors", "fs"] }

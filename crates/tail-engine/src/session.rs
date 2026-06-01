@@ -1,4 +1,4 @@
-use logtailer_protocol::{detect_level, try_parse_json_fields, try_parse_timestamp, LogEntry};
+use tailr_protocol::{detect_level, try_parse_json_fields, try_parse_timestamp, LogEntry};
 use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::{AsyncBufReadExt, AsyncSeekExt, BufReader, SeekFrom};
@@ -188,7 +188,7 @@ async fn count_lines_from_file(path: &std::path::Path) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use logtailer_protocol::LogLevel;
+    use tailr_protocol::LogLevel;
 
     #[test]
     fn test_detect_level_error() {
