@@ -28,7 +28,7 @@ tailr --log /var/log/app /var/log/nginx /path/to/specific.log
 tailr -l /var/log/app -b :8080
 ```
 
-Priority: CLI args > `LOGTAILER_LOG_DIR` env var > `<exe_dir>/logs`.
+Priority: CLI args > `TAILR_LOG_DIR` env var > `<exe_dir>/logs`.
 
 ## Build
 
@@ -69,8 +69,8 @@ Vite proxies `/api` → `http://localhost:3000` and `/ws` → `ws://localhost:30
 
 | Variable | Default | Notes |
 |---|---|---|
-| `LOGTAILER_LOG_DIR` | `<exe_dir>/logs` | Comma-separated list of directories (fallback if no CLI args) |
-| `LOGTAILER_BIND` | `0.0.0.0:3000` | Listen address |
+| `TAILR_LOG_DIR` | `<exe_dir>/logs` | Comma-separated list of directories (fallback if no CLI args) |
+| `TAILR_BIND` | `0.0.0.0:3000` | Listen address |
 | `RUST_LOG` | — | Standard tracing env filter |
 
 ## Testing

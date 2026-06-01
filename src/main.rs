@@ -28,7 +28,7 @@ async fn main() {
 
     let log_paths: Vec<PathBuf> = if cli.log.is_empty() {
         // Fallback to env var or default
-        std::env::var("LOGTAILER_LOG_DIR")
+        std::env::var("TAILR_LOG_DIR")
             .map(|val| val.split(',').map(|s| PathBuf::from(s.trim())).collect())
             .unwrap_or_else(|_| {
                 let default = std::env::current_exe()
