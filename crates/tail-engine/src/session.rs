@@ -188,6 +188,7 @@ async fn count_lines_from_file(path: &std::path::Path) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use logtailer_protocol::LogLevel;
 
     #[test]
     fn test_detect_level_error() {
