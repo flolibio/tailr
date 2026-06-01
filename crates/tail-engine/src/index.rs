@@ -4,7 +4,7 @@ use std::io;
 use std::path::Path;
 use tracing::debug;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct LineIndex {
     pub offsets: Vec<u64>,
     pub file_size: u64,

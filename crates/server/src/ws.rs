@@ -1,10 +1,9 @@
 use axum::extract::ws::{Message, WebSocket};
-use axum::extract::{Query, WebSocketUpgrade, Extension};
+use axum::extract::{WebSocketUpgrade, Extension};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::Router;
 use futures::{SinkExt, StreamExt};
-use serde::Deserialize;
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -75,19 +74,12 @@ impl FileSubscribers {
     }
 }
 
-#[derive(Deserialize)]
-#[allow(dead_code)]
-struct WsParams {
-    path: Option<String>,
-}
-
 pub fn routes() -> Router {
     Router::new().route("/ws", get(ws_handler))
 }
 
 async fn ws_handler(
     ws: WebSocketUpgrade,
-    Query(_params): Query<WsParams>,
     Extension(state): Extension<Arc<AppState>>,
 ) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, state))
@@ -108,7 +100,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                     continue;
                 }
             };
-            if ws_tx.send(Message::Text(json.into())).await.is_err() {
+            if ws_tx.send(Message::Text(json)).await.is_err() {
                 break;
             }
         }

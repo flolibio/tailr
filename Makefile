@@ -1,12 +1,23 @@
-.PHONY: build build-linux build-linux-arm dev clean check release release-linux release-linux-arm frontend
+.PHONY: build build-linux build-linux-arm dev check test test-backend test-frontend clean release release-linux release-linux-arm frontend
 
 # ── Development ──
 
 dev:
 	cargo run
 
+# ── Code Check ──
+
 check:
 	cargo check
+
+test: test-backend test-frontend
+
+test-backend:
+	cargo test
+	cargo clippy -- -D warnings
+
+test-frontend:
+	cd frontend && npx vue-tsc --noEmit
 
 # ── Frontend ──
 

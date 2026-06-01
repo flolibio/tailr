@@ -40,7 +40,7 @@ impl TailSession {
     }
 
     pub async fn check(&mut self) -> std::io::Result<Vec<LogEntry>> {
-        let meta = match tokio::fs::metadata(&path_display(&self.path)).await {
+        let meta = match tokio::fs::metadata(&self.path).await {
             Ok(m) => m,
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
@@ -158,10 +158,6 @@ impl TailSession {
 
         Ok(entries)
     }
-}
-
-fn path_display(path: &PathBuf) -> &std::path::Path {
-    path.as_path()
 }
 
 async fn count_lines_from_file(path: &std::path::Path) -> u64 {

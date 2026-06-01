@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
-#[command(name = "logtailer", version, about = "Log tail and search server")]
+#[command(name = "tailr", version, about = "Log tail and search server")]
 struct Cli {
     /// Log directories or files to serve (can specify multiple)
     #[arg(short, long, num_args = 1..)]
@@ -20,7 +20,7 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::from_default_env()
-                .add_directive("logtailer=info".parse().unwrap()),
+                .add_directive("tailr=info".parse().unwrap()),
         )
         .init();
 

@@ -26,7 +26,7 @@ impl FileWatcher {
             },
             notify::Config::default(),
         )
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
 
         Ok(Self {
             watched: HashMap::new(),
@@ -48,7 +48,7 @@ impl FileWatcher {
 
         self._watcher
             .watch(&path, RecursiveMode::NonRecursive)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        .map_err(std::io::Error::other)?;
 
         info!(path = %path.display(), "started watching");
         Ok(())

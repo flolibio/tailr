@@ -132,8 +132,6 @@ struct SearchParams {
     #[serde(default)]
     regex: Option<bool>,
     #[serde(default)]
-    level: Option<String>,
-    #[serde(default)]
     levels: Option<String>,
     #[serde(default)]
     from: Option<String>,
@@ -185,9 +183,9 @@ async fn list_files(
                     let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
                     let modified = metadata
                         .and_then(|m| m.modified().ok())
-                        .and_then(|t| {
+                        .map(|t| {
                             let dt: chrono::DateTime<chrono::Utc> = t.into();
-                            Some(dt.to_rfc3339())
+                            dt.to_rfc3339()
                         });
                     entries.push(FileEntry {
                         name: file
@@ -261,9 +259,9 @@ fn read_dir_entries(dir: &std::path::Path, entries: &mut Vec<FileEntry>) -> std:
 
         let modified = metadata
             .and_then(|m| m.modified().ok())
-            .and_then(|t| {
+            .map(|t| {
                 let dt: DateTime<Utc> = t.into();
-                Some(dt.to_rfc3339())
+                dt.to_rfc3339()
             });
 
         entries.push(FileEntry {
@@ -434,7 +432,7 @@ async fn file_info(
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<FileInfoData>> {
     let path = PathBuf::from(&params.path);
-    let metadata = match std::fs::metadata(&path) {
+    let metadata = match tokio::fs::metadata(&path).await {
         Ok(m) => m,
         Err(e) => return Json(ApiResponse::err(format!("failed to stat file: {}", e))),
     };
@@ -442,9 +440,9 @@ async fn file_info(
     let modified = metadata
         .modified()
         .ok()
-        .and_then(|t| {
+        .map(|t| {
             let dt: DateTime<Utc> = t.into();
-            Some(dt.to_rfc3339())
+            dt.to_rfc3339()
         });
 
     #[cfg(unix)]
@@ -479,17 +477,7 @@ async fn search(
     let limit = params.limit.unwrap_or(100);
     let is_regex = params.regex.unwrap_or(false);
 
-    let level_filter = params.level.and_then(|l| match l.to_uppercase().as_str() {
-        "ALERT" => Some(tailr_protocol::LogLevel::ALERT),
-        "ERROR" => Some(tailr_protocol::LogLevel::ERROR),
-        "WARN" => Some(tailr_protocol::LogLevel::WARN),
-        "INFO" => Some(tailr_protocol::LogLevel::INFO),
-        "DEBUG" => Some(tailr_protocol::LogLevel::DEBUG),
-        "TRACE" => Some(tailr_protocol::LogLevel::TRACE),
-        _ => None,
-    });
-
-    let levels: Vec<tailr_protocol::LogLevel> = params
+    let all_levels: Vec<tailr_protocol::LogLevel> = params
         .levels
         .map(|s| {
             s.split(',')
@@ -505,14 +493,6 @@ async fn search(
                 .collect()
         })
         .unwrap_or_default();
-
-    // Merge single level into levels vec
-    let mut all_levels = levels;
-    if let Some(lf) = level_filter {
-        if !all_levels.contains(&lf) {
-            all_levels.push(lf);
-        }
-    }
 
     let time_from = params.from.and_then(|s| {
         DateTime::parse_from_rfc3339(&s)
@@ -592,7 +572,7 @@ async fn health(
 async fn get_or_build_index(state: &AppState, path: &PathBuf) -> LineIndex {
     if let Some(entry) = state.line_indices.get(path) {
         let idx = entry.value().clone();
-        let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        let file_size = tokio::fs::metadata(path).await.map(|m| m.len()).unwrap_or(0);
         if file_size > idx.file_size {
             drop(entry);
             let mut idx_mut = idx.clone();

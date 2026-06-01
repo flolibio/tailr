@@ -37,7 +37,7 @@ fn contains_case_insensitive(haystack: &str, needle: &str) -> bool {
         if haystack_bytes[i..i + needle_bytes.len()]
             .iter()
             .zip(needle_bytes.iter())
-            .all(|(a, b)| a.to_ascii_uppercase() == b.to_ascii_uppercase())
+            .all(|(a, b)| a.eq_ignore_ascii_case(b))
         {
             return true;
         }
