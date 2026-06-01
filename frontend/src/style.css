@@ -4,16 +4,16 @@
   --bg: #ffffff;
   --bg-2: #f5f5f4;
   --bg-3: #efefed;
-  --text: #1a1a18;
-  --text-2: #4a4a48;
-  --text-3: #767672;
+  --text: #000000;
+  --text-2: #1a1a18;
+  --text-3: #5c5c58;
   --border: rgba(0,0,0,0.12);
   --border-2: rgba(0,0,0,0.22);
 
   /* Log area layered text (light theme) */
   --log-msg: #2a2a28;
-  --log-ln: #8a8a86;
-  --log-ts: #6a6a66;
+  --log-ln: #73736e;
+  --log-ts: #5a5a56;
   --radius: 8px;
   --radius-lg: 12px;
   --sidebar-w: 220px;
@@ -31,6 +31,8 @@
 
   --accent: #185FA5;
   --accent-light: #E6F1FB;
+  --chip-bg: var(--accent-light);
+  --chip-text: var(--accent);
   --font-sans: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
   --font-size-base: 14px;
@@ -41,9 +43,9 @@
   --bg: #1a1a18;
   --bg-2: #232320;
   --bg-3: #2c2c29;
-  --text: #f0ede8;
-  --text-2: #b8b5b0;
-  --text-3: #8a8782;
+  --text: #f5f5f5;
+  --text-2: #f0ede8;
+  --text-3: #b8b5b0;
   --border: rgba(255,255,255,0.1);
   --border-2: rgba(255,255,255,0.18);
 
@@ -60,6 +62,8 @@
   --c-trace-bg:#242420;  --c-trace-text:#B4B2A9;  --c-trace-border:#444441;
 
   --accent-light: #E6F1FB;
+  --chip-bg: var(--accent-light);
+  --chip-text: var(--accent);
 }
 
 /* Light theme explicit */
@@ -80,6 +84,8 @@
   --c-trace-bg:#F1EFE8;  --c-trace-text:#5F5E5A;  --c-trace-border:#D3D1C7;
 
   --accent-light: #E6F1FB;
+  --chip-bg: var(--accent-light);
+  --chip-text: var(--accent);
 }
 
 /* ── Reset ── */
@@ -126,6 +132,10 @@ body {
 
 ::selection {
   background: rgba(24, 95, 165, 0.25);
+}
+
+:root.dark ::selection {
+  background: rgba(255, 220, 0, 0.3);
 }
 
 /* ── Buttons ── */
@@ -176,7 +186,7 @@ button:disabled {
 /* ── Inputs ── */
 input, select {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 13px;
   background: var(--bg-2);
   color: var(--text);
   border: 1px solid var(--border);
@@ -289,7 +299,7 @@ input[type="range"] {
 }
 
 .sidebar-title {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -353,7 +363,7 @@ input[type="range"] {
   border-radius: var(--radius);
   background: var(--bg-2);
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--text);
   outline: none;
   transition: border-color .15s, background .15s;
@@ -538,6 +548,13 @@ input[type="range"] {
   flex-direction: column;
 }
 
+.log-body, 
+.log-content, 
+input, 
+select {
+  font-family: var(--font-mono);
+}
+
 /* ── Settings ── */
 .settings-panel {
   grid-row: 1 / 5;
@@ -560,7 +577,7 @@ input[type="range"] {
 }
 
 .settings-title {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -613,7 +630,7 @@ input[type="range"] {
 }
 
 .toggle-name {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--text);
 }
 
@@ -692,7 +709,7 @@ input[type="range"] {
   gap: 16px;
   background: var(--bg-2);
   font-size: 11px;
-  color: var(--text-3);
+  color: var(--text);
   flex-shrink: 0;
 }
 

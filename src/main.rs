@@ -11,7 +11,7 @@ struct Cli {
     log: Vec<PathBuf>,
 
     /// Bind address
-    #[arg(short, long, default_value = "0.0.0.0:3000")]
+    #[arg(short, long, default_value = "0.0.0.0:7700")]
     bind: String,
 }
 

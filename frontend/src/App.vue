@@ -4,6 +4,7 @@ import FileBrowser from './components/FileBrowser.vue'
 import LogViewer from './components/LogViewer.vue'
 import FilterBar from './components/FilterBar.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
+import SelectionToolbar from './components/SelectionToolbar.vue'
 import type { Settings } from './components/SettingsPanel.vue'
 import { useLogStream } from './composables/useLogStream'
 
@@ -24,6 +25,14 @@ const settingsCollapsed = ref(true)
 const sidebarCollapsed = ref(false)
 
 const highlightKeywords = computed(() => filterKeywords.value)
+
+const highlightColors = [
+  'rgba(255, 220, 0, 0.4)',
+  'rgba(0, 200, 255, 0.3)',
+  'rgba(255, 100, 255, 0.3)',
+  'rgba(100, 255, 100, 0.3)',
+  'rgba(255, 150, 0, 0.3)',
+]
 
 const filteredEntries = computed(() => {
   let result = entries.value
@@ -56,7 +65,7 @@ const defaultSettings: Settings = {
   autoScroll: true,
   lineWrap: false,
   maxVisibleLines: 50000,
-  darkTheme: false,
+  darkTheme: true,
 }
 
 function loadSettings(): Settings {
@@ -195,6 +204,7 @@ function handleSettingsUpdate(s: Settings): void {
         ref="filterBarRef"
         :current-file="currentFile"
         :keywords="filterKeywords"
+        :colors="highlightColors"
         @add-keyword="addKeyword"
         @remove-keyword="removeKeyword"
         @clear-all="clearAllKeywords"
@@ -260,5 +270,6 @@ function handleSettingsUpdate(s: Settings): void {
       <span v-else-if="isTailMode" class="status-mode">🔴 Live</span>
       <span v-if="filteredEntries.length < entries.length">{{ filteredEntries.length }} shown</span>
     </div>
+    <SelectionToolbar @follow="addKeyword" />
   </div>
 </template>

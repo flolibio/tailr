@@ -57,20 +57,20 @@ make release           # frontend + both Linux targets
 
 ```bash
 # Terminal 1: Rust backend
-cargo run              # starts on 0.0.0.0:3000
+cargo run              # starts on 0.0.0.0:7700
 
 # Terminal 2: Vite dev server (with proxy)
-cd frontend && npm run dev   # starts on :5173, proxies /api and /ws to :3000
+cd frontend && npm run dev   # starts on :5173, proxies /api and /ws to :7700
 ```
 
-Vite proxies `/api` → `http://localhost:3000` and `/ws` → `ws://localhost:3000`.
+Vite proxies `/api` → `http://localhost:7700` and `/ws` → `ws://localhost:7700`.
 
 ## Environment variables
 
 | Variable | Default | Notes |
 |---|---|---|
 | `TAILR_LOG_DIR` | `<exe_dir>/logs` | Comma-separated list of directories (fallback if no CLI args) |
-| `TAILR_BIND` | `0.0.0.0:3000` | Listen address |
+| `TAILR_BIND` | `0.0.0.0:7700` | Listen address |
 | `RUST_LOG` | — | Standard tracing env filter |
 
 ## Testing

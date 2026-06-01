@@ -42,7 +42,7 @@ tailr --log /var/log/syslog
 tailr --log /var/log -b 127.0.0.1:8080
 ```
 
-Open `http://localhost:3000` in your browser.
+Open `http://localhost:7700` in your browser.
 
 ## Installation
 
@@ -81,7 +81,7 @@ tailr [OPTIONS]
 
 Options:
   -l, --log <LOG>...  Log directories or files to serve (can specify multiple)
-  -b, --bind <BIND>   Bind address [default: 0.0.0.0:3000]
+      -b, --bind <BIND>   Bind address [default: 0.0.0.0:7700]
   -h, --help          Print help
   -V, --version       Print version
 ```
@@ -93,7 +93,7 @@ Options:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TAILR_LOG_DIR` | `<exe_dir>/logs` | Comma-separated log directories (fallback if no CLI args) |
-| `TAILR_BIND` | `0.0.0.0:3000` | Listen address |
+| `TAILR_BIND` | `0.0.0.0:7700` | Listen address |
 | `RUST_LOG` | — | Tracing filter (e.g. `tailr=debug`) |
 
 ## API
@@ -131,7 +131,7 @@ cargo run
 cd frontend && npm run dev
 ```
 
-Vite proxies `/api` and `/ws` to `http://localhost:3000`.
+Vite proxies `/api` and `/ws` to `http://localhost:7700`.
 
 ### Testing
 

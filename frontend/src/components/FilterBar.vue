@@ -4,6 +4,7 @@ import { ref } from 'vue'
 const props = defineProps<{
   currentFile: string | null
   keywords: string[]
+  colors?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -53,7 +54,7 @@ defineExpose({ focus })
         </svg>
       </span>
       <div class="filter-content">
-        <span v-for="(kw, i) in keywords" :key="kw" class="chip">
+        <span v-for="(kw, i) in keywords" :key="kw" class="chip" :style="colors ? { background: colors[i % colors.length], color: 'inherit' } : {}">
           <span class="chip-text">{{ kw }}</span>
           <button class="chip-remove" @click="emit('removeKeyword', i)">✕</button>
         </span>
@@ -126,14 +127,15 @@ defineExpose({ focus })
   align-items: center;
   gap: 4px;
   padding: 2px 6px 2px 8px;
-  background: var(--accent-light);
+  background: var(--chip-bg);
   border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 12px;
   font-family: var(--font-mono);
-  color: var(--text);
+  color: var(--chip-text);
   white-space: nowrap;
   flex-shrink: 0;
+  transition: background .15s;
 }
 
 .chip-text {
