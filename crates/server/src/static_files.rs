@@ -37,9 +37,9 @@ async fn serve_frontend(uri: axum::http::Uri) -> Response {
         StatusCode::OK,
         Html(
             r#"<!DOCTYPE html>
-<html><head><title>Logtailer</title></head>
+<html><head><title>Tailr</title></head>
 <body style="font-family:monospace;background:#1e1e1e;color:#d4d4d4;padding:40px">
-<h1>Logtailer</h1>
+<h1>Tailr</h1>
 <p>Frontend not built. Run <code>cd frontend && npm run build</code> first.</p>
 </body></html>"#
                 .to_string(),

@@ -51,7 +51,7 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind(&cli.bind).await.unwrap();
     tracing::info!(
-        "logtailer listening on {} (paths: {:?})",
+        "tailr listening on {} (paths: {:?})",
         listener.local_addr().unwrap(),
         log_paths
     );

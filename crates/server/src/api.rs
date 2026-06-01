@@ -171,7 +171,7 @@ async fn list_files(
         Some(p) => {
             // List a specific directory
             let dir = PathBuf::from(p);
-            if let Err(e) = read_dir_entries(&dir, &mut entries) {
+            if let Err(e) = read_dir_entries(&dir, &mut entries).await {
                 return Json(ApiResponse::err(format!("failed to read directory: {}", e)));
             }
         }
@@ -179,7 +179,7 @@ async fn list_files(
             // Add individually specified log files
             for file in &state.log_files {
                 if file.exists() && file.is_file() {
-                    let metadata = std::fs::metadata(file).ok();
+                    let metadata = tokio::fs::metadata(file).await.ok();
                     let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
                     let modified = metadata
                         .and_then(|m| m.modified().ok())
@@ -218,7 +218,7 @@ async fn list_files(
             // If only one dir configured and no files, list its contents directly
             if state.log_dirs.len() == 1 && state.log_files.is_empty() {
                 entries.clear();
-                if let Err(e) = read_dir_entries(&state.log_dirs[0], &mut entries) {
+                if let Err(e) = read_dir_entries(&state.log_dirs[0], &mut entries).await {
                     return Json(ApiResponse::err(format!("failed to read directory: {}", e)));
                 }
             }
@@ -234,26 +234,22 @@ async fn list_files(
     Json(ApiResponse::ok(FileListData { entries }))
 }
 
-fn read_dir_entries(dir: &std::path::Path, entries: &mut Vec<FileEntry>) -> std::io::Result<()> {
-    let read_dir = std::fs::read_dir(dir)?;
-    for entry in read_dir {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
+async fn read_dir_entries(dir: &std::path::Path, entries: &mut Vec<FileEntry>) -> std::io::Result<()> {
+    let mut read_dir = tokio::fs::read_dir(dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
         let name = entry.file_name().to_string_lossy().to_string();
         if name.starts_with('.') {
             continue;
         }
-        let metadata = entry.metadata().ok();
+        let metadata = entry.metadata().await.ok();
         let is_dir = metadata.as_ref().map(|m| m.is_dir()).unwrap_or(false);
         let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
 
         if is_dir {
-            if !dir_has_text_files(&entry.path()) {
+            if !dir_has_text_files(&entry.path()).await {
                 continue;
             }
-        } else if !is_text_file(&entry.path(), &name) {
+        } else if !is_text_file(&entry.path(), &name).await {
             continue;
         }
 
@@ -275,36 +271,38 @@ fn read_dir_entries(dir: &std::path::Path, entries: &mut Vec<FileEntry>) -> std:
     Ok(())
 }
 
-fn dir_has_text_files(dir: &std::path::Path) -> bool {
-    dir_has_text_files_inner(dir, 0)
+async fn dir_has_text_files(dir: &std::path::Path) -> bool {
+    dir_has_text_files_inner(dir, 0).await
 }
 
-fn dir_has_text_files_inner(dir: &std::path::Path, depth: u32) -> bool {
-    if depth > 2 {
-        return true;
-    }
-    let read_dir = match std::fs::read_dir(dir) {
-        Ok(r) => r,
-        Err(_) => return false,
-    };
-    for entry in read_dir.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') {
-            continue;
-        }
-        let is_dir = entry.metadata().map(|m| m.is_dir()).unwrap_or(false);
-        if is_dir {
-            if dir_has_text_files_inner(&entry.path(), depth + 1) {
-                return true;
-            }
-        } else if is_text_file(&entry.path(), &name) {
+fn dir_has_text_files_inner(dir: &std::path::Path, depth: u32) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + '_>> {
+    Box::pin(async move {
+        if depth > 2 {
             return true;
         }
-    }
-    false
+        let mut read_dir = match tokio::fs::read_dir(dir).await {
+            Ok(r) => r,
+            Err(_) => return false,
+        };
+        while let Some(entry) = read_dir.next_entry().await.unwrap_or(None) {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') {
+                continue;
+            }
+            let is_dir = entry.metadata().await.map(|m| m.is_dir()).unwrap_or(false);
+            if is_dir {
+                if dir_has_text_files_inner(&entry.path(), depth + 1).await {
+                    return true;
+                }
+            } else if is_text_file(&entry.path(), &name).await {
+                return true;
+            }
+        }
+        false
+    })
 }
 
-fn is_text_file(path: &std::path::Path, _name: &str) -> bool {
+async fn is_text_file(path: &std::path::Path, _name: &str) -> bool {
     let text_extensions: &[&str] = &[
         "log", "txt", "text", "out", "err", "stdout", "stderr",
         "json", "xml", "yaml", "yml", "toml", "ini", "conf", "cfg",
@@ -333,20 +331,20 @@ fn is_text_file(path: &std::path::Path, _name: &str) -> bool {
         if binary_extensions.iter().any(|e| e.eq_ignore_ascii_case(&lower)) {
             return false;
         }
-        return is_likely_text(path);
+        return is_likely_text(path).await;
     }
 
-    is_likely_text(path)
+    is_likely_text(path).await
 }
 
-fn is_likely_text(path: &std::path::Path) -> bool {
-    use std::io::Read;
-    let mut file = match std::fs::File::open(path) {
+async fn is_likely_text(path: &std::path::Path) -> bool {
+    use tokio::io::AsyncReadExt;
+    let mut file = match tokio::fs::File::open(path).await {
         Ok(f) => f,
         Err(_) => return false,
     };
     let mut buf = [0u8; 512];
-    let n = match file.read(&mut buf) {
+    let n = match file.read(&mut buf).await {
         Ok(n) => n,
         Err(_) => return false,
     };
