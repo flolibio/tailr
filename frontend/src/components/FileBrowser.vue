@@ -26,6 +26,7 @@ interface TreeNode {
 const tree = ref<TreeNode[]>([])
 const loading = ref(false)
 const filterText = ref('')
+const copiedPath = ref<string | null>(null)
 
 const filteredTree = computed(() => {
   const q = filterText.value.trim().toLowerCase()
@@ -113,6 +114,28 @@ async function refresh(): Promise<void> {
   }
 }
 
+async function copyPath(path: string, event: MouseEvent): Promise<void> {
+  event.stopPropagation()
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(path)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = path
+      textarea.style.position = 'fixed'
+      textarea.style.left = '-9999px'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    copiedPath.value = path
+    setTimeout(() => {
+      if (copiedPath.value === path) copiedPath.value = null
+    }, 1500)
+  } catch {}
+}
+
 onMounted(() => {
   refresh()
 })
@@ -166,6 +189,10 @@ onMounted(() => {
             <div class="file-name">{{ node.name }}</div>
             <div v-if="!node.isDir && node.size !== undefined" class="file-size">{{ formatSize(node.size) }}</div>
           </div>
+          <button class="copy-path-btn" @click="copyPath(node.path, $event)" title="Copy path">
+            <svg v-if="copiedPath === node.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
         </div>
         <template v-if="node.isDir && node.expanded">
           <div
@@ -187,6 +214,10 @@ onMounted(() => {
               <div class="file-name">{{ child.name }}</div>
               <div v-if="!child.isDir && child.size !== undefined" class="file-size">{{ formatSize(child.size) }}</div>
             </div>
+            <button class="copy-path-btn" @click="copyPath(child.path, $event)" title="Copy path">
+              <svg v-if="copiedPath === child.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
           </div>
         </template>
       </template>
@@ -312,6 +343,32 @@ onMounted(() => {
 
 .file-item.child {
   padding-left: 24px;
+}
+
+.file-item:hover .copy-path-btn {
+  opacity: 1;
+}
+
+.copy-path-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity .15s, color .12s, background .12s;
+  flex-shrink: 0;
+}
+
+.copy-path-btn:hover {
+  background: var(--bg-3);
+  color: var(--text);
 }
 
 .file-dot {
