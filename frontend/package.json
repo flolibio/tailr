@@ -1,8 +1,11 @@
 {
-  "name": "frontend",
+  "name": "tailr-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Web UI frontend for tailr, a log tail/search server.",
   "type": "module",
+  "author": "Gavin <wunamesst@163.com>",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
