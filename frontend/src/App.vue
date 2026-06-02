@@ -15,6 +15,7 @@ const {
   maxLines,
   wsClient,
   loadInitial,
+  setTailMode,
 } = useLogStream()
 
 const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
@@ -63,7 +64,7 @@ const SETTINGS_KEY = 'tailr-settings'
 const defaultSettings: Settings = {
   fontSize: 14,
   autoScroll: true,
-  lineWrap: false,
+  lineWrap: true,
   maxVisibleLines: 50000,
   darkTheme: true,
 }
@@ -126,18 +127,34 @@ function clearAllKeywords(): void {
   filterKeywords.value = []
 }
 
-function handleScrollUp(): void {
+function handleStickToBottom(): void {
+  setTailMode(true)
+  settings.autoScroll = true
+  logViewerRef.value?.scrollToBottom()
+}
+
+function toggleFollowTail(): void {
   if (isTailMode.value) {
-    isTailMode.value = false
+    setTailMode(false)
     settings.autoScroll = false
+  } else {
+    setTailMode(true)
+    settings.autoScroll = true
+    logViewerRef.value?.scrollToBottom()
   }
+}
+
+function toggleLineWrap(): void {
+  settings.lineWrap = !settings.lineWrap
 }
 
 function handleAutoScrollChange(enabled: boolean): void {
   settings.autoScroll = enabled
   if (enabled) {
-    isTailMode.value = true
+    setTailMode(true)
     logViewerRef.value?.scrollToBottom()
+  } else {
+    setTailMode(false)
   }
 }
 
@@ -242,7 +259,7 @@ function handleSettingsUpdate(s: Settings): void {
         :line-wrap="settings.lineWrap"
         :max-visible-lines="settings.maxVisibleLines"
         :highlight-keywords="highlightKeywords"
-        @scroll-up="handleScrollUp"
+        @stick-to-bottom="handleStickToBottom"
       />
     </main>
 
@@ -266,9 +283,17 @@ function handleSettingsUpdate(s: Settings): void {
         <span>{{ currentFile ? currentFile.split('/').pop() : 'No file' }}</span>
       </div>
       <span>{{ entries.length }} lines</span>
-      <span v-if="filterKeywords.length" class="status-mode">🔴 Live · {{ matchCount }} matches · {{ filterKeywords.join(' + ') }}</span>
-      <span v-else-if="isTailMode" class="status-mode">🔴 Live</span>
       <span v-if="filteredEntries.length < entries.length">{{ filteredEntries.length }} shown</span>
+      <span v-if="filterKeywords.length" class="status-filter-info">{{ matchCount }} matches · {{ filterKeywords.join(' + ') }}</span>
+      <div class="status-spacer"></div>
+      <button class="status-toggle" :class="{ active: isTailMode }" @click="toggleFollowTail" :title="isTailMode ? 'Pause following tail' : 'Start following tail'">
+        <svg v-if="isTailMode" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        <svg v-else width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+        <span>Follow</span>
+      </button>
+      <button class="status-toggle" :class="{ active: settings.lineWrap }" @click="toggleLineWrap" :title="settings.lineWrap ? 'Disable line wrap' : 'Enable line wrap'">
+        <span>Wrap</span>
+      </button>
     </div>
     <SelectionToolbar @follow="addKeyword" />
   </div>

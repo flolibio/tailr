@@ -61,6 +61,8 @@
   --c-debug-bg:#152108;  --c-debug-text:#97C459;  --c-debug-border:#173404;
   --c-trace-bg:#242420;  --c-trace-text:#B4B2A9;  --c-trace-border:#444441;
 
+  --c-follow-bg: #022C22; --c-follow-text: #34D399; --c-follow-border: #064E3B; --c-follow-hover: #064E3B;
+
   --accent-light: #E6F1FB;
   --chip-bg: var(--accent-light);
   --chip-text: var(--accent);
@@ -82,6 +84,8 @@
   --c-info-bg: #E6F1FB;  --c-info-text: #0C447C;  --c-info-border: #B5D4F4;
   --c-debug-bg:#EAF3DE;  --c-debug-text:#3B6D11;  --c-debug-border:#C0DD97;
   --c-trace-bg:#F1EFE8;  --c-trace-text:#5F5E5A;  --c-trace-border:#D3D1C7;
+
+  --c-follow-bg: #ECFDF5; --c-follow-text: #065F46; --c-follow-border: #A7F3D0; --c-follow-hover: #D1FAE5;
 
   --accent-light: #E6F1FB;
   --chip-bg: var(--accent-light);
@@ -724,6 +728,60 @@ select {
   height: 5px;
   border-radius: 50%;
   background: #1D9E75;
+}
+
+.status-spacer {
+  flex: 1;
+}
+
+.status-filter-info {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.status-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+  user-select: none;
+}
+
+.status-toggle:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
+.status-toggle.active {
+  background: var(--c-follow-bg);
+  color: var(--c-follow-text);
+  border-color: var(--c-follow-border);
+}
+
+.status-toggle.active:hover {
+  background: var(--c-follow-hover);
+}
+
+.toggle-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition: background .12s;
+}
+
+.toggle-indicator.on {
+  background: #1D9E75;
+  box-shadow: 0 0 0 2px rgba(29, 158, 117, 0.18);
 }
 
 /* ── Empty State ── */

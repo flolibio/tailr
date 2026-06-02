@@ -12,11 +12,11 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  scrollUp: []
   jumpToLine: [lineNum: number]
+  stickToBottom: []
 }>()
 
-const lineHeight = computed(() => props.lineHeight ?? 20)
+const lineHeight = computed(() => props.lineHeight ?? 26)
 const containerRef = ref<HTMLDivElement | null>(null)
 const scrollTop = ref(0)
 const containerHeight = ref(600)
@@ -26,21 +26,95 @@ const userScrolledUp = ref(false)
 const highlightedLine = ref<number | null>(null)
 let highlightTimer: ReturnType<typeof setTimeout> | null = null
 
+// ── Measurement-based virtual scrolling ──
+// Fixed-height math breaks the moment any row wraps or is expanded:
+// totalHeight underestimates, scroll-spacer is too short, content beyond it
+// becomes unreachable, and scrollHeight jumps on every re-render causing
+// flicker. We measure actual rendered heights and use cumulative offsets.
+const measuredHeights = ref<Map<number, number>>(new Map())
+const heightsVersion = ref(0)
+const rowRefs = new Map<number, HTMLElement>()
+
+function getRowHeight(lineNum: number): number {
+  return measuredHeights.value.get(lineNum) ?? lineHeight.value
+}
+
+let _sumsSig = ''
+let _prefixSums: Float64Array = new Float64Array(0)
+function getPrefixSums(): Float64Array {
+  const sig = `${props.entries.length}|${heightsVersion.value}`
+  if (sig === _sumsSig) return _prefixSums
+  const sums = new Float64Array(props.entries.length + 1)
+  sums[0] = 0
+  for (let i = 0; i < props.entries.length; i++) {
+    sums[i + 1] = sums[i] + getRowHeight(props.entries[i].lineNum)
+  }
+  _sumsSig = sig
+  _prefixSums = sums
+  return sums
+}
+
 const visibleRange = computed(() => {
-  const start = Math.floor(scrollTop.value / lineHeight.value)
-  const visibleCount = Math.ceil(containerHeight.value / lineHeight.value) + 2
-  const startIndex = Math.max(0, start - 5)
-  const endIndex = Math.min(props.entries.length, start + visibleCount + 5)
-  return { startIndex, endIndex }
+  heightsVersion.value
+  props.entries
+  const sums = getPrefixSums()
+  // Binary search: largest i with sums[i] <= scrollTop
+  const target = scrollTop.value
+  let lo = 0, hi = props.entries.length
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (sums[mid] <= target) lo = mid
+    else hi = mid - 1
+  }
+  const startIndex = Math.max(0, lo - 5)
+  // Walk forward until viewport is covered (plus buffer)
+  let endIndex = startIndex
+  let cum = sums[startIndex]
+  const limit = scrollTop.value + containerHeight.value + lineHeight.value * 4
+  while (endIndex < props.entries.length && cum < limit) {
+    cum += getRowHeight(props.entries[endIndex].lineNum)
+    endIndex++
+  }
+  return { startIndex, endIndex: Math.min(props.entries.length, endIndex + 5) }
 })
 
 const visibleEntries = computed(() => {
   return props.entries.slice(visibleRange.value.startIndex, visibleRange.value.endIndex)
 })
 
-const totalHeight = computed(() => props.entries.length * lineHeight.value)
+const totalHeight = computed(() => {
+  heightsVersion.value
+  props.entries
+  const sums = getPrefixSums()
+  return sums[props.entries.length] || 0
+})
 
-const offsetY = computed(() => visibleRange.value.startIndex * lineHeight.value)
+const offsetY = computed(() => {
+  heightsVersion.value
+  props.entries
+  const sums = getPrefixSums()
+  return sums[visibleRange.value.startIndex] || 0
+})
+
+function setRowRef(lineNum: number, el: any): void {
+  if (el) {
+    rowRefs.set(lineNum, el as HTMLElement)
+  } else {
+    rowRefs.delete(lineNum)
+  }
+}
+
+function measureVisibleRows(): void {
+  let changed = false
+  for (const [lineNum, el] of rowRefs.entries()) {
+    const h = el.offsetHeight
+    if (h > 0 && measuredHeights.value.get(lineNum) !== h) {
+      measuredHeights.value.set(lineNum, h)
+      changed = true
+    }
+  }
+  if (changed) heightsVersion.value++
+}
 
 function getBadgeClass(level: string): string {
   const l = level.toLowerCase()
@@ -86,7 +160,6 @@ function onScroll(): void {
   if (distFromBottom > 100) {
     showNewLogsButton.value = true
     userScrolledUp.value = true
-    emit('scrollUp')
   } else {
     showNewLogsButton.value = false
     userScrolledUp.value = false
@@ -95,6 +168,7 @@ function onScroll(): void {
 
 function scrollToBottom(): void {
   if (!containerRef.value) return
+  containerRef.value.scrollTop = containerRef.value.scrollHeight
   requestAnimationFrame(() => {
     if (containerRef.value) {
       containerRef.value.scrollTop = containerRef.value.scrollHeight
@@ -104,11 +178,17 @@ function scrollToBottom(): void {
   userScrolledUp.value = false
 }
 
+function onNewLogsClick(): void {
+  emit('stickToBottom')
+  scrollToBottom()
+}
+
 function scrollToLine(lineNum: number): void {
   userScrolledUp.value = true
   const index = props.entries.findIndex((e) => e.lineNum === lineNum)
   if (index >= 0 && containerRef.value) {
-    containerRef.value.scrollTop = index * lineHeight.value
+    const sums = getPrefixSums()
+    containerRef.value.scrollTop = sums[index] || 0
     if (highlightTimer) clearTimeout(highlightTimer)
     highlightedLine.value = lineNum
     highlightTimer = setTimeout(() => {
@@ -200,10 +280,19 @@ function checkTruncation(): void {
 
 watch(() => props.entries.length, () => {
   checkTruncation()
+  measureVisibleRows()
 })
 
 watch(visibleEntries, () => {
   checkTruncation()
+  measureVisibleRows()
+})
+
+watch([expandedLines, () => props.lineWrap], () => {
+  measuredHeights.value.clear()
+  rowRefs.clear()
+  heightsVersion.value++
+  nextTick(measureVisibleRows)
 })
 
 const HIGHLIGHT_COLORS = [
@@ -241,15 +330,10 @@ function escapeHtml(str: string): string {
 }
 
 function toggleExpand(lineNum: number): void {
-  if (expandedLines.value.has(lineNum)) {
-    expandedLines.value.delete(lineNum)
-  } else {
-    expandedLines.value.add(lineNum)
-  }
-}
-
-function shouldExpand(entry: LogEntry): boolean {
-  return isJson(entry.raw) || truncatedLines.value.has(entry.lineNum)
+  const next = new Set(expandedLines.value)
+  if (next.has(lineNum)) next.delete(lineNum)
+  else next.add(lineNum)
+  expandedLines.value = next
 }
 
 watch(
@@ -270,6 +354,12 @@ watch(
     }
   },
 )
+
+watch(heightsVersion, () => {
+  if (props.isTailMode && !userScrolledUp.value) {
+    nextTick(scrollToBottom)
+  }
+})
 
 let resizeObserver: ResizeObserver | null = null
 
@@ -308,6 +398,7 @@ defineExpose({ scrollToBottom, scrollToLine })
           <div
             v-for="entry in visibleEntries"
             :key="entry.lineNum"
+            :ref="(el) => setRowRef(entry.lineNum, el)"
             class="log-row"
             :class="[
               'level-' + entry.level.toLowerCase(),
@@ -316,7 +407,7 @@ defineExpose({ scrollToBottom, scrollToLine })
           >
             <span v-if="entry.timestamp" class="col-ts">{{ formatTimestamp(entry.timestamp) }}</span>
             <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)">{{ getBadgeText(entry.level) }}</span></span>
-            <span class="col-msg" :ref="(el) => setMsgRef(entry.lineNum, el)" @click="(!expandedLines.has(entry.lineNum) && shouldExpand(entry)) ? toggleExpand(entry.lineNum) : null">
+            <span class="col-msg" :ref="(el) => setMsgRef(entry.lineNum, el)">
               <template v-if="isJson(entry.raw)">
                 <button class="json-toggle" @click.stop="toggleExpand(entry.lineNum)">
                   {{ expandedLines.has(entry.lineNum) ? '▾' : '▸' }}
@@ -351,7 +442,7 @@ defineExpose({ scrollToBottom, scrollToLine })
     <button
       v-if="showNewLogsButton"
       class="new-logs-button"
-      @click="scrollToBottom"
+      @click="onNewLogsClick"
     >
       ↓ New logs
     </button>
@@ -475,8 +566,8 @@ defineExpose({ scrollToBottom, scrollToLine })
 .badge-alert { color: #FF3B30; }
 .badge-error { color: #FF453A; }
 .badge-warn  { color: #FF9F0A; }
-.badge-info  { color: #30D158; }
-.badge-debug { color: #64D2FF; }
+.badge-info  { color: #64D2FF; }
+.badge-debug { color: #30D158; }
 .badge-trace { color: #BF5AF2; }
 .badge-unknown { color: #666666; }
 
@@ -490,13 +581,6 @@ defineExpose({ scrollToBottom, scrollToLine })
   display: flex;
   align-items: center;
   gap: 4px;
-  cursor: pointer;
-}
-
-.col-msg:hover {
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 3px;
 }
 
 .col-actions {

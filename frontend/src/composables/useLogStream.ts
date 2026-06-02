@@ -1,4 +1,4 @@
-import { ref, shallowRef, triggerRef } from 'vue'
+import { ref, shallowRef } from 'vue'
 import { WSClient } from '../services/websocket'
 import type { LogEntry } from '../services/api'
 import { getFileTail, getFileContent } from '../services/api'
@@ -10,6 +10,7 @@ export function useLogStream() {
   const totalLines = ref(0)
   const isLoading = ref(false)
   const maxLines = ref(50000)
+  const pendingEntries = ref<LogEntry[]>([])
 
   const wsClient = new WSClient()
   wsClient.connect()
@@ -31,13 +32,29 @@ export function useLogStream() {
   }
 
   function appendEntries(newEntries: LogEntry[]): void {
+    if (!isTailMode.value) {
+      pendingEntries.value = [...pendingEntries.value, ...newEntries]
+      return
+    }
     const arr = entries.value
     arr.push(...newEntries)
     if (arr.length > maxLines.value) {
       arr.splice(0, arr.length - maxLines.value)
     }
     totalLines.value = arr.length
-    triggerRef(entries)
+    entries.value = [...arr]
+  }
+
+  function drainPending(): void {
+    if (pendingEntries.value.length === 0) return
+    const arr = entries.value
+    arr.push(...pendingEntries.value)
+    if (arr.length > maxLines.value) {
+      arr.splice(0, arr.length - maxLines.value)
+    }
+    totalLines.value = arr.length
+    entries.value = [...arr]
+    pendingEntries.value = []
   }
 
   function selectFile(path: string): void {
@@ -142,6 +159,16 @@ export function useLogStream() {
 
   function toggleTailMode(): void {
     isTailMode.value = !isTailMode.value
+    if (isTailMode.value) {
+      drainPending()
+    }
+  }
+
+  function setTailMode(val: boolean): void {
+    isTailMode.value = val
+    if (val) {
+      drainPending()
+    }
   }
 
   return {
@@ -151,10 +178,12 @@ export function useLogStream() {
     totalLines,
     isLoading,
     maxLines,
+    pendingEntries,
     wsClient,
     selectFile,
     loadInitial,
     loadMore,
     toggleTailMode,
+    setTailMode,
   }
 }
