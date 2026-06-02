@@ -13,6 +13,8 @@ const {
   entries,
   isTailMode,
   maxLines,
+  totalLines,
+  isLoading,
   wsClient,
   loadInitial,
   setTailMode,
@@ -247,6 +249,10 @@ function handleSettingsUpdate(s: Settings): void {
       <div v-if="!currentFile" class="empty-state">
         <div class="empty-text">Select a file to start viewing logs</div>
       </div>
+      <div v-else-if="isLoading" class="empty-state">
+        <div class="loading-spinner"></div>
+        <div class="empty-text">Loading...</div>
+      </div>
       <div v-else-if="filteredEntries.length === 0" class="empty-state">
         <div class="empty-text">{{ filterKeywords.length ? 'No matching logs' : 'Waiting for log data...' }}</div>
       </div>
@@ -282,7 +288,8 @@ function handleSettingsUpdate(s: Settings): void {
         <div class="status-dot"></div>
         <span>{{ currentFile ? currentFile.split('/').pop() : 'No file' }}</span>
       </div>
-      <span>{{ entries.length }} lines</span>
+      <span v-if="entries.length === totalLines">{{ entries.length }} lines</span>
+      <span v-else>{{ entries.length }} / {{ totalLines }} lines</span>
       <span v-if="filteredEntries.length < entries.length">{{ filteredEntries.length }} shown</span>
       <span v-if="filterKeywords.length" class="status-filter-info">{{ matchCount }} matches · {{ filterKeywords.join(' + ') }}</span>
       <div class="status-spacer"></div>

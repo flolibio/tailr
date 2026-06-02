@@ -17,17 +17,14 @@ pub struct TailSession {
 }
 
 impl TailSession {
-    pub async fn new(path: PathBuf) -> std::io::Result<Self> {
+    pub async fn new(path: PathBuf, initial_lines: u64) -> std::io::Result<Self> {
         let meta = tokio::fs::metadata(&path).await?;
         let inode = meta.ino();
         let size = meta.len();
 
         let file = File::open(&path).await?;
 
-        // Count existing non-empty lines so line_num continues correctly
-        let existing_lines = count_lines_from_file(&path).await;
-
-        info!(path = %path.display(), inode, size, existing_lines, "TailSession opened");
+        info!(path = %path.display(), inode, size, initial_lines, "TailSession opened");
 
         Ok(Self {
             path,
@@ -35,7 +32,7 @@ impl TailSession {
             offset: size,
             inode,
             seq: 0,
-            line_num: existing_lines,
+            line_num: initial_lines,
         })
     }
 
@@ -160,27 +157,6 @@ impl TailSession {
     }
 }
 
-async fn count_lines_from_file(path: &std::path::Path) -> u64 {
-    use tokio::io::{AsyncBufReadExt, BufReader};
-
-    let file = match tokio::fs::File::open(path).await {
-        Ok(f) => f,
-        Err(_) => return 0,
-    };
-
-    let reader = BufReader::new(file);
-    let mut lines = reader.lines();
-    let mut count: u64 = 0;
-
-    while let Ok(Some(line)) = lines.next_line().await {
-        if !line.trim().is_empty() {
-            count += 1;
-        }
-    }
-
-    count
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,7 +210,7 @@ mod tests {
         f.flush().unwrap();
 
         let initial_size = f.as_file().metadata().unwrap().len();
-        let mut session = TailSession::new(f.path().to_path_buf()).await.unwrap();
+        let mut session = TailSession::new(f.path().to_path_buf(), 2).await.unwrap();
         assert_eq!(session.offset, initial_size);
 
         // Truncate and rewrite

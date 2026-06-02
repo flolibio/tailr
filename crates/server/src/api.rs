@@ -85,6 +85,7 @@ struct FileContentParams {
 #[serde(rename_all = "camelCase")]
 struct FileTailData {
     entries: Vec<LogEntry>,
+    total_lines: u64,
 }
 
 #[derive(Deserialize)]
@@ -414,6 +415,7 @@ async fn file_tail(
     if total == 0 {
         return Json(ApiResponse::ok(FileTailData {
             entries: Vec::new(),
+            total_lines: 0,
         }));
     }
 
@@ -422,7 +424,7 @@ async fn file_tail(
 
     let entries = read_lines_from(&path, start_byte, lines, start_line).await;
 
-    Json(ApiResponse::ok(FileTailData { entries }))
+    Json(ApiResponse::ok(FileTailData { entries, total_lines: total }))
 }
 
 async fn file_info(

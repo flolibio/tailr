@@ -76,11 +76,10 @@ export async function getFileContent(
 export async function getFileTail(
   path: string,
   lines: number,
-): Promise<LogEntry[]> {
-  const data = await request<{ entries: LogEntry[] }>(
+): Promise<{ entries: LogEntry[]; totalLines: number }> {
+  return request<{ entries: LogEntry[]; totalLines: number }>(
     `/api/file/tail?path=${encodeURIComponent(path)}&lines=${lines}`,
   )
-  return data.entries ?? []
 }
 
 export async function getFileInfo(path: string): Promise<FileInfo> {

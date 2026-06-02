@@ -15,6 +15,7 @@ use uuid::Uuid;
 use tailr_protocol::{LogEntry, WSMessage};
 
 use crate::AppState;
+use tailr_tail_engine::LineIndex;
 
 const RING_BUFFER_SIZE: usize = 2000;
 const CLIENT_CHANNEL_SIZE: usize = 512;
@@ -168,9 +169,24 @@ async fn handle_subscribe(
 ) {
     let path_buf = PathBuf::from(path);
 
+    let initial_lines = {
+        if let Some(entry) = state.line_indices.get(&path_buf) {
+            entry.value().total_lines()
+        } else {
+            match LineIndex::build(&path_buf) {
+                Ok(idx) => {
+                    let lines = idx.total_lines();
+                    state.line_indices.insert(path_buf.clone(), idx);
+                    lines
+                }
+                Err(_) => 0,
+            }
+        }
+    };
+
     {
         let mut watcher = state.watcher.lock().await;
-        if let Err(e) = watcher.watch(path_buf.clone()).await {
+        if let Err(e) = watcher.watch(path_buf.clone(), initial_lines).await {
             warn!(path = %path, error = %e, "failed to start watching");
             let _ = tx
                 .send(WSMessage::Error {

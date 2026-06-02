@@ -37,13 +37,13 @@ impl FileWatcher {
         })
     }
 
-    pub async fn watch(&mut self, path: PathBuf) -> std::io::Result<()> {
+    pub async fn watch(&mut self, path: PathBuf, initial_lines: u64) -> std::io::Result<()> {
         if self.watched.contains_key(&path) {
             debug!(path = %path.display(), "already watching");
             return Ok(());
         }
 
-        let session = TailSession::new(path.clone()).await?;
+        let session = TailSession::new(path.clone(), initial_lines).await?;
         self.watched.insert(path.clone(), session);
 
         self._watcher

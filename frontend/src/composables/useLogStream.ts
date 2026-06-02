@@ -100,9 +100,13 @@ export function useLogStream() {
     wsClient.subscribe(path)
   }
 
-  async function loadInitial(path: string, lines: number = 1000): Promise<void> {
+  async function loadInitial(path: string, lines: number = 100): Promise<void> {
     isLoading.value = true
     cleanupWsListeners()
+
+    if (currentFile.value) {
+      wsClient.unsubscribe(currentFile.value)
+    }
 
     // Register WS listeners for real-time updates
     unsubscribeAppend = wsClient.on('append', (p: unknown, newEntries: unknown) => {
@@ -128,8 +132,8 @@ export function useLogStream() {
 
     try {
       const data = await getFileTail(path, lines)
-      entries.value = data
-      totalLines.value = data.length
+      entries.value = data.entries
+      totalLines.value = data.totalLines
       currentFile.value = path
       isTailMode.value = true
       wsClient.subscribe(path)
