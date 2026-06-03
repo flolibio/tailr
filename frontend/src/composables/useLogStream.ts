@@ -9,6 +9,8 @@ export function useLogStream() {
   const isTailMode = ref(true)
   const totalLines = ref(0)
   const isLoading = ref(false)
+  const isLoadingOlder = ref(false)
+  const hasMoreHistory = ref(true)
   const maxLines = ref(50000)
   const pendingEntries = ref<LogEntry[]>([])
 
@@ -67,6 +69,7 @@ export function useLogStream() {
     totalLines.value = 0
     isTailMode.value = true
     isLoading.value = true
+    hasMoreHistory.value = true
 
     unsubscribeAppend = wsClient.on('append', (p: unknown, newEntries: unknown) => {
       if (p === path && Array.isArray(newEntries)) {
@@ -86,6 +89,7 @@ export function useLogStream() {
       if (p === path) {
         entries.value = []
         totalLines.value = 0
+        hasMoreHistory.value = true
       }
     })
 
@@ -119,6 +123,7 @@ export function useLogStream() {
       if (p === path) {
         entries.value = []
         totalLines.value = 0
+        hasMoreHistory.value = true
       }
     })
 
@@ -136,6 +141,7 @@ export function useLogStream() {
       totalLines.value = data.totalLines
       currentFile.value = path
       isTailMode.value = true
+      hasMoreHistory.value = data.entries.length > 0 && data.entries[0].lineNum > 0
       wsClient.subscribe(path)
     } catch (e) {
       console.error('Failed to load initial data:', e)
@@ -144,20 +150,47 @@ export function useLogStream() {
     }
   }
 
-  async function loadMore(offset: number, limit: number): Promise<void> {
-    if (!currentFile.value) return
-    isLoading.value = true
+  /**
+   * Load older entries prepended before the current earliest entry.
+   * Returns the number of new entries loaded (used for scroll position adjustment).
+   */
+  async function loadOlder(limit: number = 200): Promise<number> {
+    if (!currentFile.value || isLoadingOlder.value || !hasMoreHistory.value) return 0
+
+    const firstLine = entries.value[0]?.lineNum
+    if (firstLine === undefined || firstLine === 0) {
+      hasMoreHistory.value = false
+      return 0
+    }
+
+    isLoadingOlder.value = true
     try {
+      const offset = firstLine > limit ? firstLine - limit : 0
       const data = await getFileContent(currentFile.value, offset, limit)
+
+      if (data.entries.length === 0) {
+        hasMoreHistory.value = false
+        return 0
+      }
+
+      // Prepend older entries (API returns entries starting from `offset`)
       const merged = new Map<number, LogEntry>()
-      for (const e of entries.value) merged.set(e.lineNum, e)
       for (const e of data.entries) merged.set(e.lineNum, e)
+      for (const e of entries.value) merged.set(e.lineNum, e)
       entries.value = Array.from(merged.values()).sort((a, b) => a.lineNum - b.lineNum)
       totalLines.value = data.totalLines
+
+      // If we got to line 0 or got fewer than requested, no more history
+      if (offset === 0 || data.entries.length < limit) {
+        hasMoreHistory.value = false
+      }
+
+      return data.entries.length
     } catch (e) {
-      console.error('Failed to load more:', e)
+      console.error('Failed to load older entries:', e)
+      return 0
     } finally {
-      isLoading.value = false
+      isLoadingOlder.value = false
     }
   }
 
@@ -181,12 +214,14 @@ export function useLogStream() {
     isTailMode,
     totalLines,
     isLoading,
+    isLoadingOlder,
+    hasMoreHistory,
     maxLines,
     pendingEntries,
     wsClient,
     selectFile,
     loadInitial,
-    loadMore,
+    loadOlder,
     toggleTailMode,
     setTailMode,
   }

@@ -15,8 +15,11 @@ const {
   maxLines,
   totalLines,
   isLoading,
+  isLoadingOlder,
+  hasMoreHistory,
   wsClient,
   loadInitial,
+  loadOlder,
   setTailMode,
 } = useLogStream()
 
@@ -133,6 +136,10 @@ function handleStickToBottom(): void {
   setTailMode(true)
   settings.autoScroll = true
   logViewerRef.value?.scrollToBottom()
+}
+
+function handleLoadMore(): void {
+  loadOlder(200)
 }
 
 function toggleFollowTail(): void {
@@ -265,7 +272,10 @@ function handleSettingsUpdate(s: Settings): void {
         :line-wrap="settings.lineWrap"
         :max-visible-lines="settings.maxVisibleLines"
         :highlight-keywords="highlightKeywords"
+        :is-loading-older="isLoadingOlder"
+        :has-more-history="hasMoreHistory"
         @stick-to-bottom="handleStickToBottom"
+        @load-more="handleLoadMore"
       />
     </main>
 

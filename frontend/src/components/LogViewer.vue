@@ -9,11 +9,14 @@ const props = defineProps<{
   lineWrap?: boolean
   maxVisibleLines?: number
   highlightKeywords?: string[]
+  isLoadingOlder?: boolean
+  hasMoreHistory?: boolean
 }>()
 
 const emit = defineEmits<{
   jumpToLine: [lineNum: number]
   stickToBottom: []
+  loadMore: []
 }>()
 
 const lineHeight = computed(() => props.lineHeight ?? 26)
@@ -25,6 +28,70 @@ const copiedLine = ref<number | null>(null)
 const userScrolledUp = ref(false)
 const highlightedLine = ref<number | null>(null)
 let highlightTimer: ReturnType<typeof setTimeout> | null = null
+
+// ── Load-more (sentinel + IntersectionObserver) ──
+const sentinelRef = ref<HTMLDivElement | null>(null)
+let sentinelObserver: IntersectionObserver | null = null
+let isLoadingMore = false
+
+function setupSentinelObserver(): void {
+  if (sentinelObserver) sentinelObserver.disconnect()
+  sentinelObserver = new IntersectionObserver(
+    (entries) => {
+      const entry = entries[0]
+      if (
+        entry.isIntersecting &&
+        props.hasMoreHistory &&
+        !props.isLoadingOlder &&
+        !isLoadingMore
+      ) {
+        isLoadingMore = true
+        emit('loadMore')
+      }
+    },
+    {
+      root: containerRef.value,
+      rootMargin: '500px 0px 0px 0px', // trigger 500px before reaching top
+      threshold: 0,
+    },
+  )
+  if (sentinelRef.value) {
+    sentinelObserver.observe(sentinelRef.value)
+  }
+}
+
+// Reset the load-lock when loading finishes
+watch(
+  () => props.isLoadingOlder,
+  (loading, prev) => {
+    if (prev && !loading) {
+      isLoadingMore = false
+    }
+  },
+)
+
+// ── Scroll position preservation on prepend ──
+function preserveScrollOnPrepend(oldHeight: number): void {
+  if (!containerRef.value) return
+  const newHeight = containerRef.value.scrollHeight
+  const delta = newHeight - oldHeight
+  if (delta > 0) {
+    containerRef.value.scrollTop += delta
+  }
+}
+
+watch(
+  () => props.entries.length,
+  (newLen, oldLen) => {
+    // Only preserve position when entries were prepended (not when we're in tail mode appending)
+    if (newLen > oldLen && !props.isTailMode) {
+      const oldHeight = containerRef.value?.scrollHeight ?? 0
+      nextTick(() => {
+        preserveScrollOnPrepend(oldHeight)
+      })
+    }
+  },
+)
 
 // ── Measurement-based virtual scrolling ──
 // Fixed-height math breaks the moment any row wraps or is expanded:
@@ -376,10 +443,12 @@ onMounted(() => {
   if (props.isTailMode) {
     nextTick(scrollToBottom)
   }
+  nextTick(setupSentinelObserver)
 })
 
 onUnmounted(() => {
   resizeObserver?.disconnect()
+  sentinelObserver?.disconnect()
 })
 
 defineExpose({ scrollToBottom, scrollToLine })
@@ -394,6 +463,17 @@ defineExpose({ scrollToBottom, scrollToLine })
       @scroll="onScroll"
     >
       <div class="scroll-spacer" :style="{ height: totalHeight + 'px' }">
+        <!-- Sentinel for IntersectionObserver: triggers load when near top -->
+        <div ref="sentinelRef" class="load-more-sentinel"></div>
+        <!-- Loading indicator -->
+        <div v-if="isLoadingOlder" class="load-more-indicator">
+          <div class="loading-spinner"></div>
+          <span>Loading older entries…</span>
+        </div>
+        <!-- No more history -->
+        <div v-else-if="!hasMoreHistory && entries.length > 0" class="load-more-end">
+          ── Beginning of log ──
+        </div>
         <div :style="{ transform: `translateY(${offsetY}px)` }">
           <div
             v-for="entry in visibleEntries"
@@ -738,5 +818,35 @@ defineExpose({ scrollToBottom, scrollToLine })
 
 .new-logs-button:hover {
   opacity: 0.88;
+}
+
+/* ── Load More (history) ── */
+.load-more-sentinel {
+  height: 1px;
+  width: 100%;
+}
+
+.load-more-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.load-more-indicator .loading-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+.load-more-end {
+  text-align: center;
+  padding: 10px 0;
+  color: var(--text-3);
+  font-size: 12px;
+  user-select: none;
 }
 </style>
