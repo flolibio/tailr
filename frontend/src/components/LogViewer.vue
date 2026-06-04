@@ -287,9 +287,12 @@ watch(visibleEntries, () => {
   measureVisibleRows()
 })
 
+const lastToggledLine = ref<number | null>(null)
+
 watch(expandedLines, () => {
-  measuredHeights.value.clear()
-  rowRefs.clear()
+  // Don't delete height immediately - let measureVisibleRows update it
+  // This prevents the jump caused by falling back to default lineHeight
+  lastToggledLine.value = null
   heightsVersion.value++
   nextTick(measureVisibleRows)
 })
@@ -329,10 +332,35 @@ function escapeHtml(str: string): string {
 }
 
 function toggleExpand(lineNum: number): void {
+  // Record scroll position and row position before toggle
+  const container = containerRef.value
+  const oldScrollTop = container?.scrollTop ?? 0
+  
+  // Find the row element and its position
+  const rowEl = rowRefs.get(lineNum)
+  const rowTop = rowEl?.offsetTop ?? 0
+  const rowHeight = rowEl?.offsetHeight ?? 0
+  
+  lastToggledLine.value = lineNum
   const next = new Set(expandedLines.value)
   if (next.has(lineNum)) next.delete(lineNum)
   else next.add(lineNum)
   expandedLines.value = next
+  
+  // After DOM update, adjust scroll to keep row position stable
+  nextTick(() => {
+    if (!container) return
+    const newRowEl = rowRefs.get(lineNum)
+    if (!newRowEl) return
+    
+    const newRowHeight = newRowEl.offsetHeight
+    const heightDiff = newRowHeight - rowHeight
+    
+    // If the toggled row is above the current viewport, adjust scroll
+    if (rowTop < oldScrollTop) {
+      container.scrollTop = oldScrollTop + heightDiff
+    }
+  })
 }
 
 watch(
@@ -588,7 +616,6 @@ defineExpose({ scrollToBottom, scrollToLine })
   transition: opacity 0.15s;
   flex-shrink: 0;
   margin-left: 8px;
-  align-self: flex-start;
 }
 
 .action-btn {
