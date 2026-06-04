@@ -23,6 +23,7 @@ const showNewLogsButton = ref(false)
 const copiedLine = ref<number | null>(null)
 const userScrolledUp = ref(false)
 const highlightedLine = ref<number | null>(null)
+const markedLine = ref<number | null>(null)
 let highlightTimer: ReturnType<typeof setTimeout> | null = null
 
 // ── Measurement-based virtual scrolling ──
@@ -331,6 +332,10 @@ function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+function toggleMark(lineNum: number): void {
+  markedLine.value = markedLine.value === lineNum ? null : lineNum
+}
+
 function toggleExpand(lineNum: number): void {
   // Record scroll position and row position before toggle
   const container = containerRef.value
@@ -429,8 +434,9 @@ defineExpose({ scrollToBottom, scrollToLine })
             class="log-row"
             :class="[
               'level-' + entry.level.toLowerCase(),
-              { 'is-copied': copiedLine === entry.lineNum, 'wrap': true, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
+              { 'is-copied': copiedLine === entry.lineNum, 'wrap': true, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum, 'is-marked': markedLine === entry.lineNum }
             ]"
+            @click="toggleMark(entry.lineNum)"
           >
             <span v-if="entry.timestamp" class="col-ts">{{ formatTimestamp(entry.timestamp) }}</span>
             <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)">{{ getBadgeText(entry.level) }}</span></span>
@@ -555,6 +561,11 @@ defineExpose({ scrollToBottom, scrollToLine })
   transition: background 0.5s ease;
 }
 
+.log-row.is-marked {
+  background: rgba(100, 210, 255, 0.15);
+  box-shadow: inset 3px 0 0 #64d2ff;
+}
+
 /* ── Columns ── */
 .col-ts {
   width: 84px;
@@ -616,6 +627,8 @@ defineExpose({ scrollToBottom, scrollToLine })
   transition: opacity 0.15s;
   flex-shrink: 0;
   margin-left: 8px;
+  align-self: flex-start;
+  margin-top: 5px;
 }
 
 .action-btn {
