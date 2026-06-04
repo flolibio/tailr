@@ -100,7 +100,7 @@ export function useLogStream() {
     wsClient.subscribe(path)
   }
 
-  async function loadInitial(path: string, lines: number = 100): Promise<void> {
+  async function loadInitial(path: string, lines: number = 200): Promise<void> {
     isLoading.value = true
     cleanupWsListeners()
 

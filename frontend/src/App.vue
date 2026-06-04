@@ -66,7 +66,6 @@ const SETTINGS_KEY = 'tailr-settings'
 const defaultSettings: Settings = {
   fontSize: 14,
   autoScroll: true,
-  lineWrap: true,
   maxVisibleLines: 50000,
   darkTheme: true,
 }
@@ -144,10 +143,6 @@ function toggleFollowTail(): void {
     settings.autoScroll = true
     logViewerRef.value?.scrollToBottom()
   }
-}
-
-function toggleLineWrap(): void {
-  settings.lineWrap = !settings.lineWrap
 }
 
 function handleAutoScrollChange(enabled: boolean): void {
@@ -262,7 +257,6 @@ function handleSettingsUpdate(s: Settings): void {
         :entries="filteredEntries"
         :line-height="Math.max(18, settings.fontSize + 8)"
         :is-tail-mode="isTailMode"
-        :line-wrap="settings.lineWrap"
         :max-visible-lines="settings.maxVisibleLines"
         :highlight-keywords="highlightKeywords"
         @stick-to-bottom="handleStickToBottom"
@@ -297,9 +291,6 @@ function handleSettingsUpdate(s: Settings): void {
         <svg v-if="isTailMode" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
         <svg v-else width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
         <span>Follow</span>
-      </button>
-      <button class="status-toggle" :class="{ active: settings.lineWrap }" @click="toggleLineWrap" :title="settings.lineWrap ? 'Disable line wrap' : 'Enable line wrap'">
-        <span>Wrap</span>
       </button>
     </div>
     <SelectionToolbar @follow="addKeyword" />

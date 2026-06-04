@@ -407,7 +407,7 @@ async fn file_tail(
         return Json(ApiResponse::err("file not found"));
     }
 
-    let lines = params.lines.unwrap_or(100).min(5000) as usize;
+    let lines = params.lines.unwrap_or(200).min(5000) as usize;
 
     let index = get_or_build_index(&state, &path).await;
     let total = index.total_lines();

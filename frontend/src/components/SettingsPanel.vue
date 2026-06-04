@@ -4,7 +4,6 @@ import { ref, watch } from 'vue'
 export interface Settings {
   fontSize: number
   autoScroll: boolean
-  lineWrap: boolean
   maxVisibleLines: number
   darkTheme: boolean
 }
@@ -105,15 +104,6 @@ function formatMaxLines(v: number): string {
             :class="{ on: local.autoScroll }"
             @click="update('autoScroll', !local.autoScroll)"
             :aria-pressed="local.autoScroll"
-          ></button>
-        </div>
-        <div class="toggle-row">
-          <span class="toggle-name">Line wrap</span>
-          <button
-            class="toggle"
-            :class="{ on: local.lineWrap }"
-            @click="update('lineWrap', !local.lineWrap)"
-            :aria-pressed="local.lineWrap"
           ></button>
         </div>
       </div>

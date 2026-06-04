@@ -6,7 +6,6 @@ const props = defineProps<{
   entries: LogEntry[]
   lineHeight?: number
   isTailMode?: boolean
-  lineWrap?: boolean
   maxVisibleLines?: number
   highlightKeywords?: string[]
 }>()
@@ -288,7 +287,7 @@ watch(visibleEntries, () => {
   measureVisibleRows()
 })
 
-watch([expandedLines, () => props.lineWrap], () => {
+watch(expandedLines, () => {
   measuredHeights.value.clear()
   rowRefs.clear()
   heightsVersion.value++
@@ -402,29 +401,26 @@ defineExpose({ scrollToBottom, scrollToLine })
             class="log-row"
             :class="[
               'level-' + entry.level.toLowerCase(),
-              { 'is-copied': copiedLine === entry.lineNum, 'wrap': lineWrap, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
+              { 'is-copied': copiedLine === entry.lineNum, 'wrap': true, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum }
             ]"
           >
             <span v-if="entry.timestamp" class="col-ts">{{ formatTimestamp(entry.timestamp) }}</span>
             <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)">{{ getBadgeText(entry.level) }}</span></span>
             <span class="col-msg" :ref="(el) => setMsgRef(entry.lineNum, el)">
               <template v-if="isJson(entry.raw)">
-                <button class="json-toggle" @click.stop="toggleExpand(entry.lineNum)">
-                  {{ expandedLines.has(entry.lineNum) ? '▾' : '▸' }}
-                </button>
                 <span v-if="!expandedLines.has(entry.lineNum)" class="truncate-check" v-html="
                   highlightText(entry.raw)
                 "></span>
                 <pre v-else class="json-expanded" v-html="highlightJson(formatJson(entry.raw))"></pre>
               </template>
               <template v-else>
-                <span v-if="!expandedLines.has(entry.lineNum)" class="truncate-check" v-html="highlightText(entry.raw)"></span>
-                <pre v-else class="long-line-expanded" v-html="highlightText(entry.raw)"></pre>
+                <span class="truncate-check" v-html="highlightText(entry.raw)"></span>
               </template>
             </span>
             <span class="col-actions">
-              <span v-if="expandedLines.has(entry.lineNum)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" title="Collapse">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              <span v-if="isJson(entry.raw)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" :title="expandedLines.has(entry.lineNum) ? 'Collapse' : 'Expand JSON'">
+                <svg v-if="expandedLines.has(entry.lineNum)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
               </span>
               <span class="action-btn" @click="copyLine(entry, $event)" title="Copy">
                 <span v-if="copiedLine === entry.lineNum" class="copy-icon copied">
@@ -592,6 +588,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   transition: opacity 0.15s;
   flex-shrink: 0;
   margin-left: 8px;
+  align-self: flex-start;
 }
 
 .action-btn {
@@ -622,26 +619,6 @@ defineExpose({ scrollToBottom, scrollToLine })
 }
 
 /* ── JSON ── */
-.json-toggle {
-  background: none;
-  border: none;
-  color: var(--text-3);
-  cursor: pointer;
-  padding: 0 8px;
-  font-size: 28px;
-  line-height: var(--line-height);
-  height: auto;
-  min-width: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.json-toggle:hover {
-  color: var(--text);
-  background: none;
-}
-
 .truncate-check {
   flex: 1;
   min-width: 0;
@@ -700,26 +677,6 @@ defineExpose({ scrollToBottom, scrollToLine })
 }
 
 /* ── Long Line ── */
-.long-line-preview {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.long-line-expanded {
-  display: block;
-  flex: 1;
-  min-width: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-height: 400px;
-  margin: 2px 0;
-  font-size: 13px;
-  line-height: 1.5;
-  overflow-y: auto;
-}
-
 /* ── New Logs Button ── */
 .new-logs-button {
   position: absolute;
