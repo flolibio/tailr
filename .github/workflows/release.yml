@@ -48,16 +48,21 @@ jobs:
       - name: Build
         run: cross build --release --target ${{ matrix.target }}
 
-      # ── Upload ──
-      - name: Rename binary
+      # ── Package ──
+      - name: Set archive name
+        id: archive
+        run: echo "name=$(echo '${{ matrix.target }}' | sed 's/-unknown//g')" >> "$GITHUB_OUTPUT"
+
+      - name: Package binary
         run: |
-          mv target/${{ matrix.target }}/release/tailr tailr-${{ matrix.target }}
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../tailr-${{ steps.archive.outputs.name }}.tar.gz tailr
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tailr-${{ matrix.target }}
-          path: tailr-${{ matrix.target }}
+          name: tailr-${{ steps.archive.outputs.name }}
+          path: tailr-${{ steps.archive.outputs.name }}.tar.gz
 
   release:
     needs: build
@@ -72,6 +77,6 @@ jobs:
         with:
           draft: true
           files: |
-            tailr-x86_64-unknown-linux-musl/tailr-x86_64-unknown-linux-musl
-            tailr-aarch64-unknown-linux-musl/tailr-aarch64-unknown-linux-musl
+            tailr-x86_64-linux-musl/tailr-x86_64-linux-musl.tar.gz
+            tailr-aarch64-linux-musl/tailr-aarch64-linux-musl.tar.gz
           generate_release_notes: true

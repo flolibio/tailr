@@ -44,19 +44,23 @@ build-linux-arm:
 release: frontend release-linux release-linux-arm
 	@echo ""
 	@echo "✓ Release artifacts:"
-	@echo "  Linux x86_64: target/x86_64-unknown-linux-musl/release/tailr"
-	@echo "  Linux ARM64:  target/aarch64-unknown-linux-musl/release/tailr"
+	@echo "  Linux x86_64: dist/tailr-x86_64-linux-musl.tar.gz"
+	@echo "  Linux ARM64:  dist/tailr-aarch64-linux-musl.tar.gz"
 
 release-linux: frontend
 	docker run --rm --platform linux/amd64 -v "$(CURDIR)":/app -w /app rust:1.94 \
 		sh -c "rustup target add x86_64-unknown-linux-musl && cargo build --release --target x86_64-unknown-linux-musl"
+	mkdir -p dist
+	tar czf dist/tailr-x86_64-linux-musl.tar.gz -C target/x86_64-unknown-linux-musl/release tailr
 
 release-linux-arm: frontend
 	docker run --rm -v "$(CURDIR)":/app -w /app rust:1.94 \
 		sh -c "rustup target add aarch64-unknown-linux-musl && cargo build --release --target aarch64-unknown-linux-musl"
+	mkdir -p dist
+	tar czf dist/tailr-aarch64-linux-musl.tar.gz -C target/aarch64-unknown-linux-musl/release tailr
 
 # ── Clean ──
 
 clean:
 	cargo clean
-	rm -rf frontend/dist frontend/node_modules
+	rm -rf frontend/dist frontend/node_modules dist
