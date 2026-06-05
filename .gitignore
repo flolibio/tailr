@@ -10,3 +10,4 @@
 .env.*
 .vscode/
 .idea/
+.playwright-mcp/
