@@ -80,7 +80,7 @@ Uses Docker with musl for static binaries (no glibc dependency).
 
 ```
 tailr [OPTIONS]           # Start server (default)
-tailr upgrade [--check-only]  # Check/perform self-upgrade
+tailr upgrade [--check]   # Check/perform self-upgrade
 
 Options:
   -l, --log <LOG>...  Log directories or files to serve (can specify multiple)
@@ -90,7 +90,7 @@ Options:
 
 Subcommands:
   upgrade             Check for updates and upgrade tailr to the latest version
-    --check-only      Only check for updates without installing
+    -c, --check       Only check for updates without installing
 ```
 
 **Priority:** CLI args > `TAILR_LOG_DIR` env var > `<exe_dir>/logs`
@@ -99,7 +99,7 @@ Subcommands:
 
 ```bash
 # Check for updates
-tailr upgrade --check-only
+tailr upgrade --check
 
 # Upgrade to latest version
 tailr upgrade
