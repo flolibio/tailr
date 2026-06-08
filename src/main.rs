@@ -30,8 +30,8 @@ enum Commands {
     /// Check for updates and upgrade tailr to the latest version
     Upgrade {
         /// Only check for updates without installing
-        #[arg(long)]
-        check_only: bool,
+        #[arg(long, short = 'c')]
+        check: bool,
     },
 }
 
@@ -47,8 +47,8 @@ async fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Upgrade { check_only }) => {
-            if let Err(e) = run_upgrade(check_only) {
+        Some(Commands::Upgrade { check }) => {
+            if let Err(e) = run_upgrade(check) {
                 eprintln!("Error: {}", e);
                 std::process::exit(1);
             }
@@ -92,7 +92,7 @@ async fn run_serve(args: ServeArgs) {
     axum::serve(listener, app(log_paths)).await.unwrap();
 }
 
-fn run_upgrade(check_only: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
     if std::env::consts::OS != "linux" {
         return Err(
             "Self-upgrade is only supported on Linux.\n\
@@ -124,17 +124,17 @@ fn run_upgrade(check_only: bool) -> Result<(), Box<dyn std::error::Error>> {
         .show_download_progress(true)
         .build()?;
 
-    if check_only {
+    if check {
         let release = updater.get_latest_release()?;
         let current = cargo_crate_version!();
-        if release.version == current {
-            println!("Already up to date (v{})", current);
-        } else {
+        if self_update::version::bump_is_greater(current, &release.version)? {
             println!(
                 "New version available: v{} (current: v{})\n\
                  Run `tailr upgrade` to install the update.",
                 release.version, current
             );
+        } else {
+            println!("Already up to date (v{})", current);
         }
     } else {
         let status = updater.update()?;
