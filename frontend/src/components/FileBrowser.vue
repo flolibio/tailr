@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { listFiles } from '../services/api'
 import type { FileEntry } from '../services/api'
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
   select: [path: string]
@@ -151,19 +154,19 @@ onMounted(() => {
         <input
           v-model="filterText"
           type="text"
-          placeholder="Filter files…"
+          :placeholder="t('fileBrowser.filterFiles')"
           class="filter-input"
         />
         <button v-if="filterText" class="filter-clear" @click="filterText = ''">✕</button>
       </div>
       <div class="sidebar-actions">
-        <button class="icon-btn" @click="refresh" title="Refresh">
+        <button class="icon-btn" @click="refresh" :title="t('fileBrowser.refresh')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
             <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
           </svg>
         </button>
-        <button class="icon-btn" @click="emit('collapse')" title="Collapse">
+        <button class="icon-btn" @click="emit('collapse')" :title="t('fileBrowser.collapse')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>
           </svg>
@@ -189,7 +192,7 @@ onMounted(() => {
             <div class="file-name">{{ node.name }}</div>
             <div v-if="!node.isDir && node.size !== undefined" class="file-size">{{ formatSize(node.size) }}</div>
           </div>
-          <button class="copy-path-btn" @click="copyPath(node.path, $event)" title="Copy path">
+          <button class="copy-path-btn" @click="copyPath(node.path, $event)" :title="t('fileBrowser.copyPath')">
             <svg v-if="copiedPath === node.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
@@ -214,7 +217,7 @@ onMounted(() => {
               <div class="file-name">{{ child.name }}</div>
               <div v-if="!child.isDir && child.size !== undefined" class="file-size">{{ formatSize(child.size) }}</div>
             </div>
-            <button class="copy-path-btn" @click="copyPath(child.path, $event)" title="Copy path">
+            <button class="copy-path-btn" @click="copyPath(child.path, $event)" :title="t('fileBrowser.copyPath')">
               <svg v-if="copiedPath === child.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             </button>
@@ -222,9 +225,9 @@ onMounted(() => {
         </template>
       </template>
     </div>
-    <div v-else-if="loading" class="file-empty">Loading…</div>
-    <div v-else-if="filterText" class="file-empty">No matching files</div>
-    <div v-else class="file-empty">No files found</div>
+    <div v-else-if="loading" class="file-empty">{{ t('fileBrowser.loading') }}</div>
+    <div v-else-if="filterText" class="file-empty">{{ t('fileBrowser.noMatchingFiles') }}</div>
+    <div v-else class="file-empty">{{ t('fileBrowser.noFilesFound') }}</div>
   </div>
 </template>
 

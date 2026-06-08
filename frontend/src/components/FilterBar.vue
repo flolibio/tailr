@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   currentFile: string | null
@@ -63,12 +66,12 @@ defineExpose({ focus })
           v-model="input"
           type="text"
           class="filter-input"
-          :placeholder="keywords.length ? 'Add keyword…' : 'Filter logs (Enter to add)…'"
+          :placeholder="keywords.length ? t('filter.addKeyword') : t('filter.filterLogs')"
           @keydown="onKeydown"
           :disabled="!currentFile"
         />
       </div>
-      <button v-if="keywords.length || input" class="filter-clear" @click="doClearAll" title="Clear all">
+      <button v-if="keywords.length || input" class="filter-clear" @click="doClearAll" :title="t('filter.clearAll')">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>

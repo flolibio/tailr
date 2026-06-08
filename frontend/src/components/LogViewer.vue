@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { LogEntry } from '../services/api'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   entries: LogEntry[]
@@ -452,11 +455,11 @@ defineExpose({ scrollToBottom, scrollToLine })
               </template>
             </span>
             <span class="col-actions">
-              <span v-if="isJson(entry.raw)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" :title="expandedLines.has(entry.lineNum) ? 'Collapse' : 'Expand JSON'">
+              <span v-if="isJson(entry.raw)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" :title="expandedLines.has(entry.lineNum) ? t('logViewer.collapse') : t('logViewer.expandJson')">
                 <svg v-if="expandedLines.has(entry.lineNum)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                 <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
               </span>
-              <span class="action-btn" @click="copyLine(entry, $event)" title="Copy">
+              <span class="action-btn" @click="copyLine(entry, $event)" :title="t('logViewer.copy')">
                 <span v-if="copiedLine === entry.lineNum" class="copy-icon copied">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 </span>
@@ -474,7 +477,7 @@ defineExpose({ scrollToBottom, scrollToLine })
       class="new-logs-button"
       @click="onNewLogsClick"
     >
-      ↓ New logs
+      {{ t('logViewer.newLogs') }}
     </button>
   </div>
 </template>

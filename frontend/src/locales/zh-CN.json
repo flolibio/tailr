@@ -1,0 +1,56 @@
+{
+  "app": {
+    "selectFile": "选择文件以开始查看日志",
+    "loading": "加载中...",
+    "noMatchingLogs": "没有匹配的日志",
+    "waitingForData": "等待日志数据...",
+    "noFile": "未选择文件",
+    "lines": "行",
+    "shown": "显示",
+    "matches": "匹配",
+    "follow": "跟随",
+    "pauseTail": "暂停跟随日志",
+    "startTail": "开始跟随日志",
+    "openFiles": "打开文件",
+    "openSettings": "打开设置"
+  },
+  "settings": {
+    "title": "设置",
+    "collapse": "收起设置",
+    "fontSize": "字体大小",
+    "maxVisibleLines": "最大可见行数",
+    "autoScroll": "自动滚动",
+    "theme": "主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统",
+    "language": "语言"
+  },
+  "filter": {
+    "filterLogs": "过滤日志（按回车添加）…",
+    "addKeyword": "添加关键词…",
+    "clearAll": "清除全部"
+  },
+  "fileBrowser": {
+    "files": "文件",
+    "filterFiles": "过滤文件…",
+    "refresh": "刷新",
+    "collapse": "收起",
+    "loading": "加载中…",
+    "noMatchingFiles": "没有匹配的文件",
+    "noFilesFound": "未找到文件",
+    "openFiles": "打开文件",
+    "copyPath": "复制路径"
+  },
+  "selection": {
+    "copy": "复制",
+    "copied": "已复制",
+    "follow": "跟随"
+  },
+  "logViewer": {
+    "collapse": "收起",
+    "expandJson": "展开 JSON",
+    "copy": "复制",
+    "newLogs": "↓ 新日志"
+  }
+}

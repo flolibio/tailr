@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { loadLocale } from '../locales'
 
 export interface Settings {
   fontSize: number
@@ -16,6 +18,8 @@ const emit = defineEmits<{
   update: [settings: Settings]
   collapse: []
 }>()
+
+const { t, locale } = useI18n()
 
 const local = ref<Settings>({ ...props.settings })
 
@@ -50,13 +54,19 @@ watch(() => local.value.darkTheme, (isDark) => {
 function formatMaxLines(v: number): string {
   return v.toLocaleString()
 }
+
+const currentLocale = computed(() => locale.value)
+
+async function switchLocale(newLocale: string): Promise<void> {
+  await loadLocale(newLocale)
+}
 </script>
 
 <template>
   <div class="settings-panel-inner">
     <div class="settings-header">
-      <span class="settings-title">Settings</span>
-      <button class="collapse-btn" @click="emit('collapse')" title="Collapse settings">
+      <span class="settings-title">{{ t('settings.title') }}</span>
+      <button class="collapse-btn" @click="emit('collapse')" :title="t('settings.collapse')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
     </div>
@@ -64,7 +74,7 @@ function formatMaxLines(v: number): string {
       <!-- Font size -->
       <div class="s-group">
         <div class="s-label">
-          <span class="s-lname">Font size</span>
+          <span class="s-lname">{{ t('settings.fontSize') }}</span>
           <span class="s-lval">{{ local.fontSize }}px</span>
         </div>
         <input
@@ -80,7 +90,7 @@ function formatMaxLines(v: number): string {
       <!-- Max visible lines -->
       <div class="s-group">
         <div class="s-label">
-          <span class="s-lname">Max visible lines</span>
+          <span class="s-lname">{{ t('settings.maxVisibleLines') }}</span>
           <span class="s-lval">{{ formatMaxLines(local.maxVisibleLines) }}</span>
         </div>
         <input
@@ -98,7 +108,7 @@ function formatMaxLines(v: number): string {
       <!-- Toggles -->
       <div class="s-group">
         <div class="toggle-row">
-          <span class="toggle-name">Auto-scroll</span>
+          <span class="toggle-name">{{ t('settings.autoScroll') }}</span>
           <button
             class="toggle"
             :class="{ on: local.autoScroll }"
@@ -112,23 +122,42 @@ function formatMaxLines(v: number): string {
 
       <!-- Theme -->
       <div class="s-group">
-        <div class="s-label"><span class="s-lname">Theme</span></div>
+        <div class="s-label"><span class="s-lname">{{ t('settings.theme') }}</span></div>
         <div class="theme-opts">
           <button
             class="theme-opt"
             :class="{ on: currentTheme === 'light' }"
             @click="setTheme('light')"
-          >Light</button>
+          >{{ t('settings.light') }}</button>
           <button
             class="theme-opt"
             :class="{ on: currentTheme === 'dark' }"
             @click="setTheme('dark')"
-          >Dark</button>
+          >{{ t('settings.dark') }}</button>
           <button
             class="theme-opt"
             :class="{ on: currentTheme === 'system' }"
             @click="setTheme('system')"
-          >System</button>
+          >{{ t('settings.system') }}</button>
+        </div>
+      </div>
+
+      <div class="s-divider"></div>
+
+      <!-- Language -->
+      <div class="s-group">
+        <div class="s-label"><span class="s-lname">{{ t('settings.language') }}</span></div>
+        <div class="theme-opts">
+          <button
+            class="theme-opt"
+            :class="{ on: currentLocale === 'en-US' }"
+            @click="switchLocale('en-US')"
+          >English</button>
+          <button
+            class="theme-opt"
+            :class="{ on: currentLocale === 'zh-CN' }"
+            @click="switchLocale('zh-CN')"
+          >中文</button>
         </div>
       </div>
     </div>

@@ -27,6 +27,8 @@
 - **Single binary** — No dependencies, no runtime, just run
 - **Web UI** — Built-in Vue 3 SPA, no separate frontend deployment
 - **Log rotation aware** — Detects inode changes, handles logrotate
+- **Self-upgrade** — One command to update to the latest version
+- **Multi-language UI** — English (default) and Chinese, with easy extensibility
 - **Cross-platform** — Linux (x86_64/ARM64), macOS
 
 ## Quickstart
@@ -77,16 +79,33 @@ Uses Docker with musl for static binaries (no glibc dependency).
 ## CLI
 
 ```
-tailr [OPTIONS]
+tailr [OPTIONS]           # Start server (default)
+tailr upgrade [--check-only]  # Check/perform self-upgrade
 
 Options:
   -l, --log <LOG>...  Log directories or files to serve (can specify multiple)
       -b, --bind <BIND>   Bind address [default: 0.0.0.0:7700]
   -h, --help          Print help
   -V, --version       Print version
+
+Subcommands:
+  upgrade             Check for updates and upgrade tailr to the latest version
+    --check-only      Only check for updates without installing
 ```
 
 **Priority:** CLI args > `TAILR_LOG_DIR` env var > `<exe_dir>/logs`
+
+### Self-Upgrade
+
+```bash
+# Check for updates
+tailr upgrade --check-only
+
+# Upgrade to latest version
+tailr upgrade
+```
+
+**Note:** The upgrade replaces the binary atomically. If tailr is running as a service, you'll need to restart it after upgrading.
 
 ## Environment Variables
 
@@ -140,6 +159,20 @@ make test              # Run all checks (clippy + vue-tsc)
 make test-backend      # cargo test + cargo clippy
 make test-frontend     # vue-tsc --noEmit
 ```
+
+### Internationalization (i18n)
+
+The web UI supports multiple languages:
+- **English (en-US)** — Default
+- **Chinese (zh-CN)** — 简体中文
+
+**Adding a new language:**
+1. Create a new locale file in `frontend/src/locales/` (e.g., `ja-JP.json`)
+2. Copy the structure from `en-US.json` and translate all strings
+3. Update `frontend/src/locales/index.ts` to include the new locale in the type definition
+4. Add the locale option to the language switcher in `SettingsPanel.vue`
+
+The language preference is persisted in localStorage and auto-detected from the browser on first visit.
 
 ## Architecture
 

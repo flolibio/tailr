@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import FileBrowser from './components/FileBrowser.vue'
 import LogViewer from './components/LogViewer.vue'
 import FilterBar from './components/FilterBar.vue'
@@ -7,6 +8,8 @@ import SettingsPanel from './components/SettingsPanel.vue'
 import SelectionToolbar from './components/SelectionToolbar.vue'
 import type { Settings } from './components/SettingsPanel.vue'
 import { useLogStream } from './composables/useLogStream'
+
+const { t } = useI18n()
 
 const {
   currentFile,
@@ -205,7 +208,7 @@ function handleSettingsUpdate(s: Settings): void {
         @select="selectFile"
         @collapse="sidebarCollapsed = true"
       />
-      <button v-if="sidebarCollapsed" class="sidebar-reopen" @click="sidebarCollapsed = false" title="Open files">
+      <button v-if="sidebarCollapsed" class="sidebar-reopen" @click="sidebarCollapsed = false" :title="t('app.openFiles')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="9 18 15 12 9 6"/>
         </svg>
@@ -242,14 +245,14 @@ function handleSettingsUpdate(s: Settings): void {
     <!-- Log body -->
     <main class="log-body" :style="{ fontSize: settings.fontSize + 'px' }">
       <div v-if="!currentFile" class="empty-state">
-        <div class="empty-text">Select a file to start viewing logs</div>
+        <div class="empty-text">{{ t('app.selectFile') }}</div>
       </div>
       <div v-else-if="isLoading" class="empty-state">
         <div class="loading-spinner"></div>
-        <div class="empty-text">Loading...</div>
+        <div class="empty-text">{{ t('app.loading') }}</div>
       </div>
       <div v-else-if="filteredEntries.length === 0" class="empty-state">
-        <div class="empty-text">{{ filterKeywords.length ? 'No matching logs' : 'Waiting for log data...' }}</div>
+        <div class="empty-text">{{ filterKeywords.length ? t('app.noMatchingLogs') : t('app.waitingForData') }}</div>
       </div>
       <LogViewer
         v-else
@@ -271,7 +274,7 @@ function handleSettingsUpdate(s: Settings): void {
         @update="handleSettingsUpdate"
         @collapse="settingsCollapsed = true"
       />
-      <button v-else class="settings-reopen" @click="settingsCollapsed = false" title="Open settings">
+      <button v-else class="settings-reopen" @click="settingsCollapsed = false" :title="t('app.openSettings')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
     </aside>
@@ -280,17 +283,17 @@ function handleSettingsUpdate(s: Settings): void {
     <div class="statusbar">
       <div class="status-chip">
         <div class="status-dot"></div>
-        <span>{{ currentFile ? currentFile.split('/').pop() : 'No file' }}</span>
+        <span>{{ currentFile ? currentFile.split('/').pop() : t('app.noFile') }}</span>
       </div>
-      <span v-if="entries.length === totalLines">{{ entries.length }} lines</span>
-      <span v-else>{{ entries.length }} / {{ totalLines }} lines</span>
-      <span v-if="filteredEntries.length < entries.length">{{ filteredEntries.length }} shown</span>
-      <span v-if="filterKeywords.length" class="status-filter-info">{{ matchCount }} matches · {{ filterKeywords.join(' + ') }}</span>
+      <span v-if="entries.length === totalLines">{{ entries.length }} {{ t('app.lines') }}</span>
+      <span v-else>{{ entries.length }} / {{ totalLines }} {{ t('app.lines') }}</span>
+      <span v-if="filteredEntries.length < entries.length">{{ filteredEntries.length }} {{ t('app.shown') }}</span>
+      <span v-if="filterKeywords.length" class="status-filter-info">{{ matchCount }} {{ t('app.matches') }} · {{ filterKeywords.join(' + ') }}</span>
       <div class="status-spacer"></div>
-      <button class="status-toggle" :class="{ active: isTailMode }" @click="toggleFollowTail" :title="isTailMode ? 'Pause following tail' : 'Start following tail'">
+      <button class="status-toggle" :class="{ active: isTailMode }" @click="toggleFollowTail" :title="isTailMode ? t('app.pauseTail') : t('app.startTail')">
         <svg v-if="isTailMode" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
         <svg v-else width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-        <span>Follow</span>
+        <span>{{ t('app.follow') }}</span>
       </button>
     </div>
     <SelectionToolbar @follow="addKeyword" />

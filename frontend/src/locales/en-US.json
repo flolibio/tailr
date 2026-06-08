@@ -1,0 +1,56 @@
+{
+  "app": {
+    "selectFile": "Select a file to start viewing logs",
+    "loading": "Loading...",
+    "noMatchingLogs": "No matching logs",
+    "waitingForData": "Waiting for log data...",
+    "noFile": "No file",
+    "lines": "lines",
+    "shown": "shown",
+    "matches": "matches",
+    "follow": "Follow",
+    "pauseTail": "Pause following tail",
+    "startTail": "Start following tail",
+    "openFiles": "Open files",
+    "openSettings": "Open settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "collapse": "Collapse settings",
+    "fontSize": "Font size",
+    "maxVisibleLines": "Max visible lines",
+    "autoScroll": "Auto-scroll",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "language": "Language"
+  },
+  "filter": {
+    "filterLogs": "Filter logs (Enter to add)…",
+    "addKeyword": "Add keyword…",
+    "clearAll": "Clear all"
+  },
+  "fileBrowser": {
+    "files": "Files",
+    "filterFiles": "Filter files…",
+    "refresh": "Refresh",
+    "collapse": "Collapse",
+    "loading": "Loading…",
+    "noMatchingFiles": "No matching files",
+    "noFilesFound": "No files found",
+    "openFiles": "Open files",
+    "copyPath": "Copy path"
+  },
+  "selection": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "follow": "Follow"
+  },
+  "logViewer": {
+    "collapse": "Collapse",
+    "expandJson": "Expand JSON",
+    "copy": "Copy",
+    "newLogs": "↓ New logs"
+  }
+}
