@@ -83,10 +83,17 @@ tailr [OPTIONS]           # Start server (default)
 tailr upgrade [--check]   # Check/perform self-upgrade
 
 Options:
-  -l, --log <LOG>...  Log directories or files to serve (can specify multiple)
-      -b, --bind <BIND>   Bind address [default: 0.0.0.0:7700]
-  -h, --help          Print help
-  -V, --version       Print version
+  -l, --log <LOG>...         Log directories or files to serve (can specify multiple)
+  -b, --bind <BIND>          Bind address [default: 0.0.0.0:7700]
+  -d, --daemon               Run as daemon in background
+      --stop                 Stop running daemon
+      --status               Show daemon status
+      --systemd              Print systemd service file and exit
+      --launchd              Print launchd plist file and exit (macOS)
+      --pid-file <PID_FILE>  Custom PID file path
+      --log-file <LOG_FILE>  Custom log file path for daemon mode
+  -h, --help                 Print help
+  -V, --version              Print version
 
 Subcommands:
   upgrade             Check for updates and upgrade tailr to the latest version
@@ -94,6 +101,57 @@ Subcommands:
 ```
 
 **Priority:** CLI args > `TAILR_LOG_DIR` env var > `<exe_dir>/logs`
+
+### Daemon Mode
+
+Run tailr as a background daemon instead of using `nohup`:
+
+```bash
+# Start in daemon mode
+tailr --daemon --log /var/log/app /var/log/nginx
+
+# Check status
+tailr --status
+
+# Stop daemon
+tailr --stop
+```
+
+**PID/Log files** are stored in `~/.local/share/tailr/` by default. Customize with:
+
+```bash
+tailr --daemon --log /var/log/app \
+  --pid-file /run/tailr.pid \
+  --log-file /var/log/tailr.log
+```
+
+### System Service
+
+#### systemd (Linux)
+
+```bash
+# Generate and install service file
+tailr --systemd --log /var/log/app | sudo tee /etc/systemd/system/tailr.service
+
+# Enable and start
+sudo systemctl enable --now tailr
+
+# Check status
+sudo systemctl status tailr
+```
+
+#### launchd (macOS)
+
+```bash
+# Generate and install plist
+tailr --launchd --log /var/log/app > ~/Library/LaunchAgents/com.tailr.plist
+
+# Load and start
+launchctl load ~/Library/LaunchAgents/com.tailr.plist
+
+# Check status
+launchctl list | grep tailr
+```
 
 ### Self-Upgrade
 
