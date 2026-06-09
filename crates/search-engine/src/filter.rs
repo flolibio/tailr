@@ -165,10 +165,8 @@ mod tests {
             make_entry(LogLevel::INFO, "error: timeout occurred", None),
         ];
 
-        let filter = LogFilter {
-            pattern: Some(r"error:\s+\w+".to_string()),
-            ..Default::default()
-        };
+        let filter = LogFilter::new()
+            .with_pattern(Some(r"error:\s+\w+".to_string()));
 
         let result = apply_filter(&entries, &filter);
         assert_eq!(result.len(), 2);
