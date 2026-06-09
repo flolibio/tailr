@@ -561,7 +561,7 @@ select {
 
 /* ── Settings ── */
 .settings-panel {
-  grid-row: 1 / 5;
+  grid-row: 1 / 4;
   grid-column: 3;
   border-left: 1px solid var(--border);
   display: flex;
