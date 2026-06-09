@@ -100,6 +100,6 @@ export async function searchLogs(
   return request<SearchResult>(`/api/search?${params.toString()}`)
 }
 
-export async function healthCheck(): Promise<{ status: string; uptimeSeconds: number }> {
-  return request<{ status: string; uptimeSeconds: number }>('/api/health')
+export async function healthCheck(): Promise<{ status: string; version: string; uptimeSeconds: number }> {
+  return request<{ status: string; version: string; uptimeSeconds: number }>('/api/health')
 }

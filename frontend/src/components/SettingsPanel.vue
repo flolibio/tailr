@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { loadLocale } from '../locales'
+import { healthCheck } from '../services/api'
 
 export interface Settings {
   fontSize: number
@@ -56,6 +57,14 @@ function formatMaxLines(v: number): string {
 }
 
 const currentLocale = computed(() => locale.value)
+const version = ref('')
+
+onMounted(async () => {
+  try {
+    const { version: v } = await healthCheck()
+    version.value = v
+  } catch {}
+})
 
 async function switchLocale(newLocale: string): Promise<void> {
   await loadLocale(newLocale)
@@ -160,6 +169,10 @@ async function switchLocale(newLocale: string): Promise<void> {
           >中文</button>
         </div>
       </div>
+    </div>
+    <div class="settings-footer">
+      <span class="footer-version">v{{ version }}</span>
+      <a class="footer-link" href="https://github.com/wunamesst/tailr" target="_blank" rel="noopener">GitHub</a>
     </div>
   </div>
 </template>
@@ -303,5 +316,29 @@ async function switchLocale(newLocale: string): Promise<void> {
 .collapse-btn:hover {
   background: var(--bg-2);
   color: var(--text);
+}
+
+.settings-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.footer-version {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+
+.footer-link {
+  color: var(--text-2);
+  text-decoration: none;
+  transition: color .12s;
+}
+
+.footer-link:hover {
+  color: var(--accent);
 }
 </style>
