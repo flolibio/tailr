@@ -65,89 +65,81 @@ enum Commands {
     },
 }
 
-#[tokio::main]
-async fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::from_default_env()
-                .add_directive("tailr=info".parse().unwrap()),
-        )
-        .init();
-
+fn main() {
     let cli = Cli::parse();
 
-    match cli.command {
-        Some(Commands::Upgrade { check }) => {
-            if let Err(e) = run_upgrade(check) {
+    // Handle non-server commands first (no tokio needed)
+    if cli.serve.stop {
+        match daemon::stop_daemon(cli.serve.pid_file.as_ref(), 5) {
+            Ok(()) => println!("tailr stopped"),
+            Err(e) => {
                 eprintln!("Error: {}", e);
                 std::process::exit(1);
             }
         }
-        None => {
-            let args = cli.serve;
-
-            if args.stop {
-                match daemon::stop_daemon(args.pid_file.as_ref(), 5) {
-                    Ok(()) => println!("tailr stopped"),
-                    Err(e) => {
-                        eprintln!("Error: {}", e);
-                        std::process::exit(1);
-                    }
-                }
-                return;
-            }
-
-            if args.status {
-                println!("{}", daemon::daemon_status(args.pid_file.as_ref()));
-                return;
-            }
-
-            if args.systemd {
-                let binary = std::env::current_exe()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_else(|_| "tailr".to_string());
-                let log_dirs: Vec<String> = args
-                    .log
-                    .iter()
-                    .map(|p| p.display().to_string())
-                    .collect();
-                let user = std::env::var("USER").unwrap_or_else(|_| "nobody".to_string());
-                println!("{}", daemon::generate_systemd_service(&binary, &log_dirs, &user, &user));
-                return;
-            }
-
-            if args.launchd {
-                let binary = std::env::current_exe()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_else(|_| "tailr".to_string());
-                let log_dirs: Vec<String> = args
-                    .log
-                    .iter()
-                    .map(|p| p.display().to_string())
-                    .collect();
-                println!("{}", daemon::generate_launchd_plist(&binary, &log_dirs));
-                return;
-            }
-
-            run_serve(args).await;
-        }
+        return;
     }
+
+    if cli.serve.status {
+        println!("{}", daemon::daemon_status(cli.serve.pid_file.as_ref()));
+        return;
+    }
+
+    if cli.serve.systemd {
+        let binary = std::env::current_exe()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| "tailr".to_string());
+        let log_dirs: Vec<String> = cli.serve.log.iter().map(|p| p.display().to_string()).collect();
+        let user = std::env::var("USER").unwrap_or_else(|_| "nobody".to_string());
+        println!("{}", daemon::generate_systemd_service(&binary, &log_dirs, &user, &user));
+        return;
+    }
+
+    if cli.serve.launchd {
+        let binary = std::env::current_exe()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| "tailr".to_string());
+        let log_dirs: Vec<String> = cli.serve.log.iter().map(|p| p.display().to_string()).collect();
+        println!("{}", daemon::generate_launchd_plist(&binary, &log_dirs));
+        return;
+    }
+
+    // Handle daemon mode BEFORE tokio runtime starts
+    // daemonize() forks the process, which is incompatible with an async runtime
+    if cli.serve.daemon {
+        let config = daemon::DaemonConfig {
+            pid_file: cli.serve.pid_file.clone().unwrap_or_else(daemon::pid_file),
+            log_file: cli.serve.log_file.clone().unwrap_or_else(daemon::log_file),
+            working_dir: std::env::current_dir().unwrap_or_else(|_| daemon::data_dir()),
+        };
+        daemon::daemonize_process(&config);
+    }
+
+    // Now start tokio runtime (in the daemon child process if daemonized)
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                EnvFilter::from_default_env()
+                    .add_directive("tailr=info".parse().unwrap()),
+            )
+            .init();
+
+        match cli.command {
+            Some(Commands::Upgrade { check }) => {
+                if let Err(e) = run_upgrade(check) {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+            None => {
+                run_serve(cli.serve).await;
+            }
+        }
+    });
 }
 
 async fn run_serve(args: ServeArgs) {
-    let pid_file = if args.daemon {
-        let config = daemon::DaemonConfig {
-            pid_file: args.pid_file.clone().unwrap_or_else(daemon::pid_file),
-            log_file: args.log_file.clone().unwrap_or_else(daemon::log_file),
-            working_dir: std::env::current_dir().unwrap_or_else(|_| daemon::data_dir()),
-        };
-        let pid_path = config.pid_file.clone();
-        daemon::daemonize_process(&config);
-        Some(pid_path)
-    } else {
-        args.pid_file.clone()
-    };
-
     let log_paths: Vec<PathBuf> = if args.log.is_empty() {
         std::env::var("TAILR_LOG_DIR")
             .map(|val| val.split(',').map(|s| PathBuf::from(s.trim())).collect())
@@ -183,7 +175,7 @@ async fn run_serve(args: ServeArgs) {
         tracing::error!("server error: {}", e);
     }
 
-    daemon::cleanup_pid_file(pid_file.as_ref());
+    daemon::cleanup_pid_file(args.pid_file.as_ref());
 }
 
 fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
