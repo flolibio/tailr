@@ -1,3 +1,5 @@
+mod daemon;
+
 use clap::{Args, Parser, Subcommand};
 use self_update::cargo_crate_version;
 use std::path::PathBuf;
@@ -23,6 +25,34 @@ struct ServeArgs {
     /// Bind address
     #[arg(short, long, default_value = "0.0.0.0:7700")]
     bind: String,
+
+    /// Run as daemon in background
+    #[arg(long, short)]
+    daemon: bool,
+
+    /// Stop running daemon
+    #[arg(long)]
+    stop: bool,
+
+    /// Show daemon status
+    #[arg(long)]
+    status: bool,
+
+    /// Print systemd service file and exit
+    #[arg(long)]
+    systemd: bool,
+
+    /// Print launchd plist file and exit (macOS)
+    #[arg(long)]
+    launchd: bool,
+
+    /// Custom PID file path
+    #[arg(long)]
+    pid_file: Option<PathBuf>,
+
+    /// Custom log file path for daemon mode
+    #[arg(long)]
+    log_file: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -54,14 +84,71 @@ async fn main() {
             }
         }
         None => {
-            run_serve(cli.serve).await;
+            let args = cli.serve;
+
+            if args.stop {
+                match daemon::stop_daemon(args.pid_file.as_ref(), 5) {
+                    Ok(()) => println!("tailr stopped"),
+                    Err(e) => {
+                        eprintln!("Error: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+                return;
+            }
+
+            if args.status {
+                println!("{}", daemon::daemon_status(args.pid_file.as_ref()));
+                return;
+            }
+
+            if args.systemd {
+                let binary = std::env::current_exe()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|_| "tailr".to_string());
+                let log_dirs: Vec<String> = args
+                    .log
+                    .iter()
+                    .map(|p| p.display().to_string())
+                    .collect();
+                let user = std::env::var("USER").unwrap_or_else(|_| "nobody".to_string());
+                println!("{}", daemon::generate_systemd_service(&binary, &log_dirs, &user, &user));
+                return;
+            }
+
+            if args.launchd {
+                let binary = std::env::current_exe()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|_| "tailr".to_string());
+                let log_dirs: Vec<String> = args
+                    .log
+                    .iter()
+                    .map(|p| p.display().to_string())
+                    .collect();
+                println!("{}", daemon::generate_launchd_plist(&binary, &log_dirs));
+                return;
+            }
+
+            run_serve(args).await;
         }
     }
 }
 
 async fn run_serve(args: ServeArgs) {
+    let pid_file = if args.daemon {
+        let config = daemon::DaemonConfig {
+            pid_file: args.pid_file.clone().unwrap_or_else(daemon::pid_file),
+            log_file: args.log_file.clone().unwrap_or_else(daemon::log_file),
+            working_dir: std::env::current_dir().unwrap_or_else(|_| daemon::data_dir()),
+        };
+        let pid_path = config.pid_file.clone();
+        daemon::daemonize_process(&config);
+        Some(pid_path)
+    } else {
+        args.pid_file.clone()
+    };
+
     let log_paths: Vec<PathBuf> = if args.log.is_empty() {
-        // Fallback to env var or default
         std::env::var("TAILR_LOG_DIR")
             .map(|val| val.split(',').map(|s| PathBuf::from(s.trim())).collect())
             .unwrap_or_else(|_| {
@@ -76,7 +163,6 @@ async fn run_serve(args: ServeArgs) {
         args.log
     };
 
-    // Validate paths exist
     for path in &log_paths {
         if !path.exists() {
             tracing::warn!(path = %path.display(), "path does not exist");
@@ -89,7 +175,15 @@ async fn run_serve(args: ServeArgs) {
         listener.local_addr().unwrap(),
         log_paths
     );
-    axum::serve(listener, app(log_paths)).await.unwrap();
+
+    let server = axum::serve(listener, app(log_paths))
+        .with_graceful_shutdown(daemon::shutdown_signal());
+
+    if let Err(e) = server.await {
+        tracing::error!("server error: {}", e);
+    }
+
+    daemon::cleanup_pid_file(pid_file.as_ref());
 }
 
 fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
