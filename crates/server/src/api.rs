@@ -573,6 +573,20 @@ async fn get_or_build_index(state: &AppState, path: &PathBuf) -> LineIndex {
     if let Some(entry) = state.line_indices.get(path) {
         let idx = entry.value().clone();
         let file_size = tokio::fs::metadata(path).await.map(|m| m.len()).unwrap_or(0);
+
+        // File was truncated — rebuild from scratch
+        if file_size < idx.file_size {
+            drop(entry);
+            match LineIndex::build(path) {
+                Ok(new_idx) => {
+                    state.line_indices.insert(path.clone(), new_idx.clone());
+                    return new_idx;
+                }
+                Err(_) => return LineIndex::new(),
+            }
+        }
+
+        // File grew — incremental update
         if file_size > idx.file_size {
             drop(entry);
             let mut idx_mut = idx.clone();
@@ -581,6 +595,7 @@ async fn get_or_build_index(state: &AppState, path: &PathBuf) -> LineIndex {
                 return idx_mut;
             }
         }
+
         return idx;
     }
     match LineIndex::build(path) {
