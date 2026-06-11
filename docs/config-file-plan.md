@@ -20,13 +20,20 @@ TAILR_LOG_DIR=/var/log/app tailr
 
 ### Config File Location
 
-Fixed path: `~/.config/tailr/config.toml` (Linux/macOS)
+| Platform | Path | Status |
+|----------|------|--------|
+| Linux | `~/.config/tailr/config.toml` | Current |
+| macOS | `~/.config/tailr/config.toml` | Current |
+| Windows | `{FOLDERID_RoamingAppData}\tailr\config.toml` | Future |
+
+**Current implementation**: Fixed path `~/.config/tailr/config.toml` (Linux/macOS)
+**Future**: Add Windows support using `directories` crate when building Windows package
 
 Override with:
 - `--config <path>` CLI flag
 - `TAILR_CONFIG` environment variable
 
-**Auto-initialization**: Create `~/.config/tailr/` directory on first run if not exists.
+**Auto-initialization**: Create config directory on first run if not exists.
 
 ### Config File Format (TOML)
 
@@ -69,6 +76,7 @@ tailr --bind 0.0.0.0:8080
 ```toml
 [dependencies]
 figment = { version = "0.10", features = ["toml", "env"] }
+# directories = "5"  # Future: Windows support
 ```
 
 ### Config Struct
@@ -181,6 +189,13 @@ tailr --config /path/to/config.toml
 | `src/config.rs` | **New** - Config struct and loading logic |
 | `src/daemon.rs` | Use config for default paths |
 
+### Future Windows Support
+
+When adding Windows support:
+1. Add `directories = "5"` to dependencies
+2. Update `config_path()` to use `ProjectDirs::from("", "", "tailr")`
+3. Test on Windows with `%APPDATA%\tailr\config.toml`
+
 ## Testing
 
 ```bash
@@ -228,5 +243,6 @@ bind = "0.0.0.0:7700"
 ## References
 
 - [figment crate](https://docs.rs/figment)
+- [directories crate](https://docs.rs/directories) (future Windows support)
 - [Starship config](https://starship.rs/config/)
 - [Ripgrep config](https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md#configuration-file)
