@@ -105,3 +105,18 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 | `/api/search` | GET | Grep search with context, level/time filters |
 | `/api/health` | GET | Status + uptime |
 | `/ws` | WS | Subscribe/unsubscribe to live file tail (batched entries) |
+
+## Version Release
+
+Semantic Versioning (SemVer):
+- **PATCH** (0.1.x): Bug fixes, no new features
+- **MINOR** (0.x.0): New features, backward-compatible
+- **MAJOR** (x.0.0): Breaking changes
+
+Release workflow: push tag only, GitHub Actions creates draft release automatically.
+```bash
+git tag -a vX.Y.Z -m "vX.Y.Z: description"
+git push origin vX.Y.Z
+```
+
+**DO NOT** use `gh release create` — let CI handle it. See `docs/release-guide.md`.
