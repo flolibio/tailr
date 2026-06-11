@@ -13,6 +13,7 @@ const x = ref(0)
 const y = ref(0)
 const selectedText = ref('')
 const copied = ref(false)
+const showCopiedToast = ref(false)
 
 function updateSelection(): void {
   const sel = window.getSelection()
@@ -63,9 +64,13 @@ async function copySelection(): Promise<void> {
       document.body.removeChild(textarea)
     }
     copied.value = true
+    showCopiedToast.value = true
     setTimeout(() => {
       copied.value = false
     }, 1500)
+    setTimeout(() => {
+      showCopiedToast.value = false
+    }, 2000)
   } catch {}
 }
 
@@ -95,7 +100,7 @@ onUnmounted(() => {
       class="selection-toolbar"
       :style="{ left: x + 'px', top: y + 'px' }"
     >
-      <button class="selection-btn" @click="copySelection">
+      <button class="selection-btn" :class="{ copied }" @click="copySelection">
         <svg v-if="copied" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         <span>{{ copied ? t('selection.copied') : t('selection.copy') }}</span>
@@ -106,6 +111,12 @@ onUnmounted(() => {
         <span>{{ t('selection.follow') }}</span>
       </button>
     </div>
+    <Transition name="toast">
+      <div v-if="showCopiedToast" class="copied-toast">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>{{ t('selection.copied') }}</span>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -151,5 +162,45 @@ onUnmounted(() => {
 
 .selection-btn:hover {
   background: var(--bg-2);
+}
+
+.selection-btn.copied {
+  color: var(--accent);
+}
+
+.copied-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toast-enter-active {
+  transition: all 0.2s ease-out;
+}
+
+.toast-leave-active {
+  transition: all 0.15s ease-in;
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px);
+}
+
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px);
 }
 </style>
