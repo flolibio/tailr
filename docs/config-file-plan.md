@@ -20,17 +20,13 @@ TAILR_LOG_DIR=/var/log/app tailr
 
 ### Config File Location
 
-Follow XDG standard using `directories` crate:
-
-| Platform | Path |
-|----------|------|
-| Linux | `~/.config/tailr/config.toml` |
-| macOS | `~/Library/Application Support/tailr/config.toml` |
-| Windows | `{FOLDERID_RoamingAppData}\tailr\config.toml` |
+Fixed path: `~/.config/tailr/config.toml` (Linux/macOS)
 
 Override with:
 - `--config <path>` CLI flag
 - `TAILR_CONFIG` environment variable
+
+**Auto-initialization**: Create `~/.config/tailr/` directory on first run if not exists.
 
 ### Config File Format (TOML)
 
@@ -73,7 +69,6 @@ tailr --bind 0.0.0.0:8080
 ```toml
 [dependencies]
 figment = { version = "0.10", features = ["toml", "env"] }
-directories = "5"
 ```
 
 ### Config Struct
@@ -135,22 +130,28 @@ struct Cli {
 
 ```rust
 use figment::{Figment, providers::{Serialized, Toml, Env, Format}};
-use directories::ProjectDirs;
+
+fn config_dir() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".config")
+        .join("tailr")
+}
+
+fn config_path() -> PathBuf {
+    config_dir().join("config.toml")
+}
 
 fn load_config(cli: &Cli) -> Config {
     // 1. Find config file
-    let config_path = cli.config.clone()
+    let config_file = cli.config.clone()
         .or_else(|| std::env::var("TAILR_CONFIG").ok().map(PathBuf::from))
-        .unwrap_or_else(|| {
-            ProjectDirs::from("", "", "tailr")
-                .map(|dirs| dirs.config_dir().join("config.toml"))
-                .unwrap_or_else(|| PathBuf::from("~/.config/tailr/config.toml"))
-        });
+        .unwrap_or_else(config_path);
 
     // 2. Merge in priority order
     Figment::new()
         .merge(Serialized::defaults(Config::default()))
-        .merge(Toml::file(&config_path))
+        .merge(Toml::file(&config_file))
         .merge(Env::prefixed("TAILR_"))
         .merge(Serialized::defaults(cli))
         .extract()
@@ -175,7 +176,7 @@ tailr --config /path/to/config.toml
 
 | File | Change |
 |------|--------|
-| `Cargo.toml` | Add `figment`, `directories` dependencies |
+| `Cargo.toml` | Add `figment` dependency |
 | `src/main.rs` | Refactor CLI args to `Option<T>`, add config loading |
 | `src/config.rs` | **New** - Config struct and loading logic |
 | `src/daemon.rs` | Use config for default paths |
@@ -194,6 +195,10 @@ TAILR_LOG_DIR=/tmp tailr --show-config
 
 # Test CLI override
 tailr --config ./test.toml --bind 0.0.0.0:9090
+
+# Test auto-initialization
+rm -rf ~/.config/tailr
+tailr --show-config  # Should create directory and show path
 ```
 
 ## Example Config File
@@ -223,6 +228,5 @@ bind = "0.0.0.0:7700"
 ## References
 
 - [figment crate](https://docs.rs/figment)
-- [directories crate](https://docs.rs/directories)
 - [Starship config](https://starship.rs/config/)
 - [Ripgrep config](https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md#configuration-file)
