@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listFiles } from '../services/api'
 import type { FileEntry } from '../services/api'
@@ -9,11 +9,16 @@ const { t } = useI18n()
 const emit = defineEmits<{
   select: [path: string]
   collapse: []
+  resize: [width: number]
 }>()
 
 const props = defineProps<{
   selectedFile: string | null
+  width?: number
 }>()
+
+const MIN_WIDTH = 180
+const MAX_WIDTH = 400
 
 interface TreeNode {
   name: string
@@ -30,6 +35,9 @@ const tree = ref<TreeNode[]>([])
 const loading = ref(false)
 const filterText = ref('')
 const copiedPath = ref<string | null>(null)
+const isDragging = ref(false)
+const dragStartX = ref(0)
+const dragStartWidth = ref(0)
 
 const filteredTree = computed(() => {
   const q = filterText.value.trim().toLowerCase()
@@ -105,17 +113,49 @@ function selectFile(node: TreeNode): void {
   }
 }
 
-async function refresh(): Promise<void> {
+function refresh(): void {
   loading.value = true
-  try {
-    const entries = await listFiles()
-    tree.value = entriesToTree(entries)
-  } catch (e) {
-    console.error('Failed to load files:', e)
-  } finally {
-    loading.value = false
-  }
+  listFiles()
+    .then((entries) => {
+      tree.value = entriesToTree(entries)
+    })
+    .catch((e) => {
+      console.error('Failed to load files:', e)
+    })
+    .finally(() => {
+      loading.value = false
+    })
 }
+
+function onDragStart(event: MouseEvent): void {
+  isDragging.value = true
+  dragStartX.value = event.clientX
+  dragStartWidth.value = props.width ?? 220
+  document.addEventListener('mousemove', onDragMove)
+  document.addEventListener('mouseup', onDragEnd)
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+}
+
+function onDragMove(event: MouseEvent): void {
+  if (!isDragging.value) return
+  const delta = event.clientX - dragStartX.value
+  const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, dragStartWidth.value + delta))
+  emit('resize', newWidth)
+}
+
+function onDragEnd(): void {
+  isDragging.value = false
+  document.removeEventListener('mousemove', onDragMove)
+  document.removeEventListener('mouseup', onDragEnd)
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+}
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onDragMove)
+  document.removeEventListener('mouseup', onDragEnd)
+})
 
 async function copyPath(path: string, event: MouseEvent): Promise<void> {
   event.stopPropagation()
@@ -228,6 +268,11 @@ onMounted(() => {
     <div v-else-if="loading" class="file-empty">{{ t('fileBrowser.loading') }}</div>
     <div v-else-if="filterText" class="file-empty">{{ t('fileBrowser.noMatchingFiles') }}</div>
     <div v-else class="file-empty">{{ t('fileBrowser.noFilesFound') }}</div>
+    <div
+      class="resize-handle"
+      :class="{ active: isDragging }"
+      @mousedown.prevent="onDragStart"
+    ></div>
   </div>
 </template>
 
@@ -424,5 +469,22 @@ onMounted(() => {
   font-size: 13px;
   text-align: center;
   flex: 1;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  transition: background .15s;
+  z-index: 10;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+  background: var(--accent);
 }
 </style>

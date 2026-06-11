@@ -237,7 +237,7 @@ input[type="range"] {
 /* ── App Shell (Grid) ── */
 .app-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr var(--settings-w);
+  grid-template-columns: var(--sidebar-current-width, var(--sidebar-w)) 1fr var(--settings-w);
   grid-template-rows: var(--topbar-h) var(--filterbar-h) 1fr var(--statusbar-h);
   height: 100vh;
   background: var(--bg);
@@ -246,7 +246,7 @@ input[type="range"] {
 }
 
 .app-shell.settings-collapsed {
-  grid-template-columns: var(--sidebar-w) 1fr 40px;
+  grid-template-columns: var(--sidebar-current-width, var(--sidebar-w)) 1fr 40px;
 }
 
 .app-shell.sidebar-collapsed {
@@ -290,6 +290,7 @@ input[type="range"] {
   background: var(--bg);
   overflow: hidden;
   padding-bottom: var(--statusbar-h);
+  position: relative;
 }
 
 .sidebar-header {

@@ -29,6 +29,7 @@ const selectedLevels = ref<string[]>([])
 const filterKeywords = ref<string[]>([])
 const settingsCollapsed = ref(true)
 const sidebarCollapsed = ref(false)
+const sidebarWidth = ref(220)
 
 const highlightKeywords = computed(() => filterKeywords.value)
 
@@ -201,12 +202,14 @@ function handleSettingsUpdate(s: Settings): void {
 <template>
   <div class="app-shell" :class="{ 'settings-collapsed': settingsCollapsed, 'sidebar-collapsed': sidebarCollapsed }">
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" :style="{ '--sidebar-current-width': sidebarCollapsed ? '40px' : sidebarWidth + 'px' }">
       <FileBrowser
         v-show="!sidebarCollapsed"
         :selected-file="currentFile"
+        :width="sidebarWidth"
         @select="selectFile"
         @collapse="sidebarCollapsed = true"
+        @resize="sidebarWidth = $event"
       />
       <button v-if="sidebarCollapsed" class="sidebar-reopen" @click="sidebarCollapsed = false" :title="t('app.openFiles')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
