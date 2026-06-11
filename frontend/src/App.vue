@@ -200,9 +200,9 @@ function handleSettingsUpdate(s: Settings): void {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'settings-collapsed': settingsCollapsed, 'sidebar-collapsed': sidebarCollapsed }">
+  <div class="app-shell" :class="{ 'settings-collapsed': settingsCollapsed, 'sidebar-collapsed': sidebarCollapsed }" :style="{ '--sidebar-current-width': sidebarWidth + 'px' }">
     <!-- Sidebar -->
-    <aside class="sidebar" :style="{ '--sidebar-current-width': sidebarCollapsed ? '40px' : sidebarWidth + 'px' }">
+    <aside class="sidebar">
       <FileBrowser
         v-show="!sidebarCollapsed"
         :selected-file="currentFile"
