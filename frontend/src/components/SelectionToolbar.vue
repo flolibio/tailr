@@ -31,6 +31,23 @@ function updateSelection(): void {
   copied.value = false
 }
 
+function onMouseUp(): void {
+  setTimeout(() => {
+    const sel = window.getSelection()
+    if (sel && !sel.isCollapsed && sel.toString().trim()) {
+      updateSelection()
+    } else {
+      visible.value = false
+    }
+  }, 10)
+}
+
+function onMouseDown(e: MouseEvent): void {
+  if (visible.value && !(e.target as HTMLElement).closest('.selection-toolbar')) {
+    visible.value = false
+  }
+}
+
 async function copySelection(): Promise<void> {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -61,16 +78,13 @@ function followSelection(): void {
 }
 
 onMounted(() => {
-  document.addEventListener('selectionchange', updateSelection)
-  document.addEventListener('mousedown', (e) => {
-    if (visible.value && !(e.target as HTMLElement).closest('.selection-toolbar')) {
-      visible.value = false
-    }
-  })
+  document.addEventListener('mouseup', onMouseUp)
+  document.addEventListener('mousedown', onMouseDown)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('selectionchange', updateSelection)
+  document.removeEventListener('mouseup', onMouseUp)
+  document.removeEventListener('mousedown', onMouseDown)
 })
 </script>
 
