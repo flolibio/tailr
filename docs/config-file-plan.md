@@ -33,7 +33,51 @@ Override with:
 - `--config <path>` CLI flag
 - `TAILR_CONFIG` environment variable
 
-**Auto-initialization**: Create config directory on first run if not exists.
+**Auto-initialization**: Create config directory and default config file on first run if not exists.
+
+### Default Config File
+
+When `~/.config/tailr/config.toml` does not exist, create it with:
+
+```toml
+# tailr configuration file
+# See: https://github.com/wunamesst/tailr
+
+# Log directories or files to serve (can specify multiple)
+# Default: current directory's "logs" subdirectory
+# log = [
+#     "/var/log",
+#     "/var/log/app"
+# ]
+
+# Server bind address
+bind = "0.0.0.0:7700"
+
+# Daemon mode settings (optional)
+[daemon]
+# Custom PID file path
+# pid_file = "/run/tailr.pid"
+
+# Custom log file path
+# log_file = "/var/log/tailr.log"
+```
+
+### First Run Behavior
+
+```bash
+# First run: creates ~/.config/tailr/ and default config.toml
+tailr --show-config
+
+# Output:
+# Config file: ~/.config/tailr/config.toml
+# Config file created with default values.
+```
+
+**Behavior**:
+1. Check if `~/.config/tailr/` exists
+2. If not, create directory
+3. If `config.toml` not exists, create with default template
+4. Load config and start server
 
 ### Config File Format (TOML)
 
