@@ -128,7 +128,6 @@ function refresh(): void {
 }
 
 function onDragStart(event: MouseEvent): void {
-  console.log('Drag start', event.clientX, 'current width:', props.width)
   isDragging.value = true
   dragStartX.value = event.clientX
   dragStartWidth.value = props.width ?? 220
@@ -142,12 +141,10 @@ function onDragMove(event: MouseEvent): void {
   if (!isDragging.value) return
   const delta = event.clientX - dragStartX.value
   const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, dragStartWidth.value + delta))
-  console.log('Drag move', { delta, newWidth, dragStartWidth: dragStartWidth.value })
   emit('resize', newWidth)
 }
 
 function onDragEnd(): void {
-  console.log('Drag end')
   isDragging.value = false
   document.removeEventListener('mousemove', onDragMove)
   document.removeEventListener('mouseup', onDragEnd)
