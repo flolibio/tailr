@@ -474,17 +474,27 @@ onMounted(() => {
 .resize-handle {
   position: absolute;
   top: 0;
-  right: 0;
-  width: 4px;
+  right: -3px;
+  width: 9px;
   height: 100%;
   cursor: col-resize;
   background: transparent;
-  transition: background .15s;
   z-index: 10;
 }
 
-.resize-handle:hover,
-.resize-handle.active {
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 3px;
+  width: 4px;
+  height: 100%;
+  background: transparent;
+  transition: background .15s;
+}
+
+.resize-handle:hover::after,
+.resize-handle.active::after {
   background: var(--accent);
 }
 </style>
