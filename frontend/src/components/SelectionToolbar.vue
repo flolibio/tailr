@@ -31,7 +31,8 @@ function updateSelection(): void {
   copied.value = false
 }
 
-function onMouseUp(): void {
+function onMouseUp(e: MouseEvent): void {
+  if ((e.target as HTMLElement).closest('.selection-toolbar')) return
   setTimeout(() => {
     const sel = window.getSelection()
     if (sel && !sel.isCollapsed && sel.toString().trim()) {
