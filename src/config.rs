@@ -17,14 +17,12 @@ const DEFAULT_CONFIG_TEMPLATE: &str = r#"# tailr configuration file
 # See: https://github.com/wunamesst/tailr
 
 # Log directories or files to serve (can specify multiple)
-# Default: current directory's "logs" subdirectory
-# log = [
-#     "/var/log",
-#     "/var/log/app"
-# ]
+log = [
+    "/var/log",
+]
 
 # Server bind address
-# bind = "0.0.0.0:7700"
+bind = "0.0.0.0:7700"
 
 # Daemon mode settings (optional)
 # [daemon]
