@@ -7,7 +7,9 @@ tailr: a single-binary log tail/search server. Rust backend (axum) + Vue 3 front
 ## Architecture
 
 ```
-src/main.rs           # Binary entrypoint: CLI (clap), env vars, starts axum server
+src/main.rs           # Binary entrypoint: CLI (clap), subcommand dispatch
+src/config.rs         # Config loading: figment-based TOML/env/CLI merging, auto-init
+src/daemon.rs         # Daemonization, PID file, signal handling, service file generation
 crates/
   protocol/           # Shared types: LogEntry, WSMessage, LogLevel, detect_level(), try_parse_timestamp()
   tail-engine/        # File watching (notify), incremental LineIndex (memmap2), TailSession
@@ -24,11 +26,18 @@ frontend/             # Vue 3 + TypeScript + Vite SPA
 ## CLI
 
 ```bash
-tailr --log /var/log/app /var/log/nginx /path/to/specific.log
+tailr -l /var/log/app /var/log/nginx /path/to/specific.log
 tailr -l /var/log/app -b :8080
+tailr init          # Initialize config file (prompt to confirm if file exists)
+tailr config        # Print config file contents
+tailr stop          # Stop daemon
+tailr status        # Show daemon status
+tailr systemd -l /var/log/app
+tailr launchd -l /var/log/app
+tailr upgrade       # Self-upgrade
 ```
 
-Priority: CLI args > `TAILR_LOG_DIR` env var > `<exe_dir>/logs`.
+Priority: CLI args > Config file (`~/.config/tailr/config.toml`) > Env vars > Defaults.
 
 ## Build
 
@@ -69,8 +78,9 @@ Vite proxies `/api` → `http://localhost:7700` and `/ws` → `ws://localhost:77
 
 | Variable | Default | Notes |
 |---|---|---|
-| `TAILR_LOG_DIR` | `<exe_dir>/logs` | Comma-separated list of directories (fallback if no CLI args) |
+| `TAILR_LOG_DIR` | `<exe_dir>/logs` | Comma-separated list of directories |
 | `TAILR_BIND` | `0.0.0.0:7700` | Listen address |
+| `TAILR_CONFIG` | `~/.config/tailr/config.toml` | Config file path |
 | `RUST_LOG` | — | Standard tracing env filter |
 
 ## Testing

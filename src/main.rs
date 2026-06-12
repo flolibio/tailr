@@ -1,3 +1,4 @@
+mod config;
 mod daemon;
 
 use clap::{Args, Parser, Subcommand};
@@ -18,33 +19,21 @@ struct Cli {
 
 #[derive(Args)]
 struct ServeArgs {
+    /// Custom config file path
+    #[arg(long)]
+    config: Option<PathBuf>,
+
     /// Log directories or files to serve (can specify multiple)
     #[arg(short, long, num_args = 1..)]
     log: Vec<PathBuf>,
 
     /// Bind address
-    #[arg(short, long, default_value = "0.0.0.0:7700")]
-    bind: String,
+    #[arg(short, long)]
+    bind: Option<String>,
 
     /// Run as daemon in background
     #[arg(long, short)]
     daemon: bool,
-
-    /// Stop running daemon
-    #[arg(long)]
-    stop: bool,
-
-    /// Show daemon status
-    #[arg(long)]
-    status: bool,
-
-    /// Print systemd service file and exit
-    #[arg(long)]
-    systemd: bool,
-
-    /// Print launchd plist file and exit (macOS)
-    #[arg(long)]
-    launchd: bool,
 
     /// Custom PID file path
     #[arg(long)]
@@ -57,6 +46,56 @@ struct ServeArgs {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Initialize config file (prompt to confirm if file exists)
+    Init {
+        /// Custom config file path
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+
+    /// Print config file contents
+    Config {
+        /// Custom config file path
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+
+    /// Stop running daemon
+    Stop {
+        /// Custom PID file path
+        #[arg(long)]
+        pid_file: Option<PathBuf>,
+    },
+
+    /// Show daemon status
+    Status {
+        /// Custom PID file path
+        #[arg(long)]
+        pid_file: Option<PathBuf>,
+    },
+
+    /// Generate systemd service file
+    Systemd {
+        /// Log directories or files to serve
+        #[arg(short, long, num_args = 1..)]
+        log: Vec<PathBuf>,
+
+        /// User to run the service as
+        #[arg(long, default_value_t = std::env::var("USER").unwrap_or_else(|_| "nobody".to_string()))]
+        user: String,
+
+        /// Group to run the service as
+        #[arg(long)]
+        group: Option<String>,
+    },
+
+    /// Generate launchd plist file (macOS)
+    Launchd {
+        /// Log directories or files to serve
+        #[arg(short, long, num_args = 1..)]
+        log: Vec<PathBuf>,
+    },
+
     /// Check for updates and upgrade tailr to the latest version
     Upgrade {
         /// Only check for updates without installing
@@ -68,51 +107,106 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
 
-    // Handle non-server commands first (no tokio needed)
-    if cli.serve.stop {
-        match daemon::stop_daemon(cli.serve.pid_file.as_ref(), 5) {
-            Ok(()) => println!("tailr stopped"),
-            Err(e) => {
+    match cli.command {
+        Some(Commands::Init { config }) => {
+            let config_path = config::resolve_config_path(config.as_ref());
+            if config_path.exists() {
+                println!("Config file already exists: {}", config_path.display());
+                println!("Overwrite? [y/N] ");
+                let mut answer = String::new();
+                if std::io::stdin().read_line(&mut answer).is_err() {
+                    eprintln!("Failed to read input");
+                    std::process::exit(1);
+                }
+                if answer.trim().to_lowercase() != "y" {
+                    println!("Aborted.");
+                    return;
+                }
+            }
+            match config::write_default_config(&config_path) {
+                Ok(()) => println!("Config file created: {}", config_path.display()),
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Some(Commands::Config { config }) => {
+            let config_path = config::resolve_config_path(config.as_ref());
+            match std::fs::read_to_string(&config_path) {
+                Ok(contents) => print!("{}", contents),
+                Err(e) => {
+                    eprintln!("Config file not found: {} ({})", config_path.display(), e);
+                    eprintln!("Run `tailr init` to create one.");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Some(Commands::Stop { pid_file }) => {
+            match daemon::stop_daemon(pid_file.as_ref(), 5) {
+                Ok(()) => println!("tailr stopped"),
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Some(Commands::Status { pid_file }) => {
+            println!("{}", daemon::daemon_status(pid_file.as_ref()));
+        }
+        Some(Commands::Systemd { log, user, group }) => {
+            let binary = std::env::current_exe()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|_| "tailr".to_string());
+            let log_dirs: Vec<String> = log.iter().map(|p| p.display().to_string()).collect();
+            let group = group.unwrap_or_else(|| user.clone());
+            println!("{}", daemon::generate_systemd_service(&binary, &log_dirs, &user, &group));
+        }
+        Some(Commands::Launchd { log }) => {
+            let binary = std::env::current_exe()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|_| "tailr".to_string());
+            let log_dirs: Vec<String> = log.iter().map(|p| p.display().to_string()).collect();
+            println!("{}", daemon::generate_launchd_plist(&binary, &log_dirs));
+        }
+        Some(Commands::Upgrade { check }) => {
+            if let Err(e) = run_upgrade(check) {
                 eprintln!("Error: {}", e);
                 std::process::exit(1);
             }
         }
-        return;
+        None => {
+            run_server(cli.serve);
+        }
+    }
+}
+
+fn run_server(args: ServeArgs) {
+    let config_path = config::resolve_config_path(args.config.as_ref());
+
+    if let Err(e) = config::ensure_config_file(&config_path) {
+        eprintln!("Warning: {}", e);
     }
 
-    if cli.serve.status {
-        println!("{}", daemon::daemon_status(cli.serve.pid_file.as_ref()));
-        return;
-    }
-
-    if cli.serve.systemd {
-        let binary = std::env::current_exe()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|_| "tailr".to_string());
-        let log_dirs: Vec<String> = cli.serve.log.iter().map(|p| p.display().to_string()).collect();
-        let user = std::env::var("USER").unwrap_or_else(|_| "nobody".to_string());
-        println!("{}", daemon::generate_systemd_service(&binary, &log_dirs, &user, &user));
-        return;
-    }
-
-    if cli.serve.launchd {
-        let binary = std::env::current_exe()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|_| "tailr".to_string());
-        let log_dirs: Vec<String> = cli.serve.log.iter().map(|p| p.display().to_string()).collect();
-        println!("{}", daemon::generate_launchd_plist(&binary, &log_dirs));
-        return;
-    }
+    let cfg = config::load_config(
+        &config_path,
+        optional_vec(&args.log),
+        args.bind.as_deref(),
+        args.daemon,
+        args.pid_file.as_ref(),
+        args.log_file.as_ref(),
+    )
+    .expect("Failed to load configuration");
 
     // Handle daemon mode BEFORE tokio runtime starts
     // daemonize() forks the process, which is incompatible with an async runtime
-    if cli.serve.daemon {
-        let config = daemon::DaemonConfig {
-            pid_file: cli.serve.pid_file.clone().unwrap_or_else(daemon::pid_file),
-            log_file: cli.serve.log_file.clone().unwrap_or_else(daemon::log_file),
+    if args.daemon {
+        let daemon_cfg = daemon::DaemonConfig {
+            pid_file: cfg.daemon.pid_file.clone().unwrap_or_else(daemon::pid_file),
+            log_file: cfg.daemon.log_file.clone().unwrap_or_else(daemon::log_file),
             working_dir: std::env::current_dir().unwrap_or_else(|_| daemon::data_dir()),
         };
-        daemon::daemonize_process(&config);
+        daemon::daemonize_process(&daemon_cfg);
     }
 
     // Now start tokio runtime (in the daemon child process if daemonized)
@@ -125,35 +219,12 @@ fn main() {
             )
             .init();
 
-        match cli.command {
-            Some(Commands::Upgrade { check }) => {
-                if let Err(e) = run_upgrade(check) {
-                    eprintln!("Error: {}", e);
-                    std::process::exit(1);
-                }
-            }
-            None => {
-                run_serve(cli.serve).await;
-            }
-        }
+        run_serve(cfg).await;
     });
 }
 
-async fn run_serve(args: ServeArgs) {
-    let log_paths: Vec<PathBuf> = if args.log.is_empty() {
-        std::env::var("TAILR_LOG_DIR")
-            .map(|val| val.split(',').map(|s| PathBuf::from(s.trim())).collect())
-            .unwrap_or_else(|_| {
-                let default = std::env::current_exe()
-                    .ok()
-                    .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-                    .unwrap_or_else(|| PathBuf::from("."))
-                    .join("logs");
-                vec![default]
-            })
-    } else {
-        args.log
-    };
+async fn run_serve(cfg: config::Config) {
+    let log_paths = config::resolve_log_paths(&cfg);
 
     for path in &log_paths {
         if !path.exists() {
@@ -161,7 +232,7 @@ async fn run_serve(args: ServeArgs) {
         }
     }
 
-    let listener = tokio::net::TcpListener::bind(&args.bind).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(&cfg.bind).await.unwrap();
     tracing::info!(
         "tailr listening on {} (paths: {:?})",
         listener.local_addr().unwrap(),
@@ -175,7 +246,7 @@ async fn run_serve(args: ServeArgs) {
         tracing::error!("server error: {}", e);
     }
 
-    daemon::cleanup_pid_file(args.pid_file.as_ref());
+    daemon::cleanup_pid_file(cfg.daemon.pid_file.as_ref());
 }
 
 fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
@@ -238,4 +309,13 @@ fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+/// Returns `Some` for non-empty Vec, `None` otherwise (so figment uses lower priority).
+fn optional_vec(v: &[PathBuf]) -> Option<Vec<PathBuf>> {
+    if v.is_empty() {
+        None
+    } else {
+        Some(v.to_vec())
+    }
 }

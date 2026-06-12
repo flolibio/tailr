@@ -80,27 +80,42 @@ Uses Docker with musl for static binaries (no glibc dependency).
 
 ```
 tailr [OPTIONS]           # Start server (default)
-tailr upgrade [--check]   # Check/perform self-upgrade
+tailr <COMMAND>           # Run a subcommand
+
+Commands:
+  init                    Initialize config file
+  config                  Print config file contents
+  stop                    Stop running daemon
+  status                  Show daemon status
+  systemd                 Generate systemd service file
+  launchd                 Generate launchd plist file (macOS)
+  upgrade                 Check for updates and upgrade tailr to the latest version
 
 Options:
   -l, --log <LOG>...         Log directories or files to serve (can specify multiple)
   -b, --bind <BIND>          Bind address [default: 0.0.0.0:7700]
   -d, --daemon               Run as daemon in background
-      --stop                 Stop running daemon
-      --status               Show daemon status
-      --systemd              Print systemd service file and exit
-      --launchd              Print launchd plist file and exit (macOS)
+      --config <CONFIG>      Custom config file path
       --pid-file <PID_FILE>  Custom PID file path
       --log-file <LOG_FILE>  Custom log file path for daemon mode
   -h, --help                 Print help
   -V, --version              Print version
-
-Subcommands:
-  upgrade             Check for updates and upgrade tailr to the latest version
-    -c, --check       Only check for updates without installing
 ```
 
-**Priority:** CLI args > `TAILR_LOG_DIR` env var > `<exe_dir>/logs`
+**Priority:** CLI args > Config file > `TAILR_*` env vars > Defaults
+
+### Config File
+
+```bash
+# Initialize config file
+tailr init
+
+# Print config file contents
+tailr config
+
+# Use custom config file
+tailr --config /path/to/config.toml
+```
 
 ### Daemon Mode
 
@@ -108,19 +123,19 @@ Run tailr as a background daemon instead of using `nohup`:
 
 ```bash
 # Start in daemon mode
-tailr --daemon --log /var/log/app /var/log/nginx
+tailr -d -l /var/log/app /var/log/nginx
 
 # Check status
-tailr --status
+tailr status
 
 # Stop daemon
-tailr --stop
+tailr stop
 ```
 
 **PID/Log files** are stored in `~/.local/share/tailr/` by default. Customize with:
 
 ```bash
-tailr --daemon --log /var/log/app \
+tailr -d -l /var/log/app \
   --pid-file /run/tailr.pid \
   --log-file /var/log/tailr.log
 ```
@@ -131,7 +146,7 @@ tailr --daemon --log /var/log/app \
 
 ```bash
 # Generate and install service file
-tailr --systemd --log /var/log/app | sudo tee /etc/systemd/system/tailr.service
+tailr systemd -l /var/log/app | sudo tee /etc/systemd/system/tailr.service
 
 # Enable and start
 sudo systemctl enable --now tailr
@@ -144,7 +159,7 @@ sudo systemctl status tailr
 
 ```bash
 # Generate and install plist
-tailr --launchd --log /var/log/app > ~/Library/LaunchAgents/com.tailr.plist
+tailr launchd -l /var/log/app > ~/Library/LaunchAgents/com.tailr.plist
 
 # Load and start
 launchctl load ~/Library/LaunchAgents/com.tailr.plist
@@ -169,8 +184,9 @@ tailr upgrade
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TAILR_LOG_DIR` | `<exe_dir>/logs` | Comma-separated log directories (fallback if no CLI args) |
+| `TAILR_LOG_DIR` | `<exe_dir>/logs` | Comma-separated log directories |
 | `TAILR_BIND` | `0.0.0.0:7700` | Listen address |
+| `TAILR_CONFIG` | `~/.config/tailr/config.toml` | Config file path |
 | `RUST_LOG` | — | Tracing filter (e.g. `tailr=debug`) |
 
 ## API
