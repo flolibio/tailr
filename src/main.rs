@@ -271,40 +271,54 @@ fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    let current = cargo_crate_version!();
+
     let updater = self_update::backends::github::Update::configure()
         .repo_owner("wunamesst")
         .repo_name("tailr")
         .bin_name("tailr")
         .target(target)
-        .current_version(cargo_crate_version!())
+        .current_version(current)
         .no_confirm(true)
         .show_download_progress(true)
         .build()?;
 
+    let latest = updater.get_latest_release()?;
+    if !self_update::version::bump_is_greater(current, &latest.version)? {
+        println!("Already up to date (v{})", current);
+        return Ok(());
+    }
+
     if check {
-        let release = updater.get_latest_release()?;
-        let current = cargo_crate_version!();
-        if self_update::version::bump_is_greater(current, &release.version)? {
-            println!(
-                "New version available: v{} (current: v{})\n\
-                 Run `tailr upgrade` to install the update.",
-                release.version, current
-            );
-        } else {
-            println!("Already up to date (v{})", current);
+        println!(
+            "New version available: v{} (current: v{})\n\
+             Run `tailr upgrade` to install the update.",
+            latest.version, current
+        );
+        return Ok(());
+    }
+
+    let status = self_update::backends::github::Update::configure()
+        .repo_owner("wunamesst")
+        .repo_name("tailr")
+        .bin_name("tailr")
+        .target(target)
+        .current_version(current)
+        .target_version_tag(&format!("v{}", latest.version))
+        .no_confirm(true)
+        .show_download_progress(true)
+        .build()?
+        .update()?;
+
+    match status {
+        self_update::Status::UpToDate(version) => {
+            println!("Already up to date (v{})", version);
         }
-    } else {
-        let status = updater.update()?;
-        match status {
-            self_update::Status::UpToDate(version) => {
-                println!("Already up to date (v{})", version);
-            }
-            self_update::Status::Updated(version) => {
-                println!(
-                    "Updated to v{}! Please restart the service to use the new version.",
-                    version
-                );
-            }
+        self_update::Status::Updated(version) => {
+            println!(
+                "Updated to v{}! Please restart the service to use the new version.",
+                version
+            );
         }
     }
 
