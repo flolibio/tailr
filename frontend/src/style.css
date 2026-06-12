@@ -282,14 +282,13 @@ input[type="range"] {
 
 /* ── Sidebar ── */
 .sidebar {
-  grid-row: 1 / 5;
+  grid-row: 1 / 4;
   grid-column: 1;
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   background: var(--bg);
   overflow: hidden;
-  padding-bottom: var(--statusbar-h);
   position: relative;
 }
 
