@@ -411,23 +411,34 @@ async fn file_tail(
 
     let lines = params.lines.unwrap_or(200).min(5000) as usize;
 
-    let index = get_or_build_index(&state, &path).await;
-    let total = index.total_lines();
+    let tail = {
+        let p = path.clone();
+        match tokio::task::spawn_blocking(move || LineIndex::tail_start(&p, lines)).await {
+            Ok(Ok(tail)) => tail,
+            _ => {
+                return Json(ApiResponse::ok(FileTailData {
+                    entries: Vec::new(),
+                    total_lines: 0,
+                }))
+            }
+        }
+    };
 
-    if total == 0 {
+    if tail.total_lines == 0 {
         return Json(ApiResponse::ok(FileTailData {
             entries: Vec::new(),
             total_lines: 0,
         }));
     }
 
-    let start_line = total.saturating_sub(lines as u64);
-    let start_byte = index.offset_of_line(start_line).unwrap_or(0);
-
+    let start_line = tail.total_lines.saturating_sub(lines as u64);
     let detector = state.level_detector.load();
-    let entries = read_lines_from(&path, start_byte, lines, start_line, &detector).await;
+    let entries = read_lines_from(&path, tail.start_byte, lines, start_line, &detector).await;
 
-    Json(ApiResponse::ok(FileTailData { entries, total_lines: total }))
+    Json(ApiResponse::ok(FileTailData {
+        entries,
+        total_lines: tail.total_lines,
+    }))
 }
 
 async fn file_info(

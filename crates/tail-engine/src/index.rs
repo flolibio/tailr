@@ -4,6 +4,11 @@ use std::io;
 use std::path::Path;
 use tracing::debug;
 
+pub struct TailResult {
+    pub start_byte: u64,
+    pub total_lines: u64,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct LineIndex {
     pub offsets: Vec<u64>,
@@ -107,6 +112,94 @@ impl LineIndex {
 
     pub fn offset_of_line(&self, line: u64) -> Option<u64> {
         self.offsets.get(line as usize).copied()
+    }
+
+    pub fn tail_start(path: &Path, n: usize) -> io::Result<TailResult> {
+        use std::io::{Read, Seek, SeekFrom};
+
+        let mut file = File::open(path)?;
+        let file_size = file.metadata()?.len();
+
+        if file_size == 0 {
+            return Ok(TailResult {
+                start_byte: 0,
+                total_lines: 0,
+            });
+        }
+
+        let mut last_byte = [0u8; 1];
+        file.seek(SeekFrom::End(-1))?;
+        file.read_exact(&mut last_byte)?;
+        let ends_with_newline = last_byte[0] == b'\n';
+
+        let target = if ends_with_newline { n + 1 } else { n };
+
+        const CHUNK_SIZE: usize = 8192;
+        let mut pos = file_size;
+        let mut buf = vec![0u8; CHUNK_SIZE];
+        let mut newline_count = 0usize;
+        let mut start_byte: u64 = 0;
+        let mut found = false;
+
+        while pos > 0 {
+            let read_len = CHUNK_SIZE.min(pos as usize);
+            let chunk_start = pos - read_len as u64;
+
+            file.seek(SeekFrom::Start(chunk_start))?;
+            file.read_exact(&mut buf[..read_len])?;
+
+            for i in (0..read_len).rev() {
+                if buf[i] == b'\n' {
+                    newline_count += 1;
+                    if newline_count == target {
+                        let after = chunk_start + i as u64 + 1;
+                        if after < file_size {
+                            start_byte = after;
+                            found = true;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if found {
+                break;
+            }
+
+            pos = chunk_start;
+        }
+
+        let total_lines = if !found {
+            let base = newline_count as u64;
+            if ends_with_newline {
+                base
+            } else if base == 0 {
+                1
+            } else {
+                base + 1
+            }
+        } else {
+            let tail_bytes = file_size - start_byte;
+            if tail_bytes > 0 && n > 0 {
+                let avg = tail_bytes as f64 / n as f64;
+                (file_size as f64 / avg) as u64
+            } else {
+                n as u64
+            }
+        };
+
+        debug!(
+            path = %path.display(),
+            start_byte,
+            total_lines,
+            file_size,
+            "tail_start computed"
+        );
+
+        Ok(TailResult {
+            start_byte,
+            total_lines,
+        })
     }
 
     pub fn line_of_offset(&self, offset: u64) -> u64 {
@@ -227,5 +320,68 @@ mod tests {
         let new_size = f.as_file().metadata().unwrap().len();
         idx.update(f.path(), new_size).unwrap();
         assert_eq!(idx.offsets, vec![0, 6, 12]);
+    }
+
+    #[test]
+    fn test_tail_start_empty_file() {
+        let mut f = NamedTempFile::new().unwrap();
+        f.write_all(b"").unwrap();
+        let result = LineIndex::tail_start(f.path(), 10).unwrap();
+        assert_eq!(result.start_byte, 0);
+        assert_eq!(result.total_lines, 0);
+    }
+
+    #[test]
+    fn test_tail_start_fewer_lines_than_requested() {
+        let mut f = NamedTempFile::new().unwrap();
+        f.write_all(b"a\nb\n").unwrap();
+        let result = LineIndex::tail_start(f.path(), 10).unwrap();
+        assert_eq!(result.start_byte, 0);
+        assert_eq!(result.total_lines, 2);
+    }
+
+    #[test]
+    fn test_tail_start_with_trailing_newline() {
+        let mut f = NamedTempFile::new().unwrap();
+        f.write_all(b"aaa\nbbb\nccc\nddd\n").unwrap();
+        let result = LineIndex::tail_start(f.path(), 2).unwrap();
+        assert_eq!(result.start_byte, 8);
+    }
+
+    #[test]
+    fn test_tail_start_without_trailing_newline() {
+        let mut f = NamedTempFile::new().unwrap();
+        f.write_all(b"aaa\nbbb\nccc\nddd").unwrap();
+        let result = LineIndex::tail_start(f.path(), 2).unwrap();
+        assert_eq!(result.start_byte, 8);
+    }
+
+    #[test]
+    fn test_tail_start_last_line() {
+        let mut f = NamedTempFile::new().unwrap();
+        f.write_all(b"aaa\nbbb\nccc\n").unwrap();
+        let result = LineIndex::tail_start(f.path(), 1).unwrap();
+        assert_eq!(result.start_byte, 8);
+    }
+
+    #[test]
+    fn test_tail_start_single_line_no_newline() {
+        let mut f = NamedTempFile::new().unwrap();
+        f.write_all(b"hello").unwrap();
+        let result = LineIndex::tail_start(f.path(), 5).unwrap();
+        assert_eq!(result.start_byte, 0);
+        assert_eq!(result.total_lines, 1);
+    }
+
+    #[test]
+    fn test_tail_start_large_n_estimate() {
+        let mut f = NamedTempFile::new().unwrap();
+        for i in 0..1000 {
+            writeln!(f, "line{}", i).unwrap();
+        }
+        f.flush().unwrap();
+        let result = LineIndex::tail_start(f.path(), 50).unwrap();
+        assert!(result.start_byte > 0);
+        assert!(result.total_lines > 0);
     }
 }
