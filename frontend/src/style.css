@@ -139,7 +139,7 @@ body {
 }
 
 :root.dark ::selection {
-  background: rgba(255, 220, 0, 0.3);
+  background: rgba(88, 166, 255, 0.3);
 }
 
 /* ── Buttons ── */
