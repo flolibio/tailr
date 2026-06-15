@@ -46,12 +46,10 @@ pub struct Config {
 }
 
 /// Daemon-specific configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct DaemonConfig {
-    /// Custom PID file path. Defaults to `~/.local/share/tailr/tailr.pid`.
     pub pid_file: Option<PathBuf>,
-    /// Custom log file path. Defaults to `~/.local/share/tailr/tailr.log`.
     pub log_file: Option<PathBuf>,
 }
 
@@ -61,15 +59,6 @@ impl Default for Config {
             log: vec![],
             bind: "0.0.0.0:7700".to_string(),
             daemon: DaemonConfig::default(),
-        }
-    }
-}
-
-impl Default for DaemonConfig {
-    fn default() -> Self {
-        Self {
-            pid_file: None,
-            log_file: None,
         }
     }
 }
