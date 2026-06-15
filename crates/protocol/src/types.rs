@@ -1,6 +1,32 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+// ── 日志级别配置 ──────────────────────────────────────────
+
+/// 单个日志级别定义（名称 + 检测关键词 + 颜色）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LevelDef {
+    /// 级别名称（如 "ERROR", "CRITICAL"）
+    pub name: String,
+    /// 检测关键词（如 ["ERROR", "ERR"]），大小写不敏感
+    pub keywords: Vec<String>,
+    /// 浅色主题颜色（HEX）
+    pub color_light: String,
+    /// 深色主题颜色（HEX）
+    pub color_dark: String,
+}
+
+/// 日志级别配置（预设名称 + 级别列表）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogLevelConfig {
+    /// 预设名称（"general" | "java" | "python" | "php" | "go" | "rust" | "syslog" | "custom"）
+    pub preset: String,
+    /// 级别列表，顺序 = 检测优先级
+    pub levels: Vec<LevelDef>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum LogLevel {
@@ -18,7 +44,8 @@ pub enum LogLevel {
 pub struct LogEntry {
     pub line_num: u64,
     pub raw: String,
-    pub level: LogLevel,
+    /// 日志级别名称（动态，支持自定义级别如 "CRITICAL"、"FATAL"）
+    pub level: String,
     pub timestamp: Option<DateTime<Utc>>,
     pub fields: Option<serde_json::Value>,
 }

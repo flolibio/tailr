@@ -23,7 +23,7 @@
 - **Real-time tail** — WebSocket-based live log streaming
 - **Multi-keyword filter** — AND logic, like `grep kw1 | grep kw2`
 - **Fast search** — mmap-based grep with regex support
-- **Log level detection** — Auto-detects ALERT/ERROR/WARN/INFO/DEBUG/TRACE
+- **Configurable log levels** — User-defined levels, keywords, and colors with 7 presets (General, Java, Python, PHP, Go, Rust, syslog)
 - **Single binary** — No dependencies, no runtime, just run
 - **Web UI** — Built-in Vue 3 SPA, no separate frontend deployment
 - **Log rotation aware** — Detects inode changes, handles logrotate
@@ -117,6 +117,54 @@ tailr config
 tailr --config /path/to/config.toml
 ```
 
+The config file is located at `~/.config/tailr/config.toml` by default:
+
+```toml
+# Log directories or files to serve
+log = ["/var/log"]
+
+# Server bind address
+bind = "0.0.0.0:7700"
+
+# Log level configuration (optional, uses "general" preset by default)
+[log_levels]
+preset = "python"
+
+[[log_levels.level]]
+name = "CRITICAL"
+keywords = ["CRITICAL"]
+color_light = "#CC2D26"
+color_dark = "#FF6B63"
+
+[[log_levels.level]]
+name = "ERROR"
+keywords = ["ERROR"]
+color_light = "#A32D2D"
+color_dark = "#F09595"
+
+[[log_levels.level]]
+name = "WARNING"
+keywords = ["WARNING"]
+color_light = "#854F0B"
+color_dark = "#EF9F27"
+
+[[log_levels.level]]
+name = "INFO"
+keywords = ["INFO"]
+color_light = "#0C447C"
+color_dark = "#85B7EB"
+
+[[log_levels.level]]
+name = "DEBUG"
+keywords = ["DEBUG"]
+color_light = "#3B6D11"
+color_dark = "#97C459"
+```
+
+**Available presets:** general, java, python, php, go, rust, syslog
+
+Log levels can also be configured via the Web UI under Settings → Log Levels.
+
 ### Daemon Mode
 
 Run tailr as a background daemon instead of using `nohup`:
@@ -198,6 +246,8 @@ tailr upgrade
 | `/api/file/tail` | GET | Last N lines (`?path=&lines=`) |
 | `/api/file/info` | GET | File metadata + line count |
 | `/api/search` | GET | Grep search (`?path=&q=&regex=&levels=&context=&limit=`) |
+| `/api/config/log-levels` | GET | Get current log level configuration |
+| `/api/config/log-levels` | POST | Save log level configuration (hot-reload + persist to config.toml) |
 | `/api/health` | GET | Status + uptime |
 | `/ws` | WS | Real-time log streaming |
 
@@ -252,12 +302,15 @@ The language preference is persisted in localStorage and auto-detected from the 
 
 ```
 src/main.rs           # CLI (clap), env vars, starts axum server
+src/config.rs         # Config loading (figment), presets, persistence
 crates/
-  protocol/           # Shared types: LogEntry, WSMessage, LogLevel
-  tail-engine/        # File watching (notify), LineIndex (mmap)
-  search-engine/      # Grep-based search (grep-regex/grep-searcher)
+  protocol/           # Shared types: LogEntry, WSMessage, LevelDef, LogLevelConfig
+  tail-engine/        # File watching (notify), LineIndex (mmap), TailSession
+  search-engine/      # Grep-based search, LevelDetector (dynamic log levels)
   server/             # Axum app: REST API, WebSocket, static files
 frontend/             # Vue 3 + TypeScript + Vite SPA
+  composables/        # useLogLevels (presets, colors, dynamic CSS)
+  components/         # Settings UI (LogLevelSettings, ColorPicker)
 ```
 
 ## License

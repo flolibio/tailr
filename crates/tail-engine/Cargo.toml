@@ -5,8 +5,10 @@ edition = "2021"
 
 [dependencies]
 tailr-protocol = { path = "../protocol" }
+tailr-search-engine = { path = "../search-engine" }
 tokio = { workspace = true }
 notify = { workspace = true }
+arc-swap = "1"
 memmap2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

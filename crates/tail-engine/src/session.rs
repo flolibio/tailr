@@ -1,5 +1,8 @@
-use tailr_protocol::{detect_level, try_parse_json_fields, try_parse_timestamp, LogEntry};
+use arc_swap::ArcSwap;
+use tailr_protocol::{try_parse_json_fields, try_parse_timestamp, LogEntry};
+use tailr_search_engine::LevelDetector;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::fs::File;
 use tokio::io::{AsyncBufReadExt, AsyncSeekExt, BufReader, SeekFrom};
 use tracing::{debug, info};
@@ -14,10 +17,16 @@ pub struct TailSession {
     inode: u64,
     pub seq: u64,
     line_num: u64,
+    /// 动态级别检测器（通过 ArcSwap 共享，支持热更新）
+    level_detector: Arc<ArcSwap<LevelDetector>>,
 }
 
 impl TailSession {
-    pub async fn new(path: PathBuf, initial_lines: u64) -> std::io::Result<Self> {
+    pub async fn new(
+        path: PathBuf,
+        initial_lines: u64,
+        level_detector: Arc<ArcSwap<LevelDetector>>,
+    ) -> std::io::Result<Self> {
         let meta = tokio::fs::metadata(&path).await?;
         let inode = meta.ino();
         let size = meta.len();
@@ -33,6 +42,7 @@ impl TailSession {
             inode,
             seq: 0,
             line_num: initial_lines,
+            level_detector,
         })
     }
 
@@ -125,14 +135,14 @@ impl TailSession {
                 continue;
             }
 
-            let level = detect_level(trimmed);
+            let level_name = self.level_detector.load().detect(trimmed);
             let timestamp = try_parse_timestamp(trimmed);
             let fields = try_parse_json_fields(trimmed);
 
             let entry = LogEntry {
                 line_num: self.line_num,
                 raw: trimmed.to_string(),
-                level,
+                level: level_name,
                 timestamp,
                 fields,
             };
@@ -160,7 +170,21 @@ impl TailSession {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tailr_protocol::LogLevel;
+    use tailr_protocol::{detect_level, LogLevel};
+
+    fn default_detector() -> Arc<ArcSwap<LevelDetector>> {
+        use tailr_protocol::{LevelDef, LogLevelConfig};
+        let config = LogLevelConfig {
+            preset: "general".to_string(),
+            levels: vec![
+                LevelDef { name: "ERROR".into(), keywords: vec!["ERROR".into()], color_light: "#000".into(), color_dark: "#FFF".into() },
+                LevelDef { name: "WARN".into(), keywords: vec!["WARN".into()], color_light: "#000".into(), color_dark: "#FFF".into() },
+                LevelDef { name: "INFO".into(), keywords: vec!["INFO".into()], color_light: "#000".into(), color_dark: "#FFF".into() },
+                LevelDef { name: "DEBUG".into(), keywords: vec!["DEBUG".into()], color_light: "#000".into(), color_dark: "#FFF".into() },
+            ],
+        };
+        Arc::new(ArcSwap::from_pointee(LevelDetector::from_config(&config)))
+    }
 
     #[test]
     fn test_detect_level_error() {
@@ -210,7 +234,7 @@ mod tests {
         f.flush().unwrap();
 
         let initial_size = f.as_file().metadata().unwrap().len();
-        let mut session = TailSession::new(f.path().to_path_buf(), 2).await.unwrap();
+        let mut session = TailSession::new(f.path().to_path_buf(), 2, default_detector()).await.unwrap();
         assert_eq!(session.offset, initial_size);
 
         // Truncate and rewrite

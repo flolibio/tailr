@@ -24,7 +24,19 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System",
-    "language": "Language"
+    "language": "Language",
+    "logLevels": "Log Levels",
+    "preset": "Preset",
+    "levels": "Levels",
+    "levelName": "Name",
+    "keywords": "Keywords (comma separated)",
+    "lightColor": "Light theme color",
+    "darkColor": "Dark theme color",
+    "addLevel": "Add level",
+    "removeLevel": "Remove",
+    "dragToReorder": "Drag to reorder (detection priority)",
+    "save": "Save",
+    "resetDefault": "Reset to default"
   },
   "filter": {
     "filterLogs": "Filter logs (Enter to add)…",

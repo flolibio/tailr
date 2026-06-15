@@ -24,7 +24,19 @@
     "light": "浅色",
     "dark": "深色",
     "system": "跟随系统",
-    "language": "语言"
+    "language": "语言",
+    "logLevels": "日志级别",
+    "preset": "预设",
+    "levels": "级别列表",
+    "levelName": "名称",
+    "keywords": "关键词（逗号分隔）",
+    "lightColor": "浅色主题颜色",
+    "darkColor": "深色主题颜色",
+    "addLevel": "添加级别",
+    "removeLevel": "删除",
+    "dragToReorder": "拖拽排序（检测优先级）",
+    "save": "保存",
+    "resetDefault": "重置为默认"
   },
   "filter": {
     "filterLogs": "过滤日志（按回车添加）…",

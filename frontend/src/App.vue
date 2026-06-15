@@ -5,9 +5,11 @@ import FileBrowser from './components/FileBrowser.vue'
 import LogViewer from './components/LogViewer.vue'
 import FilterBar from './components/FilterBar.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
+import LogLevelSettings from './components/settings/LogLevelSettings.vue'
 import SelectionToolbar from './components/SelectionToolbar.vue'
 import type { Settings } from './components/SettingsPanel.vue'
 import { useLogStream } from './composables/useLogStream'
+import { useLogLevels } from './composables/useLogLevels'
 
 const { t } = useI18n()
 
@@ -92,16 +94,27 @@ function saveSettings(s: Settings): void {
 
 const settings = reactive<Settings>(loadSettings())
 
-const allLevels = ['ALERT', 'ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'] as const
+// ── 动态日志级别 ──────────────────────────────────────────
+const {
+  config: logLevelConfig,
+  levelNames,
+  applyThemeColors,
+  loadFromBackend: loadLogLevels,
+} = useLogLevels()
 
-const levelDotColors: Record<string, string> = {
-  ALERT: '#FF3B30',
-  ERROR: '#FF453A',
-  WARN: '#FF9F0A',
-  INFO: '#30D158',
-  DEBUG: '#64D2FF',
-  TRACE: '#BF5AF2',
-}
+const activeTab = ref<'appearance' | 'logLevels'>('appearance')
+
+// 动态级别颜色映射
+const levelDotColors = computed(() => {
+  const colors: Record<string, string> = {}
+  for (const level of logLevelConfig.value.levels) {
+    const isDark = settings.darkTheme
+    colors[level.name] = isDark ? level.colorDark : level.colorLight
+  }
+  return colors
+})
+
+const allLevels = computed(() => levelNames.value)
 
 function toggleLevel(lv: string): void {
   const idx = selectedLevels.value.indexOf(lv)
@@ -168,6 +181,10 @@ onMounted(() => {
     document.documentElement.dataset.theme = 'light'
   }
 
+  // 初始化动态日志级别颜色
+  applyThemeColors(settings.darkTheme)
+  loadLogLevels()
+
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
       e.preventDefault()
@@ -193,6 +210,7 @@ function handleSettingsUpdate(s: Settings): void {
       document.documentElement.dataset.theme = 'light'
       document.documentElement.classList.remove('dark')
     }
+    applyThemeColors(s.darkTheme)
   }
   Object.assign(settings, s)
   saveSettings(settings)
@@ -236,8 +254,13 @@ function handleSettingsUpdate(s: Settings): void {
       <div
         v-for="lv in allLevels"
         :key="lv"
-        class="level-tag"
-        :class="[lv.toLowerCase(), { off: selectedLevels.length > 0 && !selectedLevels.includes(lv) }]"
+        class="level-tag dynamic-level"
+        :class="{ off: selectedLevels.length > 0 && !selectedLevels.includes(lv) }"
+        :style="{
+          color: levelDotColors[lv],
+          background: levelDotColors[lv] + '18',
+          borderColor: levelDotColors[lv] + '40',
+        }"
         @click="toggleLevel(lv)"
       >
         <span class="dot" :style="{ background: levelDotColors[lv] }"></span>
@@ -271,12 +294,32 @@ function handleSettingsUpdate(s: Settings): void {
 
     <!-- Settings panel -->
     <aside class="settings-panel">
-      <SettingsPanel
-        v-if="!settingsCollapsed"
-        :settings="settings"
-        @update="handleSettingsUpdate"
-        @collapse="settingsCollapsed = true"
-      />
+      <template v-if="!settingsCollapsed">
+        <div class="settings-tabs">
+          <button
+            class="settings-tab"
+            :class="{ active: activeTab === 'appearance' }"
+            @click="activeTab = 'appearance'"
+          >{{ t('settings.theme') }}</button>
+          <button
+            class="settings-tab"
+            :class="{ active: activeTab === 'logLevels' }"
+            @click="activeTab = 'logLevels'"
+          >{{ t('settings.logLevels') }}</button>
+          <button class="collapse-btn tab-close" @click="settingsCollapsed = true" :title="t('settings.collapse')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <div class="settings-content">
+          <SettingsPanel
+            v-if="activeTab === 'appearance'"
+            :settings="settings"
+            @update="handleSettingsUpdate"
+            @collapse="settingsCollapsed = true"
+          />
+          <LogLevelSettings v-else-if="activeTab === 'logLevels'" />
+        </div>
+      </template>
       <button v-else class="settings-reopen" @click="settingsCollapsed = false" :title="t('app.openSettings')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>

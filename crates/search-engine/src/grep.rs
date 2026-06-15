@@ -8,8 +8,6 @@ use grep_searcher::{Sink, SinkContext, SinkContextKind, SinkMatch};
 use memmap2::Mmap;
 use tracing::{debug, warn};
 
-use tailr_protocol::LogLevel;
-
 const MAX_RESULTS: usize = 10000;
 
 #[derive(Debug, Clone)]
@@ -20,7 +18,7 @@ pub struct SearchOptions {
     pub context_before: u32,
     pub context_after: u32,
     pub max_results: usize,
-    pub level_filter: Option<LogLevel>,
+    pub level_filter: Option<String>,
 }
 
 impl Default for SearchOptions {

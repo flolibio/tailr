@@ -9,6 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 tailr-server = { path = "crates/server" }
+tailr-protocol = { path = "crates/protocol" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -19,6 +20,7 @@ daemonize = "0.5"
 dirs = "5.0"
 figment = { version = "0.10", features = ["toml", "env"] }
 serde = { workspace = true }
+arc-swap = "1"
 toml = "0.8"
 
 [dev-dependencies]
