@@ -10,18 +10,22 @@ tailr: a single-binary log tail/search server. Rust backend (axum) + Vue 3 front
 
 ```
 src/main.rs           # Binary entrypoint: CLI (clap), env vars, starts axum server
+src/config.rs         # Config loading (figment), presets, write_config()
 crates/
-  protocol/           # Shared types: LogEntry, WSMessage, LogLevel, detect_level(), try_parse_timestamp()
+  protocol/           # Shared types: LogEntry, WSMessage, LevelDef, LogLevelConfig, detect_level()
   tail-engine/        # File watching (notify), incremental LineIndex (memmap2), TailSession
-  search-engine/      # grep-based search (grep-regex/grep-searcher), LogFilter (precompiled regex)
+  search-engine/      # grep-based search, LogFilter, LevelDetector (dynamic log levels)
   server/             # Axum app: REST API, WebSocket handler, static file serving
-frontend/             # Vue 3 + TypeScript + Vite SPA
+frontend/
+  composables/        # useLogLevels (presets, colors, dynamic CSS variables)
+  components/         # Settings UI (LogLevelSettings, ColorPicker)
 ```
 
 - `crates/server` is the hub — depends on all other crates, owns `AppState` and `app()` router factory.
 - `crates/protocol` has zero internal deps; all other crates depend on it. Contains shared utility functions (`detect_level`, `try_parse_timestamp`, `try_parse_json_fields`).
 - `crates/tail-engine` uses `notify` for inotify + polling fallback; `TailSession` tracks file offset/inode for log-rotate awareness.
-- `crates/search-engine` uses `memmap2` + `grep-regex` for fast file search. `LogFilter` compiles regex once via builder pattern.
+- `crates/search-engine` uses `memmap2` + `grep-regex` for fast file search. `LogFilter` compiles regex once via builder pattern. `LevelDetector` provides dynamic keyword-based log level detection.
+- `src/config.rs` uses figment for layered config (defaults < config.toml < env vars < CLI args). Supports `write_config()` for API-driven persistence.
 
 ## CLI
 
@@ -105,6 +109,8 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 | `/api/file/tail` | GET | Last N lines |
 | `/api/file/info` | GET | File metadata + line count |
 | `/api/search` | GET | Grep search with context, level/time filters |
+| `/api/config/log-levels` | GET | Get current log level configuration |
+| `/api/config/log-levels` | POST | Save log level config (hot-reload via arc-swap + persist to config.toml) |
 | `/api/health` | GET | Status + uptime |
 | `/ws` | WS | Subscribe/unsubscribe to live file tail (batched entries) |
 
@@ -122,3 +128,37 @@ git push origin vX.Y.Z
 ```
 
 **DO NOT** use `gh release create` — let CI handle it. See `docs/release-guide.md`.
+
+## Contributing Workflow
+
+Follow [CONTRIBUTING.md](CONTRIBUTING.md) for full details. Quick reference:
+
+### Branch naming (from `main`)
+| Type | Format | Example |
+|------|--------|---------|
+| Feature | `feat/description` | `feat/configurable-log-levels` |
+| Bug fix | `fix/description` | `fix/truncation-detection` |
+| Refactor | `refactor/description` | `refactor/cli-subcommands` |
+| Docs | `docs/description` | `docs/api-reference` |
+
+### Commit messages (Conventional Commits)
+```
+feat: add configurable log levels
+fix: correct file truncation detection
+docs: update API documentation
+refactor: simplify config loading
+chore: bump dependencies
+```
+
+### Push to fork
+```bash
+# Add fork remote (one-time setup)
+git remote add fork https://github.com/YOUR_USERNAME/tailr.git
+
+# Push feature branch
+git push -u fork feat/your-feature
+
+# Create PR on GitHub targeting main
+```
+
+**Never push directly to `main` or `wunamesst/tailr`.** Always push to your fork and open a PR.
