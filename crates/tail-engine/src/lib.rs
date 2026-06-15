@@ -2,7 +2,7 @@ pub mod index;
 pub mod session;
 pub mod watcher;
 
-pub use index::LineIndex;
+pub use index::{LineIndex, TailResult};
 pub use session::TailSession;
 pub use watcher::FileWatcher;
 
