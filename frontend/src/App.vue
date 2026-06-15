@@ -300,7 +300,7 @@ function handleSettingsUpdate(s: Settings): void {
             class="settings-tab"
             :class="{ active: activeTab === 'appearance' }"
             @click="activeTab = 'appearance'"
-          >{{ t('settings.theme') }}</button>
+          >{{ t('settings.basicSettings') }}</button>
           <button
             class="settings-tab"
             :class="{ active: activeTab === 'logLevels' }"
