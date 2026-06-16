@@ -41,13 +41,13 @@ Priority: CLI args > Config file (`~/.config/tailr/config.toml`) > Env vars > De
 
 ## Build
 
-Frontend dist is **committed** and embedded into the Rust binary at compile time via `include_dir!("$CARGO_MANIFEST_DIR/../../frontend/dist")`.
+Frontend dist is **gitignored** and built on demand. It is embedded into the Rust binary at compile time via `include_dir!("$CARGO_MANIFEST_DIR/../../frontend/dist")`.
 
 ```bash
 make frontend          # npm install + npm run build
 make build             # frontend + cargo build --release
-make dev               # cargo run
-make check             # cargo check
+make dev               # cargo run (run `make frontend` first, or use Vite dev server)
+make check             # cargo check (run `make frontend` first)
 ```
 
 If `frontend/dist` doesn't exist or is stale, the server serves a placeholder HTML page.

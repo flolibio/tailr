@@ -1,9 +1,14 @@
-.PHONY: build build-linux build-linux-arm dev check test test-backend test-frontend clean release release-linux release-linux-arm frontend
+.PHONY: build build-linux build-linux-arm dev debug check test test-backend test-frontend clean release release-linux release-linux-arm frontend
 
 # ── Development ──
 
+LOG ?= /var/log
+
 dev:
 	cargo run
+
+debug: frontend
+	cargo run -- --log $(LOG)
 
 # ── Code Check ──
 
