@@ -6,6 +6,10 @@
   "type": "module",
   "author": "Gavin <wunamesst@163.com>",
   "license": "MIT",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",

@@ -5,8 +5,8 @@ Thanks for your interest in contributing! This guide covers everything you need 
 ## Prerequisites
 
 - **Rust** 1.70+ (`rustup show`)
-- **Node.js** 18+ (`node --version`)
-- **npm** 9+
+- **Node.js** 20+ (check `.nvmrc`; use `nvm use`)
+- **npm** 10+
 - **Docker** (only for Linux cross-compilation)
 
 ## Getting Started
@@ -92,13 +92,23 @@ The Vite dev server runs on `:5173` and proxies `/api` and `/ws` to `:7700`.
 
 ### Frontend Build
 
-Frontend dist is **committed** and embedded into the binary via `include_dir!`. After frontend changes:
+Frontend dist is **gitignored** and built on demand. It is embedded into the binary via `include_dir!` at compile time.
+
+Always use `npm ci` (not `npm install`) to avoid modifying `package-lock.json`:
 
 ```bash
-cd frontend && npm run build
+cd frontend && npm ci && npm run build
 ```
 
-This updates `frontend/dist/` which gets picked up by the Rust binary at compile time.
+Or simply:
+
+```bash
+make frontend
+```
+
+If `package-lock.json` appears modified after `npm install`, do **not** commit it. Run `npm ci` to restore the correct state, or `git checkout -- package-lock.json`.
+
+Only commit `package-lock.json` changes when you intentionally add or upgrade dependencies.
 
 ## Testing
 
