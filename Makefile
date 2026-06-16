@@ -27,7 +27,7 @@ test-frontend:
 # ── Frontend ──
 
 frontend:
-	cd frontend && npm install && npm run build
+	cd frontend && npm ci && npm run build
 
 # ── Local Build ──
 
