@@ -37,6 +37,9 @@
     "removeLevel": "Remove",
     "dragToReorder": "Drag to reorder (detection priority)",
     "save": "Save",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "saveError": "Save failed",
     "resetDefault": "Reset to default"
   },
   "filter": {

@@ -37,6 +37,9 @@
     "removeLevel": "删除",
     "dragToReorder": "拖拽排序（检测优先级）",
     "save": "保存",
+    "saving": "保存中...",
+    "saved": "已保存",
+    "saveError": "保存失败",
     "resetDefault": "重置为默认"
   },
   "filter": {

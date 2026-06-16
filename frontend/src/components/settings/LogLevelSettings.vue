@@ -24,6 +24,11 @@ const showColorPicker = ref(false)
 const colorPickerIndex = ref(0)
 const colorPickerTarget = ref<'light' | 'dark'>('light')
 
+// 保存状态
+const saveState = ref<'idle' | 'saving' | 'success' | 'error'>('idle')
+const countdown = ref(3)
+let countdownTimer: ReturnType<typeof setInterval> | null = null
+
 function openColorPicker(index: number, target: 'light' | 'dark') {
   colorPickerIndex.value = index
   colorPickerTarget.value = target
@@ -51,7 +56,22 @@ function updateKeywords(index: number, value: string) {
 }
 
 async function handleSave() {
-  await syncToBackend()
+  saveState.value = 'saving'
+  try {
+    await syncToBackend()
+    saveState.value = 'success'
+    countdown.value = 3
+    countdownTimer = setInterval(() => {
+      countdown.value--
+      if (countdown.value <= 0) {
+        if (countdownTimer) clearInterval(countdownTimer)
+        window.location.reload()
+      }
+    }, 1000)
+  } catch {
+    saveState.value = 'error'
+    setTimeout(() => { saveState.value = 'idle' }, 2000)
+  }
 }
 
 const isDragging = ref(false)
@@ -81,8 +101,8 @@ function onDragEnd() {
 <template>
   <div class="log-level-settings">
     <!-- 预设选择 -->
-    <div class="section">
-      <label class="section-label">{{ t('settings.preset') }}</label>
+    <div class="field-group">
+      <label class="field-label">{{ t('settings.preset') }}</label>
       <select class="preset-select" :value="config.preset" @change="onPresetChange">
         <option
           v-for="p in presetOptions"
@@ -94,75 +114,68 @@ function onDragEnd() {
     </div>
 
     <!-- 级别列表 -->
-    <div class="section">
-      <label class="section-label">{{ t('settings.levels') }}</label>
+    <div class="field-group">
+      <label class="field-label">{{ t('settings.levels') }}</label>
       <div class="level-list">
         <div
           v-for="(level, index) in config.levels"
           :key="index"
-          class="level-row"
+          class="level-card"
           :class="{ dragging: isDragging && dragIndex === index }"
           draggable="true"
           @dragstart="onDragStart(index)"
           @dragover="onDragOver($event, index)"
           @dragend="onDragEnd"
         >
-          <!-- 拖拽手柄 -->
-          <span class="drag-handle" :title="t('settings.dragToReorder')">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/>
-              <circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>
-              <circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/>
-            </svg>
-          </span>
-
-          <!-- 级别名称 -->
-          <input
-            class="level-name"
-            :value="level.name"
-            @input="updateLevel(index, { name: ($event.target as HTMLInputElement).value })"
-            :placeholder="t('settings.levelName')"
-          />
-
-          <!-- 关键词 -->
-          <input
-            class="level-keywords"
-            :value="level.keywords.join(', ')"
-            @input="updateKeywords(index, ($event.target as HTMLInputElement).value)"
-            :placeholder="t('settings.keywords')"
-          />
-
-          <!-- 浅色颜色 -->
-          <button
-            class="color-dot"
-            :style="{ background: level.colorLight }"
-            :title="t('settings.lightColor')"
-            @click="openColorPicker(index, 'light')"
-          ></button>
-
-          <!-- 深色颜色 -->
-          <button
-            class="color-dot"
-            :style="{ background: level.colorDark }"
-            :title="t('settings.darkColor')"
-            @click="openColorPicker(index, 'dark')"
-          ></button>
-
-          <!-- 删除按钮 -->
-          <button
-            class="remove-btn"
-            @click="removeLevel(index)"
-            :title="t('settings.removeLevel')"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+          <div class="level-card-left">
+            <span class="drag-handle" :title="t('settings.dragToReorder')">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/>
+                <circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>
+                <circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/>
+              </svg>
+            </span>
+            <input
+              class="level-name"
+              :value="level.name"
+              @input="updateLevel(index, { name: ($event.target as HTMLInputElement).value })"
+              :placeholder="t('settings.levelName')"
+            />
+            <input
+              class="level-keywords"
+              :value="level.keywords.join(', ')"
+              @input="updateKeywords(index, ($event.target as HTMLInputElement).value)"
+              :placeholder="t('settings.keywords')"
+            />
+          </div>
+          <div class="level-card-right">
+            <button
+              class="color-dot"
+              :style="{ background: level.colorLight }"
+              :title="t('settings.lightColor')"
+              @click="openColorPicker(index, 'light')"
+            ></button>
+            <button
+              class="color-dot"
+              :style="{ background: level.colorDark }"
+              :title="t('settings.darkColor')"
+              @click="openColorPicker(index, 'dark')"
+            ></button>
+            <button
+              class="remove-btn"
+              @click="removeLevel(index)"
+              :title="t('settings.removeLevel')"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
       <button class="add-btn" @click="addLevel">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
         {{ t('settings.addLevel') }}
@@ -170,22 +183,44 @@ function onDragEnd() {
     </div>
 
     <!-- 操作按钮 -->
-    <div class="section actions">
-      <button class="primary" @click="handleSave">{{ t('settings.save') }}</button>
-      <button @click="resetToDefault">{{ t('settings.resetDefault') }}</button>
+    <div class="actions">
+      <button
+        class="save-btn"
+        :class="{ success: saveState === 'success', error: saveState === 'error' }"
+        @click="handleSave"
+        :disabled="saveState === 'saving'"
+      >
+        <template v-if="saveState === 'saving'">
+          <span class="spinner"></span>
+          {{ t('settings.saving') }}
+        </template>
+        <template v-else-if="saveState === 'success'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          {{ t('settings.saved') }} ({{ countdown }}s)
+        </template>
+        <template v-else-if="saveState === 'error'">
+          {{ t('settings.saveError') }}
+        </template>
+        <template v-else>
+          {{ t('settings.save') }}
+        </template>
+      </button>
+      <button class="reset-btn" @click="resetToDefault">{{ t('settings.resetDefault') }}</button>
     </div>
-
-    <!-- 颜色选择器模态框 -->
-    <ColorPicker
-      v-if="showColorPicker"
-      :palette="COLOR_PALETTE"
-      :current="colorPickerTarget === 'light'
-        ? config.levels[colorPickerIndex]?.colorLight
-        : config.levels[colorPickerIndex]?.colorDark"
-      @pick="onColorPick"
-      @close="showColorPicker = false"
-    />
   </div>
+
+  <!-- 颜色选择器模态框 -->
+  <ColorPicker
+    v-if="showColorPicker"
+    :palette="COLOR_PALETTE"
+    :current="colorPickerTarget === 'light'
+      ? config.levels[colorPickerIndex]?.colorLight
+      : config.levels[colorPickerIndex]?.colorDark"
+    @pick="onColorPick"
+    @close="showColorPicker = false"
+  />
 </template>
 
 <style scoped>
@@ -193,16 +228,18 @@ function onDragEnd() {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  padding: 16px;
   height: 100%;
+  overflow-y: auto;
 }
 
-.section {
+.field-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.section-label {
+.field-label {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -212,34 +249,54 @@ function onDragEnd() {
 
 .preset-select {
   width: 100%;
-  height: 32px;
+  height: 34px;
   font-size: 13px;
 }
 
+/* ── 级别列表 ── */
 .level-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
-.level-row {
+.level-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+
+.level-card:hover {
+  border-color: var(--border-2);
+  background: var(--bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.level-card.dragging {
+  opacity: 0.5;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.level-card-left {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 6px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  transition: border-color .12s, background .12s;
+  flex: 1;
+  min-width: 0;
 }
 
-.level-row:hover {
-  background: var(--bg-2);
-  border-color: var(--border);
-}
-
-.level-row.dragging {
-  opacity: 0.5;
-  border-color: var(--accent);
+.level-card-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .drag-handle {
@@ -248,7 +305,12 @@ function onDragEnd() {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  padding: 2px;
+  opacity: 0.5;
+  transition: opacity .15s;
+}
+
+.level-card:hover .drag-handle {
+  opacity: 1;
 }
 
 .drag-handle:active {
@@ -256,11 +318,11 @@ function onDragEnd() {
 }
 
 .level-name {
-  width: 90px;
+  width: 80px;
   height: 28px;
   font-size: 12px;
   font-weight: 600;
-  padding: 0 6px;
+  padding: 0 8px;
   flex-shrink: 0;
 }
 
@@ -269,27 +331,32 @@ function onDragEnd() {
   min-width: 0;
   height: 28px;
   font-size: 11px;
-  padding: 0 6px;
+  padding: 0 8px;
 }
 
 .color-dot {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  border: 2px solid var(--bg);
+  border: 2px solid var(--bg-2);
   cursor: pointer;
   flex-shrink: 0;
   padding: 0;
-  transition: transform .12s;
+  transition: transform .15s, box-shadow .15s;
+}
+
+.level-card:hover .color-dot {
+  border-color: var(--border);
 }
 
 .color-dot:hover {
-  transform: scale(1.2);
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--border);
 }
 
 .remove-btn {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border: none;
   background: transparent;
   color: var(--text-3);
@@ -298,17 +365,18 @@ function onDragEnd() {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border-radius: 4px;
+  border-radius: 5px;
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity .12s, background .12s, color .12s;
+  transition: opacity .15s, background .15s, color .15s;
 }
 
-.level-row:hover .remove-btn {
-  opacity: 1;
+.level-card:hover .remove-btn {
+  opacity: 0.6;
 }
 
 .remove-btn:hover {
+  opacity: 1 !important;
   background: var(--c-error-bg);
   color: var(--c-error-text);
 }
@@ -316,17 +384,19 @@ function onDragEnd() {
 .add-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  width: fit-content;
-  height: 28px;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  height: 32px;
   font-size: 11px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px dashed var(--border);
   background: transparent;
-  color: var(--text-2);
+  color: var(--text-3);
   cursor: pointer;
-  border-radius: 6px;
-  transition: all .12s;
+  border-radius: 8px;
+  transition: all .15s;
+  margin-top: 4px;
 }
 
 .add-btn:hover {
@@ -335,11 +405,84 @@ function onDragEnd() {
   background: var(--accent-light);
 }
 
+/* ── 操作按钮 ── */
 .actions {
-  flex-direction: row;
-  gap: 8px;
+  display: flex;
+  gap: 10px;
   margin-top: auto;
   padding-top: 16px;
   border-top: 1px solid var(--border);
+}
+
+.save-btn {
+  flex: 1;
+  height: 36px;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.save-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(24, 95, 165, 0.3);
+}
+
+.save-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.save-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.save-btn.success {
+  background: #22c55e;
+}
+
+.save-btn.error {
+  background: var(--c-error-text);
+}
+
+.reset-btn {
+  height: 36px;
+  font-size: 13px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.reset-btn:hover {
+  background: var(--bg-2);
+  border-color: var(--border-2);
+  color: var(--text);
+}
+
+/* ── 旋转加载指示器 ── */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>
