@@ -98,13 +98,19 @@ async function handleSave() {
 const isDragging = ref(false)
 const dragIndex = ref(-1)
 
-function onDragStart(index: number) {
+function onDragStart(e: DragEvent, index: number) {
   isDragging.value = true
   dragIndex.value = index
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    const target = e.target as HTMLElement
+    e.dataTransfer.setDragImage(target.closest('.level-card')!, -10, -10)
+  }
 }
 
 function onDragOver(e: DragEvent, index: number) {
   e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
   if (dragIndex.value === index) return
   const levels = [...config.value.levels]
   const [moved] = levels.splice(dragIndex.value, 1)
@@ -158,13 +164,16 @@ function onDragEnd() {
           :key="index"
           class="level-card"
           :class="{ dragging: isDragging && dragIndex === index }"
-          draggable="true"
-          @dragstart="onDragStart(index)"
           @dragover="onDragOver($event, index)"
           @dragend="onDragEnd"
         >
           <div class="level-card-top">
-            <span class="drag-handle" :title="t('settings.dragToReorder')">
+            <span
+              class="drag-handle"
+              :title="t('settings.dragToReorder')"
+              draggable="true"
+              @dragstart="onDragStart($event, index)"
+            >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/>
                 <circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>
@@ -404,9 +413,10 @@ function onDragEnd() {
 }
 
 .level-card.dragging {
-  opacity: 0.5;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-light);
+  opacity: 0.4;
+  border: 2px dashed var(--accent);
+  background: var(--accent-light);
+  box-shadow: none;
 }
 
 .level-card-top {
