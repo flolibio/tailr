@@ -148,22 +148,17 @@ export function useLogLevels() {
   }
 
   // 切换预设
-  function switchPreset(presetName: string) {
+  function switchPreset(presetName: string, preserveColors = true) {
     const preset = PRESETS[presetName]
     if (!preset) return
 
-    // 保留用户已修改的颜色
-    const oldColors = new Map<string, { light: string; dark: string }>()
-    for (const level of config.value.levels) {
-      oldColors.set(level.name, { light: level.colorLight, dark: level.colorDark })
-    }
-
     const newLevels = preset.map(l => {
-      const saved = oldColors.get(l.name)
+      if (!preserveColors) return { ...l }
+      const oldLevel = config.value.levels.find(ol => ol.name === l.name)
       return {
         ...l,
-        colorLight: saved?.light ?? l.colorLight,
-        colorDark: saved?.dark ?? l.colorDark,
+        colorLight: oldLevel?.colorLight ?? l.colorLight,
+        colorDark: oldLevel?.colorDark ?? l.colorDark,
       }
     })
 
@@ -203,7 +198,7 @@ export function useLogLevels() {
 
   // 重置为默认
   function resetToDefault() {
-    switchPreset('general')
+    switchPreset('general', false)
   }
 
   // 同步到后端
