@@ -288,6 +288,7 @@ function handleSettingsUpdate(s: Settings): void {
         :is-tail-mode="isTailMode"
         :max-visible-lines="settings.maxVisibleLines"
         :highlight-keywords="highlightKeywords"
+        :level-colors="levelDotColors"
         @stick-to-bottom="handleStickToBottom"
       />
     </main>

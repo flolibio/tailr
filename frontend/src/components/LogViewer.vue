@@ -11,6 +11,7 @@ const props = defineProps<{
   isTailMode?: boolean
   maxVisibleLines?: number
   highlightKeywords?: string[]
+  levelColors?: Record<string, string>
 }>()
 
 const emit = defineEmits<{
@@ -120,6 +121,7 @@ function measureVisibleRows(): void {
 }
 
 function getBadgeClass(level: string): string {
+  if (!props.levelColors || !(level in props.levelColors)) return 'badge-unknown'
   const l = level.toLowerCase()
   if (l === 'alert') return 'badge-alert'
   if (l === 'error' || l === 'err') return 'badge-error'
@@ -127,18 +129,12 @@ function getBadgeClass(level: string): string {
   if (l === 'info') return 'badge-info'
   if (l === 'debug') return 'badge-debug'
   if (l === 'trace') return 'badge-trace'
-  return 'badge-unknown'
+  return 'badge-dynamic'
 }
 
 function getBadgeText(level: string): string {
-  const l = level.toUpperCase()
-  if (l === 'ALERT') return 'ALERT'
-  if (l === 'ERROR' || l === 'ERR') return 'ERROR'
-  if (l === 'WARN' || l === 'WARNING') return 'WARN '
-  if (l === 'INFO') return 'INFO '
-  if (l === 'DEBUG') return 'DEBUG'
-  if (l === 'TRACE') return 'TRACE'
-  return 'UNK  '
+  if (level === 'UNKNOWN') return 'UNK'
+  return level
 }
 
 function formatTimestamp(ts: string | null | undefined): string {
@@ -442,7 +438,7 @@ defineExpose({ scrollToBottom, scrollToLine })
             @click="toggleMark(entry.lineNum)"
           >
             <span v-if="entry.timestamp" class="col-ts">{{ formatTimestamp(entry.timestamp) }}</span>
-            <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)">{{ getBadgeText(entry.level) }}</span></span>
+            <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)" :style="levelColors && levelColors[entry.level] ? { color: levelColors[entry.level] } : undefined">{{ getBadgeText(entry.level) }}</span></span>
             <span class="col-msg" :ref="(el) => setMsgRef(entry.lineNum, el)">
               <template v-if="isJson(entry.raw)">
                 <span v-if="!expandedLines.has(entry.lineNum)" class="truncate-check" v-html="
@@ -582,8 +578,7 @@ defineExpose({ scrollToBottom, scrollToLine })
 }
 
 .col-badge {
-  width: 52px;
-  min-width: 52px;
+  min-width: 48px;
   padding-right: 14px;
   flex-shrink: 0;
   align-self: flex-start;
@@ -597,8 +592,8 @@ defineExpose({ scrollToBottom, scrollToLine })
   letter-spacing: 0.04em;
   font-family: var(--font-mono);
   background: transparent;
-  width: 48px;
-  text-align: center;
+  white-space: nowrap;
+  text-align: left;
 }
 
 .badge-alert { color: #FF3B30; }
@@ -608,6 +603,7 @@ defineExpose({ scrollToBottom, scrollToLine })
 .badge-debug { color: #30D158; }
 .badge-trace { color: #BF5AF2; }
 .badge-unknown { color: #666666; }
+.badge-dynamic { /* color from inline style */ }
 
 .col-msg {
   flex: 1;
