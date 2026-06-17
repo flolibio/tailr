@@ -33,7 +33,7 @@ jobs:
       - name: Build frontend
         run: |
           cd frontend
-          npm ci
+          npm ci --omit=optional
           npm run build
 
       # ── Rust cross-compile ──
