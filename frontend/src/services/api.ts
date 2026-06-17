@@ -103,3 +103,37 @@ export async function searchLogs(
 export async function healthCheck(): Promise<{ status: string; version: string; uptimeSeconds: number }> {
   return request<{ status: string; version: string; uptimeSeconds: number }>('/api/health')
 }
+
+// ── 日志级别配置 API ──────────────────────────────────────
+
+export interface LevelDef {
+  name: string
+  keywords: string[]
+  colorLight: string
+  colorDark: string
+}
+
+export interface LogLevelConfig {
+  preset: string
+  levels: LevelDef[]
+}
+
+export async function getLogLevelConfig(): Promise<LogLevelConfig> {
+  return request<LogLevelConfig>('/api/config/log-levels')
+}
+
+export async function saveLogLevelConfig(config: LogLevelConfig): Promise<LogLevelConfig> {
+  const res = await fetch(`${BASE}/api/config/log-levels`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  })
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+  }
+  const json = await res.json()
+  if (json.success === false) {
+    throw new Error(json.error || 'Save failed')
+  }
+  return (json.data ?? json) as LogLevelConfig
+}

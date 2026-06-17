@@ -73,12 +73,6 @@ async function switchLocale(newLocale: string): Promise<void> {
 
 <template>
   <div class="settings-panel-inner">
-    <div class="settings-header">
-      <span class="settings-title">{{ t('settings.title') }}</span>
-      <button class="collapse-btn" @click="emit('collapse')" :title="t('settings.collapse')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
-    </div>
     <div class="settings-body">
       <!-- Font size -->
       <div class="s-group">

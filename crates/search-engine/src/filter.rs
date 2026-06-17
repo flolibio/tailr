@@ -1,11 +1,11 @@
 use chrono::{DateTime, Utc};
-use tailr_protocol::{LogEntry, LogLevel};
+use tailr_protocol::LogEntry;
 use regex::Regex;
 use tracing::debug;
 
 #[derive(Debug, Clone)]
 pub struct LogFilter {
-    pub levels: Vec<LogLevel>,
+    pub levels: Vec<String>,
     pub time_from: Option<DateTime<Utc>>,
     pub time_to: Option<DateTime<Utc>>,
     pub pattern: Option<String>,
@@ -29,7 +29,7 @@ impl LogFilter {
         self
     }
 
-    pub fn with_levels(mut self, levels: Vec<LogLevel>) -> Self {
+    pub fn with_levels(mut self, levels: Vec<String>) -> Self {
         self.levels = levels;
         self
     }
@@ -104,11 +104,11 @@ mod tests {
     use super::*;
     use chrono::TimeZone;
 
-    fn make_entry(level: LogLevel, raw: &str, ts: Option<DateTime<Utc>>) -> LogEntry {
+    fn make_entry(level: &str, raw: &str, ts: Option<DateTime<Utc>>) -> LogEntry {
         LogEntry {
             line_num: 1,
             raw: raw.to_string(),
-            level,
+            level: level.to_string(),
             timestamp: ts,
             fields: None,
         }
@@ -117,14 +117,14 @@ mod tests {
     #[test]
     fn test_filter_by_level() {
         let entries = vec![
-            make_entry(LogLevel::ERROR, "error msg", None),
-            make_entry(LogLevel::INFO, "info msg", None),
-            make_entry(LogLevel::WARN, "warn msg", None),
-            make_entry(LogLevel::ERROR, "another error", None),
+            make_entry("ERROR", "error msg", None),
+            make_entry("INFO", "info msg", None),
+            make_entry("WARN", "warn msg", None),
+            make_entry("ERROR", "another error", None),
         ];
 
         let filter = LogFilter {
-            levels: vec![LogLevel::ERROR],
+            levels: vec!["ERROR".to_string()],
             ..Default::default()
         };
 
@@ -141,9 +141,9 @@ mod tests {
         let ts3 = Utc.with_ymd_and_hms(2024, 1, 1, 14, 0, 0).unwrap();
 
         let entries = vec![
-            make_entry(LogLevel::INFO, "early", Some(ts1)),
-            make_entry(LogLevel::INFO, "middle", Some(ts2)),
-            make_entry(LogLevel::INFO, "late", Some(ts3)),
+            make_entry("INFO", "early", Some(ts1)),
+            make_entry("INFO", "middle", Some(ts2)),
+            make_entry("INFO", "late", Some(ts3)),
         ];
 
         let filter = LogFilter {
@@ -160,9 +160,9 @@ mod tests {
     #[test]
     fn test_filter_by_pattern_regex() {
         let entries = vec![
-            make_entry(LogLevel::INFO, "error: something failed", None),
-            make_entry(LogLevel::INFO, "all good here", None),
-            make_entry(LogLevel::INFO, "error: timeout occurred", None),
+            make_entry("INFO", "error: something failed", None),
+            make_entry("INFO", "all good here", None),
+            make_entry("INFO", "error: timeout occurred", None),
         ];
 
         let filter = LogFilter::new()
@@ -175,9 +175,9 @@ mod tests {
     #[test]
     fn test_filter_by_pattern_literal() {
         let entries = vec![
-            make_entry(LogLevel::INFO, "connection refused", None),
-            make_entry(LogLevel::INFO, "all good", None),
-            make_entry(LogLevel::INFO, "connection timeout", None),
+            make_entry("INFO", "connection refused", None),
+            make_entry("INFO", "all good", None),
+            make_entry("INFO", "connection timeout", None),
         ];
 
         let filter = LogFilter {
@@ -195,13 +195,13 @@ mod tests {
         let ts2 = Utc.with_ymd_and_hms(2024, 1, 1, 12, 0, 0).unwrap();
 
         let entries = vec![
-            make_entry(LogLevel::ERROR, "error at 10", Some(ts1)),
-            make_entry(LogLevel::INFO, "info at 12", Some(ts2)),
-            make_entry(LogLevel::ERROR, "error at 12", Some(ts2)),
+            make_entry("ERROR", "error at 10", Some(ts1)),
+            make_entry("INFO", "info at 12", Some(ts2)),
+            make_entry("ERROR", "error at 12", Some(ts2)),
         ];
 
         let filter = LogFilter {
-            levels: vec![LogLevel::ERROR],
+            levels: vec!["ERROR".to_string()],
             time_from: Some(Utc.with_ymd_and_hms(2024, 1, 1, 11, 0, 0).unwrap()),
             ..Default::default()
         };
@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn test_filter_no_timestamp_with_time_filter() {
         let entries = vec![
-            make_entry(LogLevel::INFO, "no timestamp here", None),
+            make_entry("INFO", "no timestamp here", None),
         ];
 
         let filter = LogFilter {
@@ -238,8 +238,8 @@ mod tests {
     #[test]
     fn test_filter_no_filter() {
         let entries = vec![
-            make_entry(LogLevel::INFO, "msg1", None),
-            make_entry(LogLevel::ERROR, "msg2", None),
+            make_entry("INFO", "msg1", None),
+            make_entry("ERROR", "msg2", None),
         ];
 
         let filter = LogFilter::new();

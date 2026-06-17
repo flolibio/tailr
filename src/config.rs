@@ -11,6 +11,7 @@ use figment::{
     Figment,
 };
 use serde::{Deserialize, Serialize};
+use tailr_protocol::{LevelDef, LogLevelConfig};
 
 /// Default config file template written on first run.
 const DEFAULT_CONFIG_TEMPLATE: &str = r#"# tailr configuration file
@@ -43,6 +44,8 @@ pub struct Config {
     pub bind: String,
     /// Daemon mode settings.
     pub daemon: DaemonConfig,
+    /// Log level configuration (None = use default "general" preset).
+    pub log_levels: Option<LogLevelConfig>,
 }
 
 /// Daemon-specific configuration.
@@ -59,6 +62,7 @@ impl Default for Config {
             log: vec![],
             bind: "0.0.0.0:7700".to_string(),
             daemon: DaemonConfig::default(),
+            log_levels: Some(default_log_levels("general")),
         }
     }
 }
@@ -125,6 +129,70 @@ pub fn write_default_config(path: &PathBuf) -> Result<(), String> {
             e
         )
     })
+}
+
+/// 返回指定预设的默认 LogLevelConfig。
+pub fn default_log_levels(preset: &str) -> LogLevelConfig {
+    let levels = match preset {
+        "java" => vec![
+            LevelDef { name: "FATAL".into(), keywords: vec!["FATAL".into()], color_light: "#CC2D26".into(), color_dark: "#FF6B63".into() },
+            LevelDef { name: "ERROR".into(), keywords: vec!["ERROR".into()], color_light: "#A32D2D".into(), color_dark: "#F09595".into() },
+            LevelDef { name: "WARN".into(), keywords: vec!["WARN".into()], color_light: "#854F0B".into(), color_dark: "#EF9F27".into() },
+            LevelDef { name: "INFO".into(), keywords: vec!["INFO".into()], color_light: "#0C447C".into(), color_dark: "#85B7EB".into() },
+            LevelDef { name: "DEBUG".into(), keywords: vec!["DEBUG".into()], color_light: "#3B6D11".into(), color_dark: "#97C459".into() },
+            LevelDef { name: "TRACE".into(), keywords: vec!["TRACE".into()], color_light: "#5F5E5A".into(), color_dark: "#B4B2A9".into() },
+        ],
+        "python" => vec![
+            LevelDef { name: "CRITICAL".into(), keywords: vec!["CRITICAL".into()], color_light: "#CC2D26".into(), color_dark: "#FF6B63".into() },
+            LevelDef { name: "ERROR".into(), keywords: vec!["ERROR".into()], color_light: "#A32D2D".into(), color_dark: "#F09595".into() },
+            LevelDef { name: "WARNING".into(), keywords: vec!["WARNING".into()], color_light: "#854F0B".into(), color_dark: "#EF9F27".into() },
+            LevelDef { name: "INFO".into(), keywords: vec!["INFO".into()], color_light: "#0C447C".into(), color_dark: "#85B7EB".into() },
+            LevelDef { name: "DEBUG".into(), keywords: vec!["DEBUG".into()], color_light: "#3B6D11".into(), color_dark: "#97C459".into() },
+        ],
+        "php" => vec![
+            LevelDef { name: "ALERT".into(), keywords: vec!["ALERT".into()], color_light: "#CC2D26".into(), color_dark: "#FF6B63".into() },
+            LevelDef { name: "ERROR".into(), keywords: vec!["ERROR".into()], color_light: "#A32D2D".into(), color_dark: "#F09595".into() },
+            LevelDef { name: "WARNING".into(), keywords: vec!["WARNING".into()], color_light: "#854F0B".into(), color_dark: "#EF9F27".into() },
+            LevelDef { name: "NOTICE".into(), keywords: vec!["NOTICE".into()], color_light: "#0C447C".into(), color_dark: "#85B7EB".into() },
+            LevelDef { name: "INFO".into(), keywords: vec!["INFO".into()], color_light: "#3B6D11".into(), color_dark: "#97C459".into() },
+            LevelDef { name: "DEBUG".into(), keywords: vec!["DEBUG".into()], color_light: "#5F5E5A".into(), color_dark: "#B4B2A9".into() },
+        ],
+        "go" => vec![
+            LevelDef { name: "ERROR".into(), keywords: vec!["ERROR".into()], color_light: "#A32D2D".into(), color_dark: "#F09595".into() },
+            LevelDef { name: "WARN".into(), keywords: vec!["WARN".into()], color_light: "#854F0B".into(), color_dark: "#EF9F27".into() },
+            LevelDef { name: "INFO".into(), keywords: vec!["INFO".into()], color_light: "#0C447C".into(), color_dark: "#85B7EB".into() },
+            LevelDef { name: "DEBUG".into(), keywords: vec!["DEBUG".into()], color_light: "#3B6D11".into(), color_dark: "#97C459".into() },
+        ],
+        "rust" => vec![
+            LevelDef { name: "ERROR".into(), keywords: vec!["ERROR".into()], color_light: "#A32D2D".into(), color_dark: "#F09595".into() },
+            LevelDef { name: "WARN".into(), keywords: vec!["WARN".into()], color_light: "#854F0B".into(), color_dark: "#EF9F27".into() },
+            LevelDef { name: "INFO".into(), keywords: vec!["INFO".into()], color_light: "#0C447C".into(), color_dark: "#85B7EB".into() },
+            LevelDef { name: "DEBUG".into(), keywords: vec!["DEBUG".into()], color_light: "#3B6D11".into(), color_dark: "#97C459".into() },
+            LevelDef { name: "TRACE".into(), keywords: vec!["TRACE".into()], color_light: "#5F5E5A".into(), color_dark: "#B4B2A9".into() },
+        ],
+        "syslog" => vec![
+            LevelDef { name: "EMERG".into(), keywords: vec!["EMERG".into()], color_light: "#CC2D26".into(), color_dark: "#FF6B63".into() },
+            LevelDef { name: "ALERT".into(), keywords: vec!["ALERT".into()], color_light: "#D4421E".into(), color_dark: "#FF8A65".into() },
+            LevelDef { name: "CRIT".into(), keywords: vec!["CRIT".into()], color_light: "#A32D2D".into(), color_dark: "#F09595".into() },
+            LevelDef { name: "ERR".into(), keywords: vec!["ERR".into()], color_light: "#854F0B".into(), color_dark: "#EF9F27".into() },
+            LevelDef { name: "WARNING".into(), keywords: vec!["WARNING".into()], color_light: "#0C447C".into(), color_dark: "#85B7EB".into() },
+            LevelDef { name: "NOTICE".into(), keywords: vec!["NOTICE".into()], color_light: "#3B6D11".into(), color_dark: "#97C459".into() },
+            LevelDef { name: "INFO".into(), keywords: vec!["INFO".into()], color_light: "#5F5E5A".into(), color_dark: "#B4B2A9".into() },
+            LevelDef { name: "DEBUG".into(), keywords: vec!["DEBUG".into()], color_light: "#5F5E5A".into(), color_dark: "#B4B2A9".into() },
+        ],
+        _ => vec![
+            // "general" 或未知预设
+            LevelDef { name: "ERROR".into(), keywords: vec!["ERROR".into()], color_light: "#A32D2D".into(), color_dark: "#F09595".into() },
+            LevelDef { name: "WARN".into(), keywords: vec!["WARN".into()], color_light: "#854F0B".into(), color_dark: "#EF9F27".into() },
+            LevelDef { name: "INFO".into(), keywords: vec!["INFO".into()], color_light: "#0C447C".into(), color_dark: "#85B7EB".into() },
+            LevelDef { name: "DEBUG".into(), keywords: vec!["DEBUG".into()], color_light: "#3B6D11".into(), color_dark: "#97C459".into() },
+        ],
+    };
+
+    LogLevelConfig {
+        preset: preset.to_string(),
+        levels,
+    }
 }
 
 /// Loads the full configuration by merging providers in priority order:

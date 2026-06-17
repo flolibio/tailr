@@ -219,11 +219,11 @@ fn run_server(args: ServeArgs) {
             )
             .init();
 
-        run_serve(cfg).await;
+        run_serve(cfg, config_path).await;
     });
 }
 
-async fn run_serve(cfg: config::Config) {
+async fn run_serve(cfg: config::Config, config_path: PathBuf) {
     let log_paths = config::resolve_log_paths(&cfg);
 
     for path in &log_paths {
@@ -239,7 +239,10 @@ async fn run_serve(cfg: config::Config) {
         log_paths
     );
 
-    let server = axum::serve(listener, app(log_paths))
+    let level_config = cfg.log_levels.clone()
+        .unwrap_or_else(|| config::default_log_levels("general"));
+
+    let server = axum::serve(listener, app(log_paths, config_path, level_config))
         .with_graceful_shutdown(daemon::shutdown_signal());
 
     if let Err(e) = server.await {

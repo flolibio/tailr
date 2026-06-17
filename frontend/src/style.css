@@ -17,7 +17,7 @@
   --radius: 8px;
   --radius-lg: 12px;
   --sidebar-w: 220px;
-  --settings-w: 210px;
+  --settings-w: 320px;
   --topbar-h: 56px;
   --filterbar-h: 48px;
   --statusbar-h: 26px;
@@ -233,6 +233,78 @@ input[type="range"] {
 .level-info  { color: var(--c-info-text); }
 .level-debug { color: var(--c-debug-text); }
 .level-trace { color: var(--c-trace-text); }
+
+/* ── Settings Tabs ── */
+.settings-tabs {
+  display: flex;
+  align-items: center;
+  height: var(--topbar-h);
+  border-bottom: 1px solid var(--border);
+  padding: 0 8px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.settings-tab {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .12s;
+}
+
+.settings-tab:hover {
+  background: var(--bg-2);
+  color: var(--text-2);
+}
+
+.settings-tab.active {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tab-close {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-close:hover {
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+.settings-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-content > * {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ── Dynamic level tags ── */
+.level-tag.dynamic-level {
+  background: transparent;
+  border: 1px solid transparent;
+}
 
 /* ── App Shell (Grid) ── */
 .app-shell {

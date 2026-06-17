@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use tailr_protocol::{detect_level, try_parse_timestamp, LogEntry};
-use tailr_search_engine::{LogFilter, SearchOptions};
+use tailr_protocol::{try_parse_timestamp, LogLevelConfig, LogEntry};
+use tailr_search_engine::{LevelDetector, LogFilter, SearchOptions};
 use tailr_tail_engine::LineIndex;
 
 use crate::AppState;
@@ -160,6 +160,7 @@ pub fn routes() -> Router {
         .route("/api/file/info", get(file_info))
         .route("/api/search", get(search))
         .route("/api/health", get(health))
+        .route("/api/config/log-levels", get(get_log_levels).post(save_log_levels))
 }
 
 async fn list_files(
@@ -385,7 +386,8 @@ async fn file_content(
         None => return Ok(Json(ApiResponse::err("invalid offset"))),
     };
 
-    let entries = read_lines_from(&path, start_byte, limit as usize, offset).await;
+    let detector = state.level_detector.load();
+    let entries = read_lines_from(&path, start_byte, limit as usize, offset, &detector).await;
     let end_offset = offset + entries.len() as u64;
     let has_more = end_offset < total_lines;
 
@@ -400,6 +402,7 @@ async fn file_content(
 
 async fn file_tail(
     Query(params): Query<FileTailParams>,
+    Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<FileTailData>> {
     let path = PathBuf::from(&params.path);
     if !path.exists() {
@@ -429,7 +432,8 @@ async fn file_tail(
     }
 
     let start_line = tail.total_lines.saturating_sub(lines as u64);
-    let entries = read_lines_from(&path, tail.start_byte, lines, start_line).await;
+    let detector = state.level_detector.load();
+    let entries = read_lines_from(&path, tail.start_byte, lines, start_line, &detector).await;
 
     Json(ApiResponse::ok(FileTailData {
         entries,
@@ -487,19 +491,12 @@ async fn search(
     let limit = params.limit.unwrap_or(100);
     let is_regex = params.regex.unwrap_or(false);
 
-    let all_levels: Vec<tailr_protocol::LogLevel> = params
+    let all_levels: Vec<String> = params
         .levels
         .map(|s| {
             s.split(',')
-                .filter_map(|l| match l.trim().to_uppercase().as_str() {
-                    "ALERT" => Some(tailr_protocol::LogLevel::ALERT),
-                    "ERROR" => Some(tailr_protocol::LogLevel::ERROR),
-                    "WARN" => Some(tailr_protocol::LogLevel::WARN),
-                    "INFO" => Some(tailr_protocol::LogLevel::INFO),
-                    "DEBUG" => Some(tailr_protocol::LogLevel::DEBUG),
-                    "TRACE" => Some(tailr_protocol::LogLevel::TRACE),
-                    _ => None,
-                })
+                .map(|l| l.trim().to_uppercase())
+                .filter(|l| !l.is_empty())
                 .collect()
         })
         .unwrap_or_default();
@@ -534,6 +531,7 @@ async fn search(
         .with_levels(all_levels)
         .with_time(time_from, time_to);
 
+    let detector = state.level_detector.load();
     let matches: Vec<SearchMatchResult> = result
         .matches
         .into_iter()
@@ -542,7 +540,7 @@ async fn search(
                 let entry = tailr_protocol::LogEntry {
                     line_num: m.line_num,
                     raw: m.content.clone(),
-                    level: detect_level(&m.content),
+                    level: detector.detect(&m.content),
                     timestamp: None,
                     fields: None,
                 };
@@ -577,6 +575,67 @@ async fn health(
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds: state.start_time.elapsed().as_secs(),
     }))
+}
+
+// ── 日志级别配置 API ──────────────────────────────────────
+
+/// GET /api/config/log-levels — 获取当前日志级别配置
+async fn get_log_levels(
+    Extension(state): Extension<Arc<AppState>>,
+) -> Json<ApiResponse<LogLevelConfig>> {
+    let config = state.level_config.load();
+    Json(ApiResponse::ok(config.as_ref().clone()))
+}
+
+/// POST /api/config/log-levels — 保存日志级别配置（热更新 + 写入 config.toml）
+async fn save_log_levels(
+    Extension(state): Extension<Arc<AppState>>,
+    Json(new_config): Json<LogLevelConfig>,
+) -> Result<Json<ApiResponse<LogLevelConfig>>, StatusCode> {
+    // 1. 读取现有 config.toml → 更新 [log_levels] 节 → 先持久化
+    let mut doc: toml::Value = if state.config_path.exists() {
+        let content = std::fs::read_to_string(&state.config_path).map_err(|e| {
+            tracing::error!("failed to read config: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+        toml::from_str(&content).map_err(|e| {
+            tracing::error!("failed to parse config.toml: {}", e);
+            StatusCode::BAD_REQUEST
+        })?
+    } else {
+        toml::Value::Table(Default::default())
+    };
+
+    // 将 LogLevelConfig 序列化为 TOML 字符串再解析为 toml::Value
+    let config_toml = toml::to_string_pretty(&new_config).map_err(|e| {
+        tracing::error!("failed to serialize log level config: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let log_levels_value: toml::Value = toml::from_str(&config_toml).map_err(|e| {
+        tracing::error!("failed to parse log level config as toml: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    if let Some(table) = doc.as_table_mut() {
+        table.insert("log_levels".to_string(), log_levels_value);
+    }
+
+    let toml_str = toml::to_string_pretty(&doc).map_err(|e| {
+        tracing::error!("failed to serialize toml: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    std::fs::write(&state.config_path, toml_str).map_err(|e| {
+        tracing::error!("failed to write config: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // 2. 持久化成功后，再更新内存状态
+    let new_detector = LevelDetector::from_config(&new_config);
+    state.level_detector.store(Arc::new(new_detector));
+    state.level_config.store(Arc::new(new_config.clone()));
+
+    Ok(Json(ApiResponse::ok(new_config)))
 }
 
 async fn get_or_build_index(state: &AppState, path: &PathBuf) -> LineIndex {
@@ -617,7 +676,7 @@ async fn get_or_build_index(state: &AppState, path: &PathBuf) -> LineIndex {
     }
 }
 
-async fn read_lines_from(path: &PathBuf, start_byte: u64, max_lines: usize, base_line: u64) -> Vec<LogEntry> {
+async fn read_lines_from(path: &PathBuf, start_byte: u64, max_lines: usize, base_line: u64, detector: &tailr_search_engine::LevelDetector) -> Vec<LogEntry> {
     use tokio::io::{AsyncBufReadExt, AsyncSeekExt, BufReader, SeekFrom};
 
     let file = match tokio::fs::File::open(path).await {
@@ -650,7 +709,7 @@ async fn read_lines_from(path: &PathBuf, start_byte: u64, max_lines: usize, base
             continue;
         }
 
-        let level = detect_level(trimmed);
+        let level = detector.detect(trimmed);
         let timestamp = try_parse_timestamp(trimmed);
 
         entries.push(LogEntry {
