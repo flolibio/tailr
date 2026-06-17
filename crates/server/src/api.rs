@@ -592,14 +592,7 @@ async fn save_log_levels(
     Extension(state): Extension<Arc<AppState>>,
     Json(new_config): Json<LogLevelConfig>,
 ) -> Result<Json<ApiResponse<LogLevelConfig>>, StatusCode> {
-    // 1. 热更新 LevelDetector
-    let new_detector = LevelDetector::from_config(&new_config);
-    state.level_detector.store(Arc::new(new_detector));
-
-    // 2. 更新内存中的配置
-    state.level_config.store(Arc::new(new_config.clone()));
-
-    // 3. 读取现有 config.toml → 更新 [log_levels] 节 → 写回
+    // 1. 读取现有 config.toml → 更新 [log_levels] 节 → 先持久化
     let mut doc: toml::Value = if state.config_path.exists() {
         let content = std::fs::read_to_string(&state.config_path).map_err(|e| {
             tracing::error!("failed to read config: {}", e);
@@ -636,6 +629,11 @@ async fn save_log_levels(
         tracing::error!("failed to write config: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
+
+    // 2. 持久化成功后，再更新内存状态
+    let new_detector = LevelDetector::from_config(&new_config);
+    state.level_detector.store(Arc::new(new_detector));
+    state.level_config.store(Arc::new(new_config.clone()));
 
     Ok(Json(ApiResponse::ok(new_config)))
 }
