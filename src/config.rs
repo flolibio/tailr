@@ -131,32 +131,6 @@ pub fn write_default_config(path: &PathBuf) -> Result<(), String> {
     })
 }
 
-/// 将完整 Config 序列化为 TOML 并覆盖写入 config.toml。
-pub fn write_config(path: &PathBuf, config: &Config) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent).map_err(|e| {
-                format!(
-                    "Failed to create config directory {}: {}",
-                    parent.display(),
-                    e
-                )
-            })?;
-        }
-    }
-
-    let toml_str = toml::to_string_pretty(config)
-        .map_err(|e| format!("Failed to serialize config: {}", e))?;
-
-    fs::write(path, toml_str).map_err(|e| {
-        format!(
-            "Failed to write config to {}: {}",
-            path.display(),
-            e
-        )
-    })
-}
-
 /// 返回指定预设的默认 LogLevelConfig。
 pub fn default_log_levels(preset: &str) -> LogLevelConfig {
     let levels = match preset {
