@@ -130,35 +130,35 @@ bind = "0.0.0.0:7700"
 [log_levels]
 preset = "python"
 
-[[log_levels.level]]
+[[log_levels.levels]]
 name = "CRITICAL"
 keywords = ["CRITICAL"]
-color_light = "#CC2D26"
-color_dark = "#FF6B63"
+colorLight = "#CC2D26"
+colorDark = "#FF6B63"
 
-[[log_levels.level]]
+[[log_levels.levels]]
 name = "ERROR"
 keywords = ["ERROR"]
-color_light = "#A32D2D"
-color_dark = "#F09595"
+colorLight = "#A32D2D"
+colorDark = "#F09595"
 
-[[log_levels.level]]
+[[log_levels.levels]]
 name = "WARNING"
 keywords = ["WARNING"]
-color_light = "#854F0B"
-color_dark = "#EF9F27"
+colorLight = "#854F0B"
+colorDark = "#EF9F27"
 
-[[log_levels.level]]
+[[log_levels.levels]]
 name = "INFO"
 keywords = ["INFO"]
-color_light = "#0C447C"
-color_dark = "#85B7EB"
+colorLight = "#0C447C"
+colorDark = "#85B7EB"
 
-[[log_levels.level]]
+[[log_levels.levels]]
 name = "DEBUG"
 keywords = ["DEBUG"]
-color_light = "#3B6D11"
-color_dark = "#97C459"
+colorLight = "#3B6D11"
+colorDark = "#97C459"
 ```
 
 **Available presets:** general, java, python, php, go, rust, syslog

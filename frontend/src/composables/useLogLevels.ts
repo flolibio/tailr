@@ -203,11 +203,7 @@ export function useLogLevels() {
 
   // 同步到后端
   async function syncToBackend() {
-    try {
-      await saveLogLevelConfig(config.value)
-    } catch (e) {
-      console.error('Failed to sync config to backend:', e)
-    }
+    await saveLogLevelConfig(config.value)
   }
 
   // 从后端加载

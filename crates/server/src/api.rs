@@ -605,7 +605,10 @@ async fn save_log_levels(
             tracing::error!("failed to read config: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
-        toml::from_str(&content).unwrap_or(toml::Value::Table(Default::default()))
+        toml::from_str(&content).map_err(|e| {
+            tracing::error!("failed to parse config.toml: {}", e);
+            StatusCode::BAD_REQUEST
+        })?
     } else {
         toml::Value::Table(Default::default())
     };
