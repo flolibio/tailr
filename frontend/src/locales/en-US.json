@@ -24,7 +24,11 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System",
-    "language": "Language"
+    "language": "Language",
+    "tabs": {
+      "general": "General",
+      "logLevels": "Log Levels"
+    }
   },
   "filter": {
     "filterLogs": "Filter logs (Enter to add)…",

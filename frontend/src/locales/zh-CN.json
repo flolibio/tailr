@@ -24,7 +24,11 @@
     "light": "浅色",
     "dark": "深色",
     "system": "跟随系统",
-    "language": "语言"
+    "language": "语言",
+    "tabs": {
+      "general": "通用",
+      "logLevels": "日志级别"
+    }
   },
   "filter": {
     "filterLogs": "过滤日志（按回车添加）…",

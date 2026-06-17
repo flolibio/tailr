@@ -237,7 +237,7 @@ input[type="range"] {
 /* ── App Shell (Grid) ── */
 .app-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-current-width, var(--sidebar-w)) 1fr var(--settings-w);
+  grid-template-columns: var(--sidebar-current-width, var(--sidebar-w)) 1fr;
   grid-template-rows: var(--topbar-h) var(--filterbar-h) 1fr var(--statusbar-h);
   height: 100vh;
   background: var(--bg);
@@ -245,19 +245,61 @@ input[type="range"] {
   overflow: hidden;
 }
 
-.app-shell.settings-collapsed {
-  grid-template-columns: var(--sidebar-current-width, var(--sidebar-w)) 1fr 40px;
-}
-
 .app-shell.sidebar-collapsed {
-  grid-template-columns: 40px 1fr var(--settings-w);
+  grid-template-columns: 40px 1fr;
 }
 
-.app-shell.sidebar-collapsed.settings-collapsed {
-  grid-template-columns: 40px 1fr 40px;
+.settings-trigger {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s, color .12s;
+  flex-shrink: 0;
 }
 
-.settings-reopen,
+.settings-trigger:hover {
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+/* ── Settings Drawer ── */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-drawer {
+  width: min(50vw, 480px);
+  height: 100vh;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.drawer-enter-active,
+.drawer-leave-active {
+  transition: transform .25s ease;
+}
+
+.drawer-enter-from .settings-drawer,
+.drawer-leave-to .settings-drawer {
+  transform: translateX(100%);
+}
+
 .sidebar-reopen {
   width: 32px;
   height: 32px;
@@ -274,7 +316,6 @@ input[type="range"] {
   transition: background .12s, color .12s;
 }
 
-.settings-reopen:hover,
 .sidebar-reopen:hover {
   background: var(--bg-2);
   color: var(--text);
@@ -557,17 +598,6 @@ input[type="range"] {
 input, 
 select {
   font-family: var(--font-mono);
-}
-
-/* ── Settings ── */
-.settings-panel {
-  grid-row: 1 / 4;
-  grid-column: 3;
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  overflow: hidden;
 }
 
 .settings-header {

@@ -3,6 +3,7 @@ import { ref, watch, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { loadLocale } from '../locales'
 import { healthCheck } from '../services/api'
+import LogLevelSettings from './settings/LogLevelSettings.vue'
 
 export interface Settings {
   fontSize: number
@@ -69,6 +70,13 @@ onMounted(async () => {
 async function switchLocale(newLocale: string): Promise<void> {
   await loadLocale(newLocale)
 }
+
+const activeTab = ref<'general' | 'logLevels'>('general')
+
+const tabs = [
+  { key: 'general' as const, icon: '⚙' },
+  { key: 'logLevels' as const, icon: '📊' },
+]
 </script>
 
 <template>
@@ -76,100 +84,118 @@ async function switchLocale(newLocale: string): Promise<void> {
     <div class="settings-header">
       <span class="settings-title">{{ t('settings.title') }}</span>
       <button class="collapse-btn" @click="emit('collapse')" :title="t('settings.collapse')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <div class="settings-body">
-      <!-- Font size -->
-      <div class="s-group">
-        <div class="s-label">
-          <span class="s-lname">{{ t('settings.fontSize') }}</span>
-          <span class="s-lval">{{ local.fontSize }}px</span>
-        </div>
-        <input
-          type="range"
-          :value="local.fontSize"
-          min="10"
-          max="20"
-          step="1"
-          @input="update('fontSize', +($event.target as HTMLInputElement).value)"
-        />
-      </div>
 
-      <!-- Max visible lines -->
-      <div class="s-group">
-        <div class="s-label">
-          <span class="s-lname">{{ t('settings.maxVisibleLines') }}</span>
-          <span class="s-lval">{{ formatMaxLines(local.maxVisibleLines) }}</span>
-        </div>
-        <input
-          type="range"
-          :value="local.maxVisibleLines"
-          min="1000"
-          max="100000"
-          step="1000"
-          @input="update('maxVisibleLines', +($event.target as HTMLInputElement).value)"
-        />
-      </div>
+    <div class="settings-content">
+      <nav class="settings-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          class="tab-btn"
+          :class="{ active: activeTab === tab.key }"
+          @click="activeTab = tab.key"
+        >
+          <span class="tab-icon">{{ tab.icon }}</span>
+          <span class="tab-label">{{ t(`settings.tabs.${tab.key}`) }}</span>
+        </button>
+      </nav>
 
-      <div class="s-divider"></div>
+      <div class="settings-body">
+        <template v-if="activeTab === 'general'">
+          <div class="s-group">
+            <div class="s-label">
+              <span class="s-lname">{{ t('settings.fontSize') }}</span>
+              <span class="s-lval">{{ local.fontSize }}px</span>
+            </div>
+            <input
+              type="range"
+              :value="local.fontSize"
+              min="10"
+              max="20"
+              step="1"
+              @input="update('fontSize', +($event.target as HTMLInputElement).value)"
+            />
+          </div>
 
-      <!-- Toggles -->
-      <div class="s-group">
-        <div class="toggle-row">
-          <span class="toggle-name">{{ t('settings.autoScroll') }}</span>
-          <button
-            class="toggle"
-            :class="{ on: local.autoScroll }"
-            @click="update('autoScroll', !local.autoScroll)"
-            :aria-pressed="local.autoScroll"
-          ></button>
-        </div>
-      </div>
+          <div class="s-group">
+            <div class="s-label">
+              <span class="s-lname">{{ t('settings.maxVisibleLines') }}</span>
+              <span class="s-lval">{{ formatMaxLines(local.maxVisibleLines) }}</span>
+            </div>
+            <input
+              type="range"
+              :value="local.maxVisibleLines"
+              min="1000"
+              max="100000"
+              step="1000"
+              @input="update('maxVisibleLines', +($event.target as HTMLInputElement).value)"
+            />
+          </div>
 
-      <div class="s-divider"></div>
+          <div class="s-divider"></div>
 
-      <!-- Theme -->
-      <div class="s-group">
-        <div class="s-label"><span class="s-lname">{{ t('settings.theme') }}</span></div>
-        <div class="theme-opts">
-          <button
-            class="theme-opt"
-            :class="{ on: currentTheme === 'light' }"
-            @click="setTheme('light')"
-          >{{ t('settings.light') }}</button>
-          <button
-            class="theme-opt"
-            :class="{ on: currentTheme === 'dark' }"
-            @click="setTheme('dark')"
-          >{{ t('settings.dark') }}</button>
-          <button
-            class="theme-opt"
-            :class="{ on: currentTheme === 'system' }"
-            @click="setTheme('system')"
-          >{{ t('settings.system') }}</button>
-        </div>
-      </div>
+          <div class="s-group">
+            <div class="toggle-row">
+              <span class="toggle-name">{{ t('settings.autoScroll') }}</span>
+              <button
+                class="toggle"
+                :class="{ on: local.autoScroll }"
+                @click="update('autoScroll', !local.autoScroll)"
+                :aria-pressed="local.autoScroll"
+              ></button>
+            </div>
+          </div>
 
-      <div class="s-divider"></div>
+          <div class="s-divider"></div>
 
-      <!-- Language -->
-      <div class="s-group">
-        <div class="s-label"><span class="s-lname">{{ t('settings.language') }}</span></div>
-        <div class="theme-opts">
-          <button
-            class="theme-opt"
-            :class="{ on: currentLocale === 'en-US' }"
-            @click="switchLocale('en-US')"
-          >English</button>
-          <button
-            class="theme-opt"
-            :class="{ on: currentLocale === 'zh-CN' }"
-            @click="switchLocale('zh-CN')"
-          >中文</button>
-        </div>
+          <div class="s-group">
+            <div class="s-label"><span class="s-lname">{{ t('settings.theme') }}</span></div>
+            <div class="theme-opts">
+              <button
+                class="theme-opt"
+                :class="{ on: currentTheme === 'light' }"
+                @click="setTheme('light')"
+              >{{ t('settings.light') }}</button>
+              <button
+                class="theme-opt"
+                :class="{ on: currentTheme === 'dark' }"
+                @click="setTheme('dark')"
+              >{{ t('settings.dark') }}</button>
+              <button
+                class="theme-opt"
+                :class="{ on: currentTheme === 'system' }"
+                @click="setTheme('system')"
+              >{{ t('settings.system') }}</button>
+            </div>
+          </div>
+
+          <div class="s-divider"></div>
+
+          <div class="s-group">
+            <div class="s-label"><span class="s-lname">{{ t('settings.language') }}</span></div>
+            <div class="theme-opts">
+              <button
+                class="theme-opt"
+                :class="{ on: currentLocale === 'en-US' }"
+                @click="switchLocale('en-US')"
+              >English</button>
+              <button
+                class="theme-opt"
+                :class="{ on: currentLocale === 'zh-CN' }"
+                @click="switchLocale('zh-CN')"
+              >中文</button>
+            </div>
+          </div>
+        </template>
+
+        <template v-else-if="activeTab === 'logLevels'">
+          <LogLevelSettings />
+        </template>
       </div>
     </div>
+
     <div class="settings-footer">
       <span class="footer-version">v{{ version }}</span>
       <a class="footer-link" href="https://github.com/wunamesst/tailr" target="_blank" rel="noopener">
@@ -188,13 +214,68 @@ async function switchLocale(newLocale: string): Promise<void> {
   overflow: hidden;
 }
 
+.settings-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.settings-tabs {
+  width: 120px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+  text-align: left;
+}
+
+.tab-btn:hover {
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+.tab-btn.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.tab-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .settings-body {
+  flex: 1;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 20px;
   overflow-y: auto;
-  flex: 1;
 }
 
 .s-group {
@@ -301,6 +382,7 @@ async function switchLocale(newLocale: string): Promise<void> {
   color: var(--accent);
   background: var(--accent-light);
 }
+
 .collapse-btn {
   width: 24px;
   height: 24px;
@@ -328,6 +410,7 @@ async function switchLocale(newLocale: string): Promise<void> {
   align-items: center;
   justify-content: space-between;
   font-size: 11px;
+  flex-shrink: 0;
 }
 
 .footer-version {
