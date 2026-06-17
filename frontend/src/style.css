@@ -277,13 +277,17 @@ input[type="range"] {
   z-index: 900;
   display: flex;
   justify-content: flex-end;
+  align-items: flex-end;
+  padding: 16px;
 }
 
 .settings-drawer {
   width: min(50vw, 480px);
-  height: 100vh;
+  height: calc(100vh - 32px);
   background: var(--bg);
   border-left: 1px solid var(--border);
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
