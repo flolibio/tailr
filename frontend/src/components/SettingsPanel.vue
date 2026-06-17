@@ -82,7 +82,13 @@ const tabs = [
 <template>
   <div class="settings-panel-inner">
     <div class="settings-header">
+      <button class="collapse-btn" @click="emit('collapse')" :title="t('settings.collapse')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
       <span class="settings-title">{{ t('settings.title') }}</span>
+      <button class="close-btn-header" @click="emit('collapse')" :title="t('settings.collapse')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
 
     <div class="settings-content">
@@ -212,6 +218,67 @@ const tabs = [
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+}
+
+.settings-header {
+  height: var(--topbar-h);
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.collapse-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s, color .12s;
+  flex-shrink: 0;
+}
+
+.collapse-btn:hover {
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+.settings-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  flex: 1;
+}
+
+.close-btn-header {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s, color .12s;
+  flex-shrink: 0;
+}
+
+.close-btn-header:hover {
+  background: var(--bg-2);
+  color: var(--text);
 }
 
 .settings-content {
