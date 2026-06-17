@@ -14,6 +14,8 @@ const {
   updateLevel,
   resetToDefault,
   syncToBackend,
+  applyThemeColors,
+  isDark,
 } = useLogLevels()
 
 const presetOptions = computed(() =>
@@ -52,8 +54,6 @@ const colorPickerTarget = ref<'light' | 'dark'>('light')
 
 // 保存状态
 const saveState = ref<'idle' | 'saving' | 'success' | 'error'>('idle')
-const countdown = ref(3)
-let countdownTimer: ReturnType<typeof setInterval> | null = null
 
 function openColorPicker(index: number, target: 'light' | 'dark') {
   colorPickerIndex.value = index
@@ -80,15 +80,9 @@ async function handleSave() {
   saveState.value = 'saving'
   try {
     await syncToBackend()
+    applyThemeColors(isDark.value)
     saveState.value = 'success'
-    countdown.value = 3
-    countdownTimer = setInterval(() => {
-      countdown.value--
-      if (countdown.value <= 0) {
-        if (countdownTimer) clearInterval(countdownTimer)
-        window.location.reload()
-      }
-    }, 1000)
+    setTimeout(() => { saveState.value = 'idle' }, 1500)
   } catch {
     saveState.value = 'error'
     setTimeout(() => { saveState.value = 'idle' }, 2000)
@@ -245,7 +239,7 @@ function onDragEnd() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
-          {{ t('settings.saved') }} ({{ countdown }}s)
+          {{ t('settings.saved') }}
         </template>
         <template v-else-if="saveState === 'error'">
           {{ t('settings.saveError') }}

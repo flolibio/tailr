@@ -125,14 +125,14 @@ function saveToStorage(config: LogLevelConfig): void {
 
 let isDark = false
 
+const config = ref<LogLevelConfig>(loadFromStorage() ?? {
+  preset: 'general',
+  levels: PRESETS.general.map(l => ({ ...l })),
+})
+
+const levelNames = computed(() => config.value.levels.map(l => l.name))
+
 export function useLogLevels() {
-  const config = ref<LogLevelConfig>(loadFromStorage() ?? {
-    preset: 'general',
-    levels: PRESETS.general.map(l => ({ ...l })),
-  })
-
-  const levelNames = computed(() => config.value.levels.map(l => l.name))
-
   // 动态 CSS 变量
   function applyThemeColors(dark: boolean) {
     isDark = dark
@@ -229,5 +229,6 @@ export function useLogLevels() {
     applyThemeColors,
     syncToBackend,
     loadFromBackend,
+    isDark: computed(() => isDark),
   }
 }
