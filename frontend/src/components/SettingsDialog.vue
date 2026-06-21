@@ -338,9 +338,7 @@ onUnmounted(() => {
             <div class="section-title">{{ t('settings.about') }}</div>
             <div class="about-content">
               <div class="about-logo">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-                </svg>
+                <img src="/logo-192x192.png" alt="tailr" width="48" height="48" />
               </div>
               <div class="about-name">tailr</div>
               <div class="about-version">v{{ version }}</div>
@@ -585,10 +583,11 @@ onUnmounted(() => {
 .toggle {
   position: relative;
   width: 36px;
-  height: 20px;
+  height: 18px;
   flex-shrink: 0;
   border: none;
   padding: 0;
+  border-radius: var(--radius-lg);
 }
 
 .toggle input {
