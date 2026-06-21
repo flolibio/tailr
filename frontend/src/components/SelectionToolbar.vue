@@ -36,6 +36,15 @@ function onMouseUp(e: MouseEvent): void {
   setTimeout(() => {
     const sel = window.getSelection()
     if (sel && !sel.isCollapsed && sel.toString().trim()) {
+      const range = sel.getRangeAt(0)
+      const container = range.commonAncestorContainer
+      const logViewer = container instanceof HTMLElement
+        ? container.closest('.log-viewer')
+        : container.parentElement?.closest('.log-viewer')
+      if (!logViewer) {
+        visible.value = false
+        return
+      }
       updateSelection()
     } else {
       visible.value = false

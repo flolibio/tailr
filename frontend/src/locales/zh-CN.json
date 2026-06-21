@@ -16,6 +16,9 @@
   },
   "settings": {
     "title": "设置",
+    "general": "通用",
+    "about": "关于",
+    "description": "超快的日志搜索和追踪服务器",
     "collapse": "收起设置",
     "fontSize": "字体大小",
     "maxVisibleLines": "最大可见行数",
@@ -31,6 +34,7 @@
     "levels": "级别列表",
     "levelName": "名称",
     "keywords": "关键词（逗号分隔）",
+    "keywordsHeader": "关键词",
     "lightColor": "浅色主题颜色",
     "darkColor": "深色主题颜色",
     "addLevel": "添加级别",

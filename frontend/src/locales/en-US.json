@@ -16,6 +16,9 @@
   },
   "settings": {
     "title": "Settings",
+    "general": "General",
+    "about": "About",
+    "description": "A blazing-fast log tail & search server",
     "collapse": "Collapse settings",
     "fontSize": "Font size",
     "maxVisibleLines": "Max visible lines",
@@ -31,6 +34,7 @@
     "levels": "Levels",
     "levelName": "Name",
     "keywords": "Keywords (comma separated)",
+    "keywordsHeader": "Keywords",
     "lightColor": "Light theme color",
     "darkColor": "Dark theme color",
     "addLevel": "Add level",

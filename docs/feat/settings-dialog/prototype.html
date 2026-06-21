@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings Dialog Prototype — tailr</title>
+<style>
+  :root {
+    --bg: #1e1e1e;
+    --bg-2: #252526;
+    --bg-3: #2d2d2d;
+    --bg-hover: #383838;
+    --border: #3e3e3e;
+    --border-2: #555;
+    --text: #e5e5e5;
+    --text-2: #ccc;
+    --text-3: #888;
+    --accent: #1865a5;
+    --accent-hover: #1a75c8;
+    --accent-light: rgba(24, 101, 165, 0.15);
+    --radius: 6px;
+    --radius-lg: 10px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    --shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: #111;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+
+  /* ── Overlay ── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  /* ── Dialog ── */
+  .dialog {
+    width: 860px;
+    height: 580px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  .dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-2);
+    -webkit-app-region: drag;
+  }
+
+  .dialog-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .close-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .close-btn:hover {
+    background: #c42b1c;
+    color: #fff;
+  }
+
+  /* ── Body ── */
+  .dialog-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    background: var(--bg-2);
+    padding: 8px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 12.5px;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    text-align: left;
+    width: 100%;
+  }
+
+  .nav-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .nav-item.active {
+    background: var(--accent-light);
+    color: var(--accent-hover);
+  }
+
+  .nav-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  .nav-item.active .nav-icon {
+    opacity: 1;
+  }
+
+  .nav-section {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    padding: 12px 10px 4px;
+  }
+
+  /* ── Content ── */
+  .content {
+    flex: 1;
+    padding: 24px 28px;
+    overflow-y: auto;
+  }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  /* ── Setting Row ── */
+  .setting-group {
+    margin-bottom: 20px;
+  }
+
+  .setting-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-2);
+    margin-bottom: 6px;
+  }
+
+  .setting-desc {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 4px;
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .setting-row:last-child {
+    border-bottom: none;
+  }
+
+  .setting-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .setting-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .setting-description {
+    font-size: 11.5px;
+    color: var(--text-3);
+    line-height: 1.5;
+  }
+
+  .setting-control {
+    flex-shrink: 0;
+    width: 240px;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  /* ── Inputs ── */
+  input[type="text"],
+  input[type="number"],
+  select {
+    height: 30px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    background: var(--bg-3);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0 8px;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+
+  input[type="text"]:focus,
+  input[type="number"]:focus,
+  select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  /* ── Toggle Switch ── */
+  .toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    left: 2px;
+    top: 2px;
+    background: var(--text-3);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+  }
+
+  .toggle input:checked + .toggle-slider {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .toggle input:checked + .toggle-slider::before {
+    transform: translateX(16px);
+    background: #fff;
+  }
+
+  /* ── Button ── */
+  .btn {
+    height: 30px;
+    font-size: 12px;
+    font-family: var(--font);
+    padding: 0 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text-2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.12s;
+  }
+
+  .btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-2);
+    color: var(--text);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: #fff;
+  }
+
+  /* ── Log Level Card ── */
+  .level-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg-3);
+    /* border: 1px solid var(--border); */
+    border-radius: var(--radius);
+    margin-bottom: 6px;
+    transition: border-color 0.12s;
+  }
+
+  .level-card:hover {
+    border-color: var(--border-2);
+  }
+
+  .drag-handle {
+    color: var(--text-3);
+    cursor: grab;
+    opacity: 0.4;
+    transition: opacity 0.12s;
+    flex-shrink: 0;
+  }
+
+  .level-card:hover .drag-handle {
+    opacity: 0.8;
+  }
+
+  .level-name-input {
+    width: 100px;
+    flex-shrink: 0;
+    height: 26px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 0 6px;
+    transition: border-color 0.12s;
+  }
+
+  .level-name-input:hover {
+    border-color: var(--border);
+  }
+
+  .level-name-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .color-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-3);
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    transition: transform 0.12s;
+  }
+
+  .color-dot:hover {
+    transform: scale(1.2);
+  }
+
+  .color-dot-label {
+    font-size: 9px;
+    color: var(--text-3);
+    text-align: center;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .color-dot-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .remove-btn {
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.12s, background 0.12s, color 0.12s;
+    flex-shrink: 0;
+  }
+
+  .level-card:hover .remove-btn {
+    opacity: 0.6;
+  }
+
+  .remove-btn:hover {
+    opacity: 1 !important;
+    background: rgba(255,60,60,0.15);
+    color: #ff4444;
+  }
+
+  .keyword-input {
+    flex: 1;
+    min-width: 0;
+    height: 26px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    background: var(--bg);
+    color: var(--text-2);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 0 6px;
+    transition: border-color 0.12s;
+  }
+
+  .keyword-input:hover {
+    border-color: var(--border);
+  }
+
+  .keyword-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .add-level-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 100%;
+    height: 30px;
+    font-size: 11px;
+    padding: 0 12px;
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+    border-radius: var(--radius);
+    margin-top: 8px;
+    transition: all 0.12s;
+  }
+
+  .add-level-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-light);
+  }
+
+  /* ── Level Header Row ── */
+  .level-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px 6px;
+    font-size: 10px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .level-header .col-handle { width: 10px; }
+  .level-header .col-name { width: 100px; flex-shrink: 0; }
+  .level-header .col-keywords { flex: 1; }
+  .level-header .col-light { width: 40px; text-align: center; }
+  .level-header .col-dark { width: 40px; text-align: center; }
+  .level-header .col-remove { width: 20px; }
+
+  /* ── Preset Selector ── */
+  .preset-select {
+    height: 30px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    background: var(--bg-3);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0 8px;
+    width: 200px;
+    cursor: pointer;
+  }
+
+  .preset-select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  /* ── Footer ── */
+  .dialog-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-2);
+  }
+</style>
+</head>
+<body>
+
+<div class="overlay">
+  <div class="dialog">
+
+    <!-- Header -->
+    <div class="dialog-header">
+      <span class="dialog-title">Settings</span>
+      <button class="close-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="dialog-body">
+
+      <!-- Sidebar Nav -->
+      <div class="sidebar">
+        <div class="nav-section">General</div>
+        <button class="nav-item active">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
+          General
+        </button>
+        <button class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+          Log Levels
+        </button>
+        <button class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          Appearance
+        </button>
+
+        <div class="nav-section">Advanced</div>
+        <button class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 019-9"/>
+          </svg>
+          Server
+        </button>
+        <button class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+          </svg>
+          AI Models
+        </button>
+      </div>
+
+      <!-- Content Area -->
+      <div class="content">
+        <div class="section-title">Log Levels</div>
+
+        <!-- Preset -->
+        <div class="setting-group">
+          <div class="setting-label">Preset</div>
+          <select class="preset-select">
+            <option>General</option>
+            <option>Java (Log4j/SLF4J)</option>
+            <option selected>Python (logging)</option>
+            <option>PHP (error_log)</option>
+            <option>Go (slog/zerolog)</option>
+            <option>Rust (tracing)</option>
+            <option>syslog</option>
+          </select>
+          <div class="setting-desc">Choose a preset or customize below</div>
+        </div>
+
+        <!-- Level Cards -->
+        <div class="setting-group">
+          <div class="setting-label">Levels <span style="font-weight:400;color:var(--text-3)">(drag to reorder priority)</span></div>
+
+          <div class="level-header">
+            <span class="col-handle"></span>
+            <span class="col-name">Name</span>
+            <span class="col-keywords">Keywords</span>
+            <span class="col-light"></span>
+            <span class="col-dark"></span>
+            <span class="col-remove"></span>
+          </div>
+
+          <!-- Card: CRITICAL -->
+          <div class="level-card">
+            <span class="drag-handle">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/>
+                <circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>
+                <circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/>
+              </svg>
+            </span>
+            <input class="level-name-input" value="CRITICAL" />
+            <input class="keyword-input" value="CRITICAL" placeholder="keywords" />
+            <div class="color-dot-group">
+              <button class="color-dot" style="background:#CC2D26"></button>
+              <span class="color-dot-label">Light</span>
+            </div>
+            <div class="color-dot-group">
+              <button class="color-dot" style="background:#FF6B63"></button>
+              <span class="color-dot-label">Dark</span>
+            </div>
+            <button class="remove-btn">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Card: ERROR -->
+          <div class="level-card">
+            <span class="drag-handle">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/>
+                <circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>
+                <circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/>
+              </svg>
+            </span>
+            <input class="level-name-input" value="ERROR" />
+            <input class="keyword-input" value="ERROR, ERR" placeholder="keywords" />
+            <div class="color-dot-group">
+              <button class="color-dot" style="background:#A32D2D"></button>
+              <span class="color-dot-label">Light</span>
+            </div>
+            <div class="color-dot-group">
+              <button class="color-dot" style="background:#F09595"></button>
+              <span class="color-dot-label">Dark</span>
+            </div>
+            <button class="remove-btn">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Card: WARNING -->
+          <div class="level-card">
+            <span class="drag-handle">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/>
+                <circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>
+                <circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/>
+              </svg>
+            </span>
+            <input class="level-name-input" value="WARNING" />
+            <input class="keyword-input" value="WARNING, WARN" placeholder="keywords" />
+            <div class="color-dot-group">
+              <button class="color-dot" style="background:#854F0B"></button>
+              <span class="color-dot-label">Light</span>
+            </div>
+            <div class="color-dot-group">
+              <button class="color-dot" style="background:#EF9F27"></button>
+              <span class="color-dot-label">Dark</span>
+            </div>
+            <button class="remove-btn">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Card: INFO -->
+          <div class="level-card">
+            <span class="drag-handle">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/>
+                <circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>
+                <circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/>
+              </svg>
+            </span>
+            <input class="level-name-input" value="INFO" />
+            <input class="keyword-input" value="INFO" placeholder="keywords" />
+            <div class="color-dot-group">
+              <button class="color-dot" style="background:#0C447C"></button>
+              <span class="color-dot-label">Light</span>
+            </div>
+            <div class="color-dot-group">
+              <button class="color-dot" style="background:#85B7EB"></button>
+              <span class="color-dot-label">Dark</span>
+            </div>
+            <button class="remove-btn">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Card: DEBUG -->
+          <div class="level-card">
+            <span class="drag-handle">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/>
+                <circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>
+                <circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/>
+              </svg>
+            </span>
+            <input class="level-name-input" value="DEBUG" />
+            <input class="keyword-input" value="DEBUG" placeholder="keywords" />
+            <div class="color-dot-group">
+              <button class="color-dot" style="background:#3B6D11"></button>
+              <span class="color-dot-label">Light</span>
+            </div>
+            <div class="color-dot-group">
+              <button class="color-dot" style="background:#97C459"></button>
+              <span class="color-dot-label">Dark</span>
+            </div>
+            <button class="remove-btn">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <button class="add-level-btn">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Level
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="dialog-footer">
+      <button class="btn">Reset to Default</button>
+      <button class="btn btn-primary">Save</button>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
