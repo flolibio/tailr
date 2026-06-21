@@ -2,18 +2,18 @@
 :root {
   /* Light theme (default) */
   --bg: #ffffff;
-  --bg-2: #f5f5f4;
-  --bg-3: #efefed;
+  --bg-2: #f5f5f5;
+  --bg-3: #efefef;
   --text: #000000;
-  --text-2: #1a1a18;
-  --text-3: #5c5c58;
+  --text-2: #1a1a1a;
+  --text-3: #6b6b6b;
   --border: rgba(0,0,0,0.12);
   --border-2: rgba(0,0,0,0.22);
 
   /* Log area layered text (light theme) */
-  --log-msg: #2a2a28;
-  --log-ln: #73736e;
-  --log-ts: #5a5a56;
+  --log-msg: #2a2a2a;
+  --log-ln: #737373;
+  --log-ts: #5a5a5a;
   --radius: 8px;
   --radius-lg: 12px;
   --sidebar-w: 220px;
@@ -40,19 +40,19 @@
 
 /* Dark theme */
 :root.dark, :root:not([data-theme="light"]) {
-  --bg: #1a1a18;
-  --bg-2: #232320;
-  --bg-3: #2c2c29;
-  --text: #f5f5f5;
-  --text-2: #f0ede8;
-  --text-3: #b8b5b0;
+  --bg: #141414;
+  --bg-2: #1e1e1e;
+  --bg-3: #282828;
+  --text: #eeeeee;
+  --text-2: #e0e0e0;
+  --text-3: #808080;
   --border: rgba(255,255,255,0.1);
   --border-2: rgba(255,255,255,0.18);
 
   /* Log area layered text (dark theme) */
-  --log-msg: #e0ddd8;
-  --log-ln: #5a5955;
-  --log-ts: #7b7a76;
+  --log-msg: #e0e0e0;
+  --log-ln: #5a5a5a;
+  --log-ts: #7b7b7b;
 
   --c-alert-bg: #3a1412; --c-alert-text: #FF6B63; --c-alert-border: #5c1a17;
   --c-error-bg: #2e1515; --c-error-text: #F09595; --c-error-border: #501313;
@@ -71,11 +71,11 @@
 /* Light theme explicit */
 :root[data-theme="light"] {
   --bg: #ffffff;
-  --bg-2: #f5f5f4;
-  --bg-3: #efefed;
-  --text: #1a1a18;
-  --text-2: #4a4a48;
-  --text-3: #767672;
+  --bg-2: #f5f5f5;
+  --bg-3: #efefef;
+  --text: #1a1a1a;
+  --text-2: #4a4a4a;
+  --text-3: #767676;
   --border: rgba(0,0,0,0.12);
   --border-2: rgba(0,0,0,0.22);
 
@@ -108,6 +108,7 @@ html, body, #app {
 body {
   font-family: var(--font-sans);
   font-size: var(--font-size-base);
+  font-weight: 500;
   background: var(--bg-3);
   color: var(--text);
   line-height: 1.5;
@@ -552,7 +553,7 @@ input[type="range"] {
 .log-content, 
 input, 
 select {
-  font-family: var(--font-mono);
+  line-height: 1.4;
 }
 
 /* ── Settings button ── */
