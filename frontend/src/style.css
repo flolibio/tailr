@@ -2,18 +2,18 @@
 :root {
   /* Light theme (default) */
   --bg: #ffffff;
-  --bg-2: #f5f5f4;
-  --bg-3: #efefed;
+  --bg-2: #f5f5f5;
+  --bg-3: #efefef;
   --text: #000000;
-  --text-2: #1a1a18;
-  --text-3: #5c5c58;
+  --text-2: #1a1a1a;
+  --text-3: #6b6b6b;
   --border: rgba(0,0,0,0.12);
   --border-2: rgba(0,0,0,0.22);
 
   /* Log area layered text (light theme) */
-  --log-msg: #2a2a28;
-  --log-ln: #73736e;
-  --log-ts: #5a5a56;
+  --log-msg: #2a2a2a;
+  --log-ln: #737373;
+  --log-ts: #5a5a5a;
   --radius: 8px;
   --radius-lg: 12px;
   --sidebar-w: 220px;
@@ -40,19 +40,19 @@
 
 /* Dark theme */
 :root.dark, :root:not([data-theme="light"]) {
-  --bg: #1a1a18;
-  --bg-2: #232320;
-  --bg-3: #2c2c29;
-  --text: #f5f5f5;
-  --text-2: #f0ede8;
-  --text-3: #b8b5b0;
+  --bg: #141414;
+  --bg-2: #1e1e1e;
+  --bg-3: #282828;
+  --text: #eeeeee;
+  --text-2: #e0e0e0;
+  --text-3: #808080;
   --border: rgba(255,255,255,0.1);
   --border-2: rgba(255,255,255,0.18);
 
   /* Log area layered text (dark theme) */
-  --log-msg: #e0ddd8;
-  --log-ln: #5a5955;
-  --log-ts: #7b7a76;
+  --log-msg: #e0e0e0;
+  --log-ln: #5a5a5a;
+  --log-ts: #7b7b7b;
 
   --c-alert-bg: #3a1412; --c-alert-text: #FF6B63; --c-alert-border: #5c1a17;
   --c-error-bg: #2e1515; --c-error-text: #F09595; --c-error-border: #501313;
@@ -71,11 +71,11 @@
 /* Light theme explicit */
 :root[data-theme="light"] {
   --bg: #ffffff;
-  --bg-2: #f5f5f4;
-  --bg-3: #efefed;
-  --text: #1a1a18;
-  --text-2: #4a4a48;
-  --text-3: #767672;
+  --bg-2: #f5f5f5;
+  --bg-3: #efefef;
+  --text: #1a1a1a;
+  --text-2: #4a4a4a;
+  --text-3: #767676;
   --border: rgba(0,0,0,0.12);
   --border-2: rgba(0,0,0,0.22);
 
@@ -108,6 +108,7 @@ html, body, #app {
 body {
   font-family: var(--font-sans);
   font-size: var(--font-size-base);
+  font-weight: 500;
   background: var(--bg-3);
   color: var(--text);
   line-height: 1.5;
@@ -234,72 +235,6 @@ input[type="range"] {
 .level-debug { color: var(--c-debug-text); }
 .level-trace { color: var(--c-trace-text); }
 
-/* ── Settings Tabs ── */
-.settings-tabs {
-  display: flex;
-  align-items: center;
-  height: var(--topbar-h);
-  border-bottom: 1px solid var(--border);
-  padding: 0 8px;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.settings-tab {
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-3);
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all .12s;
-}
-
-.settings-tab:hover {
-  background: var(--bg-2);
-  color: var(--text-2);
-}
-
-.settings-tab.active {
-  background: var(--accent-light);
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.tab-close {
-  margin-left: auto;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border-radius: 5px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tab-close:hover {
-  background: var(--bg-2);
-  color: var(--text);
-}
-
-.settings-content {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.settings-content > * {
-  flex: 1;
-  overflow-y: auto;
-}
-
 /* ── Dynamic level tags ── */
 .level-tag.dynamic-level {
   background: transparent;
@@ -309,7 +244,7 @@ input[type="range"] {
 /* ── App Shell (Grid) ── */
 .app-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-current-width, var(--sidebar-w)) 1fr var(--settings-w);
+  grid-template-columns: var(--sidebar-current-width, var(--sidebar-w)) 1fr;
   grid-template-rows: var(--topbar-h) var(--filterbar-h) 1fr var(--statusbar-h);
   height: 100vh;
   background: var(--bg);
@@ -317,19 +252,10 @@ input[type="range"] {
   overflow: hidden;
 }
 
-.app-shell.settings-collapsed {
-  grid-template-columns: var(--sidebar-current-width, var(--sidebar-w)) 1fr 40px;
-}
-
 .app-shell.sidebar-collapsed {
-  grid-template-columns: 40px 1fr var(--settings-w);
+  grid-template-columns: 40px 1fr;
 }
 
-.app-shell.sidebar-collapsed.settings-collapsed {
-  grid-template-columns: 40px 1fr 40px;
-}
-
-.settings-reopen,
 .sidebar-reopen {
   width: 32px;
   height: 32px;
@@ -346,7 +272,6 @@ input[type="range"] {
   transition: background .12s, color .12s;
 }
 
-.settings-reopen:hover,
 .sidebar-reopen:hover {
   background: var(--bg-2);
   color: var(--text);
@@ -628,154 +553,34 @@ input[type="range"] {
 .log-content, 
 input, 
 select {
-  font-family: var(--font-mono);
+  line-height: 1.4;
 }
 
-/* ── Settings ── */
-.settings-panel {
-  grid-row: 1 / 4;
-  grid-column: 3;
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  overflow: hidden;
-}
-
-.settings-header {
-  height: var(--topbar-h);
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.settings-title {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-
-.settings-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.s-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.s-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.s-lname {
-  font-size: 12px;
-  color: var(--text-2);
-}
-
-.s-lval {
-  font-size: 12px;
-  font-weight: 500;
-  font-family: var(--font-mono);
-  color: var(--text);
-}
-
-.s-divider {
-  height: 1px;
-  background: var(--border);
-}
-
-.toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 0;
-}
-
-.toggle-name {
-  font-size: 13px;
-  color: var(--text);
-}
-
-.toggle {
-  width: 34px;
-  height: 19px;
-  border-radius: 10px;
-  background: var(--border-2);
-  position: relative;
-  cursor: pointer;
-  border: none;
-  outline: none;
-  padding: 0;
-  transition: background .18s;
-  flex-shrink: 0;
-}
-
-.toggle::after {
-  content: '';
-  position: absolute;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: white;
-  top: 3px;
-  left: 3px;
-  transition: left .16s;
-}
-
-.toggle.on {
-  background: var(--accent);
-}
-
-.toggle.on::after {
-  left: 18px;
-}
-
-.theme-opts {
-  display: flex;
-  gap: 5px;
-}
-
-.theme-opt {
-  flex: 1;
-  padding: 6px 0;
+/* ── Settings button ── */
+.settings-btn {
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  font-size: 11px;
-  font-weight: 500;
-  text-align: center;
-  cursor: pointer;
-  color: var(--text-2);
   background: transparent;
-  transition: all .12s;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s, color .12s;
+  flex-shrink: 0;
 }
 
-.theme-opt:hover {
+.settings-btn:hover {
   background: var(--bg-2);
-}
-
-.theme-opt.on {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-light);
+  color: var(--text);
 }
 
 /* ── Status Bar ── */
 .statusbar {
-  grid-column: 1 / 4;
+  grid-column: 1 / 3;
   grid-row: 4;
   height: var(--statusbar-h);
   border-top: 1px solid var(--border);

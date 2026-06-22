@@ -6,6 +6,7 @@ import { healthCheck } from '../services/api'
 
 export interface Settings {
   fontSize: number
+  fontFamily: string
   autoScroll: boolean
   maxVisibleLines: number
   darkTheme: boolean
@@ -234,7 +235,7 @@ async function switchLocale(newLocale: string): Promise<void> {
 
 .toggle {
   width: 34px;
-  height: 19px;
+  height: 18px;
   border-radius: 10px;
   background: var(--border-2);
   position: relative;

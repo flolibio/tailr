@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FileBrowser from './components/FileBrowser.vue'
 import LogViewer from './components/LogViewer.vue'
 import FilterBar from './components/FilterBar.vue'
-import SettingsPanel from './components/SettingsPanel.vue'
-import LogLevelSettings from './components/settings/LogLevelSettings.vue'
+import SettingsDialog from './components/SettingsDialog.vue'
 import SelectionToolbar from './components/SelectionToolbar.vue'
 import type { Settings } from './components/SettingsPanel.vue'
 import { useLogStream } from './composables/useLogStream'
@@ -29,9 +28,13 @@ const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
 const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
 const selectedLevels = ref<string[]>([])
 const filterKeywords = ref<string[]>([])
-const settingsCollapsed = ref(true)
+const showSettings = ref(false)
 const sidebarCollapsed = ref(false)
 const sidebarWidth = ref(220)
+
+watch(currentFile, (f) => {
+  document.title = f ? `Tailr - ${f}` : 'Tailr'
+}, { immediate: true })
 
 const highlightKeywords = computed(() => filterKeywords.value)
 
@@ -71,6 +74,7 @@ const SETTINGS_KEY = 'tailr-settings'
 
 const defaultSettings: Settings = {
   fontSize: 14,
+  fontFamily: 'JetBrains Mono',
   autoScroll: true,
   maxVisibleLines: 50000,
   darkTheme: true,
@@ -102,9 +106,7 @@ const {
   loadFromBackend: loadLogLevels,
 } = useLogLevels()
 
-const activeTab = ref<'appearance' | 'logLevels'>('appearance')
-
-// 动态级别颜色映射
+// Dynamic level color mapping
 const levelDotColors = computed(() => {
   const colors: Record<string, string> = {}
   for (const level of logLevelConfig.value.levels) {
@@ -218,7 +220,7 @@ function handleSettingsUpdate(s: Settings): void {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'settings-collapsed': settingsCollapsed, 'sidebar-collapsed': sidebarCollapsed }" :style="{ '--sidebar-current-width': sidebarWidth + 'px' }">
+  <div class="app-shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }" :style="{ '--sidebar-current-width': sidebarWidth + 'px' }">
     <!-- Sidebar -->
     <aside class="sidebar">
       <FileBrowser
@@ -247,6 +249,9 @@ function handleSettingsUpdate(s: Settings): void {
         @remove-keyword="removeKeyword"
         @clear-all="clearAllKeywords"
       />
+      <button class="settings-btn" @click="showSettings = true" :title="t('app.openSettings')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
     </header>
 
     <!-- Filter bar (levels) -->
@@ -269,7 +274,7 @@ function handleSettingsUpdate(s: Settings): void {
     </div>
 
     <!-- Log body -->
-    <main class="log-body" :style="{ fontSize: settings.fontSize + 'px' }">
+    <main class="log-body" :style="{ fontSize: settings.fontSize + 'px', fontFamily: settings.fontFamily === 'monospace' ? 'monospace' : `'${settings.fontFamily}'` }">
       <div v-if="!currentFile" class="empty-state">
         <div class="empty-text">{{ t('app.selectFile') }}</div>
       </div>
@@ -284,7 +289,7 @@ function handleSettingsUpdate(s: Settings): void {
         v-else
         ref="logViewerRef"
         :entries="filteredEntries"
-        :line-height="Math.max(18, settings.fontSize + 8)"
+        :line-height="26"
         :is-tail-mode="isTailMode"
         :max-visible-lines="settings.maxVisibleLines"
         :highlight-keywords="highlightKeywords"
@@ -293,38 +298,13 @@ function handleSettingsUpdate(s: Settings): void {
       />
     </main>
 
-    <!-- Settings panel -->
-    <aside class="settings-panel">
-      <template v-if="!settingsCollapsed">
-        <div class="settings-tabs">
-          <button
-            class="settings-tab"
-            :class="{ active: activeTab === 'appearance' }"
-            @click="activeTab = 'appearance'"
-          >{{ t('settings.basicSettings') }}</button>
-          <button
-            class="settings-tab"
-            :class="{ active: activeTab === 'logLevels' }"
-            @click="activeTab = 'logLevels'"
-          >{{ t('settings.logLevels') }}</button>
-          <button class="collapse-btn tab-close" @click="settingsCollapsed = true" :title="t('settings.collapse')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
-        <div class="settings-content">
-          <SettingsPanel
-            v-if="activeTab === 'appearance'"
-            :settings="settings"
-            @update="handleSettingsUpdate"
-            @collapse="settingsCollapsed = true"
-          />
-          <LogLevelSettings v-else-if="activeTab === 'logLevels'" />
-        </div>
-      </template>
-      <button v-else class="settings-reopen" @click="settingsCollapsed = false" :title="t('app.openSettings')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
-    </aside>
+    <!-- Settings dialog -->
+    <SettingsDialog
+      v-if="showSettings"
+      :settings="settings"
+      @update="handleSettingsUpdate"
+      @close="showSettings = false"
+    />
 
     <!-- Status bar -->
     <div class="statusbar">

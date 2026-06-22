@@ -370,7 +370,7 @@ onMounted(() => {
   align-items: center;
   gap: 9px;
   padding: 9px 10px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   transition: background .1s;
   user-select: none;

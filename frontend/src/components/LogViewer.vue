@@ -491,7 +491,6 @@ defineExpose({ scrollToBottom, scrollToLine })
   height: 100%;
   overflow-y: auto;
   overflow-x: auto;
-  font-family: var(--font-mono);
   background: var(--bg);
   padding: 10px;
 }
@@ -505,8 +504,8 @@ defineExpose({ scrollToBottom, scrollToLine })
 .log-row {
   display: flex;
   align-items: center;
-  height: 26px;
-  line-height: 26px;
+  height: var(--line-height, 26px);
+  line-height: var(--line-height, 26px);
   padding: 0 10px;
   white-space: nowrap;
   position: relative;
@@ -534,7 +533,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   white-space: pre-wrap;
   word-break: break-all;
   height: auto;
-  min-height: 26px;
+  min-height: var(--line-height, 26px);
 }
 
 .log-row.wrap .truncate-check {
@@ -610,7 +609,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.65;
+  line-height: 1.8;
   color: var(--text);
   display: flex;
   align-items: center;
