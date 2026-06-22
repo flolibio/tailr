@@ -274,7 +274,7 @@ function handleSettingsUpdate(s: Settings): void {
     </div>
 
     <!-- Log body -->
-    <main class="log-body" :style="{ fontSize: settings.fontSize + 'px', fontFamily: `'${settings.fontFamily}'` }">
+    <main class="log-body" :style="{ fontSize: settings.fontSize + 'px', fontFamily: settings.fontFamily === 'monospace' ? 'monospace' : `'${settings.fontFamily}'` }">
       <div v-if="!currentFile" class="empty-state">
         <div class="empty-text">{{ t('app.selectFile') }}</div>
       </div>

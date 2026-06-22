@@ -176,6 +176,10 @@ import { onUnmounted } from 'vue'
 
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
+  if (systemThemeCleanup) {
+    systemThemeCleanup()
+    systemThemeCleanup = null
+  }
 })
 </script>
 
@@ -251,12 +255,13 @@ onUnmounted(() => {
                   </select>
                   <div class="font-input-group">
                     <input
-                      type="text"
+                      type="number"
                       class="font-input"
                       :value="local.fontSize"
                       min="10"
                       max="24"
-                      @input="updateSetting('fontSize', +($event.target as HTMLInputElement).value)"
+                      step="1"
+                      @input="updateSetting('fontSize', Math.max(10, Math.min(24, +($event.target as HTMLInputElement).value || 14)))"
                     />
                     <span class="font-unit">px</span>
                   </div>
@@ -467,7 +472,7 @@ onUnmounted(() => {
 }
 
 .close-btn:hover {
-  background: #c42b1c;
+  background: var(--c-error-text);
   color: #fff;
 }
 

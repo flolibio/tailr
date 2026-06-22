@@ -504,8 +504,8 @@ function onDragEnd() {
 
 .remove-btn:hover {
   opacity: 1 !important;
-  background: rgba(255,60,60,0.15);
-  color: #ff4444;
+  background: var(--c-error-bg);
+  color: var(--c-error-text);
 }
 
 /* ── Add Button ── */
