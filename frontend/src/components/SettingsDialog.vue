@@ -228,7 +228,7 @@ onUnmounted(() => {
           <template v-if="activeNav === 'general'">
             <div class="section-title">{{ t('settings.basicSettings') }}</div>
 
-            <!-- Font family / size / line height -->
+            <!-- Font family / size -->
             <div class="setting-row">
               <div class="setting-info">
                 <div class="setting-name">{{ t('settings.fontSettings') }}</div>
@@ -257,17 +257,6 @@ onUnmounted(() => {
                       min="10"
                       max="24"
                       @input="updateSetting('fontSize', +($event.target as HTMLInputElement).value)"
-                    />
-                    <span class="font-unit">px</span>
-                  </div>
-                  <div class="font-input-group">
-                    <input
-                      type="number"
-                      class="font-input"
-                      :value="local.lineHeight"
-                      min="16"
-                      max="40"
-                      @input="updateSetting('lineHeight', +($event.target as HTMLInputElement).value)"
                     />
                     <span class="font-unit">px</span>
                   </div>
