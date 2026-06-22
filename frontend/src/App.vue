@@ -290,6 +290,7 @@ function handleSettingsUpdate(s: Settings): void {
         ref="logViewerRef"
         :entries="filteredEntries"
         :line-height="26"
+        :font-family="settings.fontFamily"
         :is-tail-mode="isTailMode"
         :max-visible-lines="settings.maxVisibleLines"
         :highlight-keywords="highlightKeywords"

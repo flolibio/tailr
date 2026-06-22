@@ -8,6 +8,7 @@ const { t } = useI18n()
 const props = defineProps<{
   entries: LogEntry[]
   lineHeight?: number
+  fontFamily?: string
   isTailMode?: boolean
   maxVisibleLines?: number
   highlightKeywords?: string[]
@@ -20,6 +21,7 @@ const emit = defineEmits<{
 }>()
 
 const lineHeight = computed(() => props.lineHeight ?? 26)
+const fontFamily = computed(() => props.fontFamily ?? 'JetBrains Mono')
 const containerRef = ref<HTMLDivElement | null>(null)
 const scrollTop = ref(0)
 const containerHeight = ref(600)
@@ -431,6 +433,7 @@ defineExpose({ scrollToBottom, scrollToLine })
             :key="entry.lineNum"
             :ref="(el) => setRowRef(entry.lineNum, el)"
             class="log-row"
+            :style="{ fontFamily: `'${fontFamily}', var(--font-mono)` }"
             :class="[
               'level-' + entry.level.toLowerCase(),
               { 'is-copied': copiedLine === entry.lineNum, 'wrap': true, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum, 'is-marked': markedLine === entry.lineNum }
