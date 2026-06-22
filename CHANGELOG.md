@@ -5,6 +5,7 @@
 ### Features
 
 - Settings dialog: modal design (VS Code style) replacing sidebar panel, with left navigation (General, Log Levels, About)
+- Configurable log levels: 7 presets (General, Java, Python, PHP, Go, Rust, syslog), web UI for editing levels/keywords/colors with drag-and-drop reorder
 - Font customization: font family dropdown (JetBrains Mono, Hack, Cascadia Code, Fira Code, Consolas, Monaco, Menlo, System Monospace) and font size (10–24px)
 - Theme modes: Light, Dark, and System (follows OS preference), persisted across sessions
 - Page title dynamically shows selected log file name (`tailr - <filename>`)
@@ -18,6 +19,10 @@
 - Font size input uses `@change` to avoid fighting user keystrokes during typing
 - Theme mode persisted to localStorage, restored on dialog reopen
 - `setTimeout` timers properly cleared on component unmount
+
+### Infrastructure
+
+- `frontend/dist` removed from git tracking, added to `.gitignore`
 
 ---
 
