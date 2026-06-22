@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { loadLocale } from '../locales'
 import { healthCheck } from '../services/api'
@@ -75,11 +75,15 @@ function updateSetting<K extends keyof Settings>(key: K, value: Settings[K]): vo
 const currentTheme = ref<'light' | 'dark' | 'system'>('light')
 let systemThemeCleanup: (() => void) | null = null
 
+const THEME_MODE_KEY = 'tailr-theme-mode'
+
 function setTheme(theme: 'light' | 'dark' | 'system'): void {
   if (systemThemeCleanup) {
     systemThemeCleanup()
     systemThemeCleanup = null
   }
+
+  localStorage.setItem(THEME_MODE_KEY, theme)
 
   if (theme === 'system') {
     currentTheme.value = 'system'
@@ -114,6 +118,12 @@ async function switchLocale(newLocale: string): Promise<void> {
 const version = ref('')
 
 onMounted(async () => {
+  // Restore persisted theme mode
+  const savedTheme = localStorage.getItem(THEME_MODE_KEY) as 'light' | 'dark' | 'system' | null
+  if (savedTheme) {
+    setTheme(savedTheme)
+  }
+
   try {
     const { version: v } = await healthCheck()
     version.value = v
@@ -129,6 +139,7 @@ const {
 } = useLogLevels()
 
 const saveState = ref<'idle' | 'saving' | 'success' | 'error'>('idle')
+let saveStateTimer: ReturnType<typeof setTimeout> | null = null
 
 async function handleSave() {
   if (!logLevelsRef.value) return
@@ -137,15 +148,20 @@ async function handleSave() {
   const active = document.activeElement as HTMLElement | null
   if (active && active.tagName === 'INPUT') active.blur()
 
+  if (saveStateTimer) {
+    clearTimeout(saveStateTimer)
+    saveStateTimer = null
+  }
+
   saveState.value = 'saving'
   try {
     await logLevelsRef.value.syncToBackend()
     applyThemeColors(isDark.value)
     saveState.value = 'success'
-    setTimeout(() => { saveState.value = 'idle' }, 1500)
+    saveStateTimer = setTimeout(() => { saveState.value = 'idle' }, 1500)
   } catch {
     saveState.value = 'error'
-    setTimeout(() => { saveState.value = 'idle' }, 2000)
+    saveStateTimer = setTimeout(() => { saveState.value = 'idle' }, 2000)
   }
 }
 
@@ -172,13 +188,15 @@ onMounted(() => {
   document.addEventListener('keydown', onKeydown)
 })
 
-import { onUnmounted } from 'vue'
-
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
   if (systemThemeCleanup) {
     systemThemeCleanup()
     systemThemeCleanup = null
+  }
+  if (saveStateTimer) {
+    clearTimeout(saveStateTimer)
+    saveStateTimer = null
   }
 })
 </script>
@@ -261,7 +279,7 @@ onUnmounted(() => {
                       min="10"
                       max="24"
                       step="1"
-                      @input="updateSetting('fontSize', Math.max(10, Math.min(24, +($event.target as HTMLInputElement).value || 14)))"
+                      @change="updateSetting('fontSize', Math.max(10, Math.min(24, +($event.target as HTMLInputElement).value || 14)))"
                     />
                     <span class="font-unit">px</span>
                   </div>
