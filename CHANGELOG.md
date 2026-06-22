@@ -1,5 +1,26 @@
 # Changelog
 
+## [v0.4.0] - 2026-06-22
+
+### Features
+
+- Settings dialog: modal design (VS Code style) replacing sidebar panel, with left navigation (General, Log Levels, About)
+- Font customization: font family dropdown (JetBrains Mono, Hack, Cascadia Code, Fira Code, Consolas, Monaco, Menlo, System Monospace) and font size (10–24px)
+- Theme modes: Light, Dark, and System (follows OS preference), persisted across sessions
+- Page title dynamically shows selected log file name (`tailr - <filename>`)
+- About page with project logo, version, and GitHub link
+- Warp-inspired dark theme color palette
+- Full i18n support for all settings strings (en-US, zh-CN)
+
+### Fixes
+
+- Selection toolbar scoped to log viewer area only (no longer appears on other UI elements)
+- Font size input uses `@change` to avoid fighting user keystrokes during typing
+- Theme mode persisted to localStorage, restored on dialog reopen
+- `setTimeout` timers properly cleared on component unmount
+
+---
+
 ## [v0.3.1] - 2026-06-15
 
 ### Performance
