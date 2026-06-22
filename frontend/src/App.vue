@@ -34,7 +34,7 @@ const sidebarWidth = ref(220)
 
 watch(currentFile, (f) => {
   document.title = f ? `Tailr - ${f}` : 'Tailr'
-})
+}, { immediate: true })
 
 const highlightKeywords = computed(() => filterKeywords.value)
 
