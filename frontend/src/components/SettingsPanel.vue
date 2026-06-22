@@ -6,6 +6,8 @@ import { healthCheck } from '../services/api'
 
 export interface Settings {
   fontSize: number
+  lineHeight: number
+  fontFamily: string
   autoScroll: boolean
   maxVisibleLines: number
   darkTheme: boolean

@@ -228,21 +228,50 @@ onUnmounted(() => {
           <template v-if="activeNav === 'general'">
             <div class="section-title">{{ t('settings.basicSettings') }}</div>
 
-            <!-- Font size -->
+            <!-- Font family / size / line height -->
             <div class="setting-row">
               <div class="setting-info">
-                <div class="setting-name">{{ t('settings.fontSize') }}</div>
-                <div class="setting-description">{{ local.fontSize }}px</div>
+                <div class="setting-name">{{ t('settings.fontSettings') }}</div>
               </div>
               <div class="setting-control">
-                <input
-                  type="range"
-                  :value="local.fontSize"
-                  min="10"
-                  max="20"
-                  step="1"
-                  @input="updateSetting('fontSize', +($event.target as HTMLInputElement).value)"
-                />
+                <div class="font-row">
+                  <select
+                    class="font-select"
+                    :value="local.fontFamily"
+                    @change="updateSetting('fontFamily', ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="JetBrains Mono">JetBrains Mono</option>
+                    <option value="Hack">Hack</option>
+                    <option value="Cascadia Code">Cascadia Code</option>
+                    <option value="Fira Code">Fira Code</option>
+                    <option value="Consolas">Consolas</option>
+                    <option value="Monaco">Monaco</option>
+                    <option value="Menlo">Menlo</option>
+                    <option value="monospace">System Monospace</option>
+                  </select>
+                  <div class="font-input-group">
+                    <input
+                      type="number"
+                      class="font-input"
+                      :value="local.fontSize"
+                      min="10"
+                      max="24"
+                      @input="updateSetting('fontSize', +($event.target as HTMLInputElement).value)"
+                    />
+                    <span class="font-unit">px</span>
+                  </div>
+                  <div class="font-input-group">
+                    <input
+                      type="number"
+                      class="font-input"
+                      :value="local.lineHeight"
+                      min="16"
+                      max="40"
+                      @input="updateSetting('lineHeight', +($event.target as HTMLInputElement).value)"
+                    />
+                    <span class="font-unit">px</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -616,6 +645,59 @@ onUnmounted(() => {
 .toggle.on::after {
   transform: translateX(16px);
   background: #fff;
+}
+
+/* ── Font settings row ── */
+.font-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.font-select {
+  height: 30px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  background: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 8px;
+  min-width: 140px;
+}
+
+.font-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.font-input-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.font-input {
+  width: 52px;
+  height: 30px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  background: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 8px;
+  text-align: center;
+}
+
+.font-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.font-unit {
+  font-size: 11px;
+  color: var(--text-3);
 }
 
 /* ── Theme / Language opts ── */

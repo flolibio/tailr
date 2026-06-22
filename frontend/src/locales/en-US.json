@@ -24,6 +24,7 @@
     "maxVisibleLines": "Max visible lines",
     "autoScroll": "Auto-scroll",
     "basicSettings": "Basic",
+    "fontSettings": "Font",
     "theme": "Theme",
     "light": "Light",
     "dark": "Dark",

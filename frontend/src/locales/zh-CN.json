@@ -24,6 +24,7 @@
     "maxVisibleLines": "最大可见行数",
     "autoScroll": "自动滚动",
     "basicSettings": "基础设置",
+    "fontSettings": "字体",
     "theme": "主题",
     "light": "浅色",
     "dark": "深色",

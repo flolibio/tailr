@@ -74,6 +74,8 @@ const SETTINGS_KEY = 'tailr-settings'
 
 const defaultSettings: Settings = {
   fontSize: 14,
+  lineHeight: 26,
+  fontFamily: 'JetBrains Mono',
   autoScroll: true,
   maxVisibleLines: 50000,
   darkTheme: true,
@@ -273,7 +275,7 @@ function handleSettingsUpdate(s: Settings): void {
     </div>
 
     <!-- Log body -->
-    <main class="log-body" :style="{ fontSize: settings.fontSize + 'px' }">
+    <main class="log-body" :style="{ fontSize: settings.fontSize + 'px', lineHeight: settings.lineHeight + 'px', fontFamily: `var(--font-mono)` }">
       <div v-if="!currentFile" class="empty-state">
         <div class="empty-text">{{ t('app.selectFile') }}</div>
       </div>
@@ -288,7 +290,7 @@ function handleSettingsUpdate(s: Settings): void {
         v-else
         ref="logViewerRef"
         :entries="filteredEntries"
-        :line-height="Math.max(18, settings.fontSize + 8)"
+        :line-height="settings.lineHeight"
         :is-tail-mode="isTailMode"
         :max-visible-lines="settings.maxVisibleLines"
         :highlight-keywords="highlightKeywords"
