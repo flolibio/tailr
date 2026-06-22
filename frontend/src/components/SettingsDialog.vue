@@ -689,7 +689,6 @@ onUnmounted(() => {
 
 .about-version {
   font-size: 13px;
-  font-family: var(--font-mono);
   color: var(--text-3);
 }
 

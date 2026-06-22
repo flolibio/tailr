@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FileBrowser from './components/FileBrowser.vue'
 import LogViewer from './components/LogViewer.vue'
@@ -31,6 +31,10 @@ const filterKeywords = ref<string[]>([])
 const showSettings = ref(false)
 const sidebarCollapsed = ref(false)
 const sidebarWidth = ref(220)
+
+watch(currentFile, (f) => {
+  document.title = f ? `Tailr - ${f}` : 'Tailr'
+})
 
 const highlightKeywords = computed(() => filterKeywords.value)
 

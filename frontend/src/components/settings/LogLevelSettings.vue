@@ -267,7 +267,6 @@ function onDragEnd() {
   width: 100%;
   height: 35px;
   font-size: 12px;
-  font-family: var(--font-mono);
   background: var(--bg-2);
   color: var(--text);
   border: 1px solid var(--border);
@@ -317,7 +316,6 @@ function onDragEnd() {
   width: 100%;
   height: 30px;
   font-size: 12px;
-  font-family: var(--font-mono);
   background: transparent;
   color: var(--text-2);
   border: none;
@@ -329,7 +327,6 @@ function onDragEnd() {
   gap: 6px;
   cursor: pointer;
   transition: background .1s;
-  text-align: left;
 }
 
 .preset-option:hover {
@@ -437,7 +434,6 @@ function onDragEnd() {
   min-width: 0;
   height: 26px;
   font-size: 10px;
-  font-family: var(--font-mono);
   background: var(--bg);
   color: var(--text-2);
   border: 1px solid transparent;
