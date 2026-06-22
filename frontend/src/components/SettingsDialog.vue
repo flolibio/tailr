@@ -251,7 +251,7 @@ onUnmounted(() => {
                   </select>
                   <div class="font-input-group">
                     <input
-                      type="number"
+                      type="text"
                       class="font-input"
                       :value="local.fontSize"
                       min="10"

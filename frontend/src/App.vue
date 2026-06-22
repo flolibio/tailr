@@ -274,7 +274,7 @@ function handleSettingsUpdate(s: Settings): void {
     </div>
 
     <!-- Log body -->
-    <main class="log-body" :style="{ fontSize: settings.fontSize + 'px', fontFamily: `'${settings.fontFamily}', var(--font-mono)` }">
+    <main class="log-body" :style="{ fontSize: settings.fontSize + 'px', fontFamily: `'${settings.fontFamily}'` }">
       <div v-if="!currentFile" class="empty-state">
         <div class="empty-text">{{ t('app.selectFile') }}</div>
       </div>
@@ -290,7 +290,6 @@ function handleSettingsUpdate(s: Settings): void {
         ref="logViewerRef"
         :entries="filteredEntries"
         :line-height="26"
-        :font-family="settings.fontFamily"
         :is-tail-mode="isTailMode"
         :max-visible-lines="settings.maxVisibleLines"
         :highlight-keywords="highlightKeywords"
