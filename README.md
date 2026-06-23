@@ -31,7 +31,7 @@
 
 **Real-time log tailing with multi-keyword filtering:**
 - 📡 WebSocket-based live streaming
-- 🔍 Regex search with mmap (440MB file: 43ms)
+- 🔍 Regex search with mmap
 - 🎨 Configurable log levels with color coding
 - 🔒 Optional token authentication
 
