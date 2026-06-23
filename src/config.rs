@@ -22,8 +22,8 @@ log = [
     "/var/log",
 ]
 
-# Server bind address (default: localhost only, change to 0.0.0.0:7700 for network access)
-bind = "127.0.0.1:7700"
+# Server bind address
+bind = "0.0.0.0:7700"
 
 # Security settings
 # Token for authentication (empty = no auth required)
@@ -71,7 +71,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             log: vec![],
-            bind: "127.0.0.1:7700".to_string(),
+            bind: "0.0.0.0:7700".to_string(),
             daemon: DaemonConfig::default(),
             log_levels: Some(default_log_levels("general")),
             token: String::new(),
@@ -314,7 +314,7 @@ mod tests {
     fn test_default_config() {
         let config = Config::default();
         assert!(config.log.is_empty());
-        assert_eq!(config.bind, "127.0.0.1:7700");
+        assert_eq!(config.bind, "0.0.0.0:7700");
         assert!(config.daemon.pid_file.is_none());
         assert!(config.daemon.log_file.is_none());
         assert!(config.token.is_empty());
@@ -370,7 +370,7 @@ bind = "127.0.0.1:8080"
         let config_path = PathBuf::from("/tmp/nonexistent_tailr_config_test.toml");
         let config = load_config(&config_path, None, None, false, None, None).unwrap();
         assert!(config.log.is_empty());
-        assert_eq!(config.bind, "127.0.0.1:7700");
+        assert_eq!(config.bind, "0.0.0.0:7700");
     }
 
     #[test]
