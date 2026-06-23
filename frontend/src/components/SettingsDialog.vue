@@ -114,6 +114,18 @@ async function switchLocale(newLocale: string): Promise<void> {
   await loadLocale(newLocale)
 }
 
+// ── Token ──
+const token = ref(localStorage.getItem('tailr-token') || '')
+
+function updateToken(value: string): void {
+  token.value = value
+  if (value) {
+    localStorage.setItem('tailr-token', value)
+  } else {
+    localStorage.removeItem('tailr-token')
+  }
+}
+
 // ── Version & footer ──
 const version = ref('')
 
@@ -364,6 +376,23 @@ onUnmounted(() => {
                     @click="switchLocale('zh-CN')"
                   >{{ '\u4E2D\u6587' }}</button>
                 </div>
+              </div>
+            </div>
+
+            <!-- Token -->
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-name">{{ t('settings.token') }}</div>
+                <div class="setting-description">{{ t('settings.tokenDescription') }}</div>
+              </div>
+              <div class="setting-control">
+                <input
+                  type="password"
+                  class="token-input"
+                  :value="token"
+                  @change="updateToken(($event.target as HTMLInputElement).value)"
+                  :placeholder="t('settings.tokenPlaceholder')"
+                />
               </div>
             </div>
           </template>
@@ -742,6 +771,24 @@ onUnmounted(() => {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-light);
+}
+
+/* ── Token Input ── */
+.token-input {
+  width: 200px;
+  height: 30px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  background: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 8px;
+}
+
+.token-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 /* ── Footer ── */

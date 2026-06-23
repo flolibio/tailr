@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listFiles } from '../services/api'
 import type { FileEntry } from '../services/api'
@@ -15,7 +15,14 @@ const emit = defineEmits<{
 const props = defineProps<{
   selectedFile: string | null
   width?: number
+  refreshKey?: number
 }>()
+
+watch(() => props.refreshKey, (newVal, oldVal) => {
+  if (newVal !== undefined && oldVal !== undefined && newVal !== oldVal) {
+    refresh()
+  }
+})
 
 const MIN_WIDTH = 180
 const MAX_WIDTH = 400

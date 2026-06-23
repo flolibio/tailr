@@ -5,7 +5,6 @@ use axum::routing::get;
 use axum::Router;
 use futures::{SinkExt, StreamExt};
 use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -167,7 +166,18 @@ async fn handle_subscribe(
     path: &str,
     after_seq: Option<u64>,
 ) {
-    let path_buf = PathBuf::from(path);
+    let path_buf = match crate::api::validate_path(path, &state.allowed_dirs, &state.log_files) {
+        Ok(p) => p,
+        Err(_) => {
+            let _ = tx
+                .send(WSMessage::Error {
+                    code: "ACCESS_DENIED".to_string(),
+                    message: "path not allowed".to_string(),
+                })
+                .await;
+            return;
+        }
+    };
 
     let initial_lines = {
         if let Some(entry) = state.line_indices.get(&path_buf) {

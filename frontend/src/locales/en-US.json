@@ -45,7 +45,10 @@
     "saving": "Saving...",
     "saved": "Saved",
     "saveError": "Save failed",
-    "resetDefault": "Reset to default"
+    "resetDefault": "Reset to default",
+    "token": "Token",
+    "tokenDescription": "Authentication token. Leave empty to disable auth.",
+    "tokenPlaceholder": "Enter token..."
   },
   "filter": {
     "filterLogs": "Filter logs (Enter to add)…",
@@ -73,5 +76,12 @@
     "expandJson": "Expand JSON",
     "copy": "Copy",
     "newLogs": "↓ New logs"
+  },
+  "tokenDialog": {
+    "title": "Authentication Required",
+    "message": "This server requires a token to access. Please enter your authentication token to continue.",
+    "placeholder": "Enter token...",
+    "cancel": "Cancel",
+    "save": "Save"
   }
 }

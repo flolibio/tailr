@@ -45,7 +45,10 @@
     "saving": "保存中...",
     "saved": "已保存",
     "saveError": "保存失败",
-    "resetDefault": "重置为默认"
+    "resetDefault": "重置为默认",
+    "token": "Token",
+    "tokenDescription": "认证令牌。留空则禁用认证。",
+    "tokenPlaceholder": "输入 Token..."
   },
   "filter": {
     "filterLogs": "过滤日志（按回车添加）…",
@@ -73,5 +76,12 @@
     "expandJson": "展开 JSON",
     "copy": "复制",
     "newLogs": "↓ 新日志"
+  },
+  "tokenDialog": {
+    "title": "需要认证",
+    "message": "此服务器需要 Token 才能访问。请输入您的认证令牌以继续。",
+    "placeholder": "输入 Token...",
+    "cancel": "取消",
+    "save": "保存"
   }
 }

@@ -25,6 +25,15 @@ log = [
 # Server bind address
 bind = "0.0.0.0:7700"
 
+# Security settings
+# Token for authentication (empty = no auth required)
+# When set, all requests must include Authorization: Bearer <token>
+# You can set this via:
+#   1. Config file (this file)
+#   2. Settings dialog in the web UI
+#   3. Environment variable TAILR_TOKEN
+token = ""
+
 # Daemon mode settings (optional)
 # [daemon]
 # Custom PID file path
@@ -46,6 +55,8 @@ pub struct Config {
     pub daemon: DaemonConfig,
     /// Log level configuration (None = use default "general" preset).
     pub log_levels: Option<LogLevelConfig>,
+    /// Token for authentication (empty = no auth required).
+    pub token: String,
 }
 
 /// Daemon-specific configuration.
@@ -63,6 +74,7 @@ impl Default for Config {
             bind: "0.0.0.0:7700".to_string(),
             daemon: DaemonConfig::default(),
             log_levels: Some(default_log_levels("general")),
+            token: String::new(),
         }
     }
 }
@@ -230,8 +242,9 @@ pub fn load_config(
 
     let env_log = std::env::var("TAILR_LOG_DIR").ok();
     let env_bind = std::env::var("TAILR_BIND").ok();
+    let env_token = std::env::var("TAILR_TOKEN").ok();
 
-    if env_log.is_some() || env_bind.is_some() {
+    if env_log.is_some() || env_bind.is_some() || env_token.is_some() {
         let env_overrides = EnvOverrides {
             log: env_log.map(|v| {
                 v.split(',')
@@ -239,6 +252,7 @@ pub fn load_config(
                     .collect()
             }),
             bind: env_bind,
+            token: env_token,
         };
         figment = figment.merge(Serialized::defaults(env_overrides));
     }
@@ -287,6 +301,8 @@ struct EnvOverrides {
     log: Option<Vec<PathBuf>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     bind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    token: Option<String>,
 }
 
 #[cfg(test)]
@@ -301,6 +317,7 @@ mod tests {
         assert_eq!(config.bind, "0.0.0.0:7700");
         assert!(config.daemon.pid_file.is_none());
         assert!(config.daemon.log_file.is_none());
+        assert!(config.token.is_empty());
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use axum::extract::{Extension, Query};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::Json;
 use axum::routing::get;
 use axum::Router;
@@ -163,6 +163,24 @@ pub fn routes() -> Router {
         .route("/api/config/log-levels", get(get_log_levels).post(save_log_levels))
 }
 
+pub(crate) fn validate_path(
+    requested: &str,
+    allowed_dirs: &[PathBuf],
+    allowed_files: &[PathBuf],
+) -> Result<PathBuf, StatusCode> {
+    let path = PathBuf::from(requested);
+    let canonical = path.canonicalize().map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let is_allowed = allowed_dirs.iter().any(|d| canonical.starts_with(d))
+        || allowed_files.contains(&canonical);
+
+    if is_allowed {
+        Ok(canonical)
+    } else {
+        Err(StatusCode::FORBIDDEN)
+    }
+}
+
 async fn list_files(
     Query(params): Query<FileListParams>,
     Extension(state): Extension<Arc<AppState>>,
@@ -171,14 +189,16 @@ async fn list_files(
 
     match params.path {
         Some(p) => {
-            // List a specific directory
-            let dir = PathBuf::from(p);
+            let dir = match validate_path(&p, &state.allowed_dirs, &state.log_files) {
+                Ok(d) => d,
+                Err(StatusCode::NOT_FOUND) => return Json(ApiResponse::err("directory not found")),
+                Err(_) => return Json(ApiResponse::err("access denied")),
+            };
             if let Err(e) = read_dir_entries(&dir, &mut entries).await {
                 return Json(ApiResponse::err(format!("failed to read directory: {}", e)));
             }
         }
         None => {
-            // Add individually specified log files
             for file in &state.log_files {
                 if file.exists() && file.is_file() {
                     let metadata = tokio::fs::metadata(file).await.ok();
@@ -202,7 +222,6 @@ async fn list_files(
                 }
             }
 
-            // List all configured log directories
             for dir in &state.log_dirs {
                 if dir.exists() && dir.is_dir() {
                     entries.push(FileEntry {
@@ -217,7 +236,6 @@ async fn list_files(
                     });
                 }
             }
-            // If only one dir configured and no files, list its contents directly
             if state.log_dirs.len() == 1 && state.log_files.is_empty() {
                 entries.clear();
                 if let Err(e) = read_dir_entries(&state.log_dirs[0], &mut entries).await {
@@ -360,10 +378,11 @@ async fn file_content(
     Query(params): Query<FileContentParams>,
     Extension(state): Extension<Arc<AppState>>,
 ) -> Result<Json<ApiResponse<FileContentData>>, StatusCode> {
-    let path = PathBuf::from(&params.path);
-    if !path.exists() {
-        return Ok(Json(ApiResponse::err("file not found")));
-    }
+    let path = match validate_path(&params.path, &state.allowed_dirs, &state.log_files) {
+        Ok(p) => p,
+        Err(StatusCode::NOT_FOUND) => return Ok(Json(ApiResponse::err("file not found"))),
+        Err(_) => return Ok(Json(ApiResponse::err("access denied"))),
+    };
 
     let offset = params.offset.unwrap_or(0);
     let limit = params.limit.unwrap_or(100).min(1000);
@@ -404,10 +423,11 @@ async fn file_tail(
     Query(params): Query<FileTailParams>,
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<FileTailData>> {
-    let path = PathBuf::from(&params.path);
-    if !path.exists() {
-        return Json(ApiResponse::err("file not found"));
-    }
+    let path = match validate_path(&params.path, &state.allowed_dirs, &state.log_files) {
+        Ok(p) => p,
+        Err(StatusCode::NOT_FOUND) => return Json(ApiResponse::err("file not found")),
+        Err(_) => return Json(ApiResponse::err("access denied")),
+    };
 
     let lines = params.lines.unwrap_or(200).min(5000) as usize;
 
@@ -445,7 +465,12 @@ async fn file_info(
     Query(params): Query<FileInfoParams>,
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<FileInfoData>> {
-    let path = PathBuf::from(&params.path);
+    let path = match validate_path(&params.path, &state.allowed_dirs, &state.log_files) {
+        Ok(p) => p,
+        Err(StatusCode::NOT_FOUND) => return Json(ApiResponse::err("file not found")),
+        Err(_) => return Json(ApiResponse::err("access denied")),
+    };
+
     let metadata = match tokio::fs::metadata(&path).await {
         Ok(m) => m,
         Err(e) => return Json(ApiResponse::err(format!("failed to stat file: {}", e))),
@@ -482,10 +507,11 @@ async fn search(
     Query(params): Query<SearchParams>,
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<SearchData>> {
-    let path = PathBuf::from(&params.path);
-    if !path.exists() {
-        return Json(ApiResponse::err("file not found"));
-    }
+    let path = match validate_path(&params.path, &state.allowed_dirs, &state.log_files) {
+        Ok(p) => p,
+        Err(StatusCode::NOT_FOUND) => return Json(ApiResponse::err("file not found")),
+        Err(_) => return Json(ApiResponse::err("access denied")),
+    };
 
     let context = params.context.unwrap_or(3);
     let limit = params.limit.unwrap_or(100);
@@ -577,9 +603,6 @@ async fn health(
     }))
 }
 
-// ── 日志级别配置 API ──────────────────────────────────────
-
-/// GET /api/config/log-levels — 获取当前日志级别配置
 async fn get_log_levels(
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<LogLevelConfig>> {
@@ -587,12 +610,15 @@ async fn get_log_levels(
     Json(ApiResponse::ok(config.as_ref().clone()))
 }
 
-/// POST /api/config/log-levels — 保存日志级别配置（热更新 + 写入 config.toml）
 async fn save_log_levels(
     Extension(state): Extension<Arc<AppState>>,
+    headers: HeaderMap,
     Json(new_config): Json<LogLevelConfig>,
 ) -> Result<Json<ApiResponse<LogLevelConfig>>, StatusCode> {
-    // 1. 读取现有 config.toml → 更新 [log_levels] 节 → 先持久化
+    if !state.token.is_empty() && headers.get("X-Requested-With").is_none() {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
     let mut doc: toml::Value = if state.config_path.exists() {
         let content = std::fs::read_to_string(&state.config_path).map_err(|e| {
             tracing::error!("failed to read config: {}", e);
@@ -606,7 +632,6 @@ async fn save_log_levels(
         toml::Value::Table(Default::default())
     };
 
-    // 将 LogLevelConfig 序列化为 TOML 字符串再解析为 toml::Value
     let config_toml = toml::to_string_pretty(&new_config).map_err(|e| {
         tracing::error!("failed to serialize log level config: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
@@ -630,7 +655,6 @@ async fn save_log_levels(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // 2. 持久化成功后，再更新内存状态
     let new_detector = LevelDetector::from_config(&new_config);
     state.level_detector.store(Arc::new(new_detector));
     state.level_config.store(Arc::new(new_config.clone()));
@@ -643,7 +667,6 @@ async fn get_or_build_index(state: &AppState, path: &PathBuf) -> LineIndex {
         let idx = entry.value().clone();
         let file_size = tokio::fs::metadata(path).await.map(|m| m.len()).unwrap_or(0);
 
-        // File was truncated — rebuild from scratch
         if file_size < idx.file_size {
             drop(entry);
             match LineIndex::build(path) {
@@ -655,7 +678,6 @@ async fn get_or_build_index(state: &AppState, path: &PathBuf) -> LineIndex {
             }
         }
 
-        // File grew — incremental update
         if file_size > idx.file_size {
             drop(entry);
             let mut idx_mut = idx.clone();

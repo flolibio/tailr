@@ -6,9 +6,11 @@ import LogViewer from './components/LogViewer.vue'
 import FilterBar from './components/FilterBar.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import SelectionToolbar from './components/SelectionToolbar.vue'
+import TokenDialog from './components/TokenDialog.vue'
 import type { Settings } from './components/SettingsPanel.vue'
 import { useLogStream } from './composables/useLogStream'
 import { useLogLevels } from './composables/useLogLevels'
+import { useAuth } from './composables/useAuth'
 
 const { t } = useI18n()
 
@@ -31,6 +33,17 @@ const filterKeywords = ref<string[]>([])
 const showSettings = ref(false)
 const sidebarCollapsed = ref(false)
 const sidebarWidth = ref(220)
+const refreshKey = ref(0)
+
+const { token, showTokenDialog } = useAuth()
+
+watch(token, () => {
+  refreshKey.value++
+  loadLogLevels()
+  if (currentFile.value) {
+    loadInitial(currentFile.value)
+  }
+})
 
 watch(currentFile, (f) => {
   document.title = f ? `Tailr - ${f}` : 'Tailr'
@@ -227,6 +240,7 @@ function handleSettingsUpdate(s: Settings): void {
         v-show="!sidebarCollapsed"
         :selected-file="currentFile"
         :width="sidebarWidth"
+        :refresh-key="refreshKey"
         @select="selectFile"
         @collapse="sidebarCollapsed = true"
         @resize="sidebarWidth = $event"
@@ -305,6 +319,9 @@ function handleSettingsUpdate(s: Settings): void {
       @update="handleSettingsUpdate"
       @close="showSettings = false"
     />
+
+    <!-- Token dialog -->
+    <TokenDialog v-if="showTokenDialog" />
 
     <!-- Status bar -->
     <div class="statusbar">

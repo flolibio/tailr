@@ -1,3 +1,5 @@
+import { useAuth } from '../composables/useAuth'
+
 export interface LogEntry {
   lineNum: number
   raw: string
@@ -42,10 +44,32 @@ export interface SearchResult {
   hasMore: boolean
 }
 
+export class AuthError extends Error {
+  constructor() {
+    super('Authentication required')
+    this.name = 'AuthError'
+  }
+}
+
 const BASE = ''
 
+function getToken(): string {
+  return localStorage.getItem('tailr-token') || ''
+}
+
 async function request<T>(url: string): Promise<T> {
-  const res = await fetch(`${BASE}${url}`)
+  const token = getToken()
+  const headers: HeadersInit = {}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const res = await fetch(`${BASE}${url}`, { headers })
+  if (res.status === 401) {
+    const { handleAuthError } = useAuth()
+    handleAuthError()
+    throw new AuthError()
+  }
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}: ${res.statusText}`)
   }
@@ -123,11 +147,25 @@ export async function getLogLevelConfig(): Promise<LogLevelConfig> {
 }
 
 export async function saveLogLevelConfig(config: LogLevelConfig): Promise<LogLevelConfig> {
+  const token = getToken()
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   const res = await fetch(`${BASE}/api/config/log-levels`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(config),
   })
+  if (res.status === 401) {
+    const { handleAuthError } = useAuth()
+    handleAuthError()
+    throw new AuthError()
+  }
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}: ${res.statusText}`)
   }
