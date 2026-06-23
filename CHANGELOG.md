@@ -1,5 +1,23 @@
 # Changelog
 
+## [v0.5.0] - 2026-06-23
+
+### Security
+
+- Path traversal protection: all file endpoints validate paths against configured `log_dirs` and `log_files` via `canonicalize()` + allowlist check
+- Token authentication: optional Bearer token via `config.toml`, `TAILR_TOKEN` env var, or Settings UI
+- CSRF protection: restricted CORS headers + `X-Requested-With` check on POST endpoints
+- Config write protection: `POST /api/config/log-levels` requires authentication when token is set
+- Error sanitization: generic error messages to client, detailed errors logged server-side
+- Search parameter limits: `context` capped at 50, `limit` capped at 10000
+
+### Features
+
+- Token input dialog: auto-popup on 401, auto-reload file list after authentication
+- Token setting in Settings dialog (persisted to localStorage)
+
+---
+
 ## [v0.4.0] - 2026-06-22
 
 ### Features
