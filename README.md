@@ -9,6 +9,13 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/wunamesst/tailr/releases"><img src="https://img.shields.io/github/v/release/wunamesst/tailr" alt="Release"></a>
+  <a href="https://github.com/wunamesst/tailr/stargazers"><img src="https://img.shields.io/github/stars/wunamesst/tailr" alt="Stars"></a>
+  <a href="https://github.com/wunamesst/tailr/blob/main/LICENSE"><img src="https://img.shields.io/github/license/wunamesst/tailr" alt="License"></a>
+  <a href="https://github.com/wunamesst/tailr/actions"><img src="https://img.shields.io/github/actions/workflow/status/wunamesst/tailr/ci.yml" alt="Build"></a>
+</p>
+
+<p align="center">
   <a href="#quickstart">Quick Start</a> •
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
@@ -17,6 +24,30 @@
 </p>
 
 ---
+
+## Demo
+
+🌐 **Live Demo:** [tailr.flolib.com](https://tailr.flolib.com/)
+
+**Real-time log tailing with multi-keyword filtering:**
+- 📡 WebSocket-based live streaming
+- 🔍 Regex search with mmap (440MB file: 43ms)
+- 🎨 Configurable log levels with color coding
+- 🔒 Optional token authentication
+
+## Why tailr?
+
+| Feature | tailr | kail | goaccess | lnav |
+|---------|-------|------|----------|------|
+| **Single binary** | ✅ | ❌ | ❌ | ❌ |
+| **Web UI** | ✅ | ✅ | ✅ | ❌ |
+| **Real-time tail** | ✅ | ✅ | ❌ | ✅ |
+| **Regex search** | ✅ | ❌ | ❌ | ✅ |
+| **Log level detection** | ✅ | ❌ | ✅ | ✅ |
+| **Memory-mapped** | ✅ | ❌ | ❌ | ❌ |
+| **Self-upgrade** | ✅ | ❌ | ❌ | ❌ |
+| **Token auth** | ✅ | ❌ | ❌ | ❌ |
+| **Config presets** | ✅ | ❌ | ❌ | ❌ |
 
 ## Features
 
@@ -28,6 +59,8 @@
 - **Web UI** — Built-in Vue 3 SPA, no separate frontend deployment
 - **Log rotation aware** — Detects inode changes, handles logrotate
 - **Self-upgrade** — One command to update to the latest version
+- **Token authentication** — Optional Bearer token for secure access
+- **Path validation** — Prevents directory traversal attacks
 - **Multi-language UI** — English (default) and Chinese, with easy extensibility
 - **Cross-platform** — Linux (x86_64/ARM64), macOS
 
@@ -42,6 +75,9 @@ tailr --log /var/log/syslog
 
 # Custom bind address
 tailr --log /var/log -b 127.0.0.1:8080
+
+# With authentication
+TAILR_TOKEN=your-secret tailr --log /var/log/app
 ```
 
 Open `http://localhost:7700` in your browser.
@@ -51,6 +87,18 @@ Open `http://localhost:7700` in your browser.
 ### Download binary
 
 Download the latest binary from [GitHub Releases](https://github.com/wunamesst/tailr/releases).
+
+```bash
+# Linux x86_64
+curl -LO https://github.com/wunamesst/tailr/releases/latest/download/tailr-x86_64-linux-musl.tar.gz
+tar xzf tailr-x86_64-linux-musl.tar.gz
+sudo mv tailr /usr/local/bin/
+
+# Linux ARM64
+curl -LO https://github.com/wunamesst/tailr/releases/latest/download/tailr-aarch64-linux-musl.tar.gz
+tar xzf tailr-aarch64-linux-musl.tar.gz
+sudo mv tailr /usr/local/bin/
+```
 
 ### Build from source
 
@@ -125,6 +173,9 @@ log = ["/var/log"]
 
 # Server bind address
 bind = "0.0.0.0:7700"
+
+# Token for authentication (empty = no auth required)
+token = ""
 
 # Log level configuration (optional, uses "general" preset by default)
 [log_levels]
@@ -235,6 +286,7 @@ tailr upgrade
 | `TAILR_LOG_DIR` | `<exe_dir>/logs` | Comma-separated log directories |
 | `TAILR_BIND` | `0.0.0.0:7700` | Listen address |
 | `TAILR_CONFIG` | `~/.config/tailr/config.toml` | Config file path |
+| `TAILR_TOKEN` | — | Authentication token (overrides config file) |
 | `RUST_LOG` | — | Tracing filter (e.g. `tailr=debug`) |
 
 ## API
@@ -248,7 +300,7 @@ tailr upgrade
 | `/api/search` | GET | Grep search (`?path=&q=&regex=&levels=&context=&limit=`) |
 | `/api/config/log-levels` | GET | Get current log level configuration |
 | `/api/config/log-levels` | POST | Save log level configuration (hot-reload + persist to config.toml) |
-| `/api/health` | GET | Status + uptime |
+| `/api/health` | GET | Status + uptime + version |
 | `/ws` | WS | Real-time log streaming |
 
 ### WebSocket Protocol
@@ -312,6 +364,13 @@ frontend/             # Vue 3 + TypeScript + Vite SPA
   composables/        # useLogLevels (presets, colors, dynamic CSS)
   components/         # Settings UI (LogLevelSettings, ColorPicker)
 ```
+
+## Security
+
+- **Token Authentication** — Optional Bearer token via config, environment variable, or Web UI
+- **Path Validation** — All file endpoints validated against configured directories
+- **CSRF Protection** — Restricted CORS headers + X-Requested-With check
+- **Error Sanitization** — Generic error messages to client, detailed logs server-side
 
 ## License
 
