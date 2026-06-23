@@ -606,11 +606,7 @@ async fn health(
 ) -> Json<ApiResponse<HealthData>> {
     Json(ApiResponse::ok(HealthData {
         status: "ok".to_string(),
-        version: if state.token.is_empty() {
-            env!("CARGO_PKG_VERSION").to_string()
-        } else {
-            "authenticated".to_string()
-        },
+        version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds: state.start_time.elapsed().as_secs(),
     }))
 }
