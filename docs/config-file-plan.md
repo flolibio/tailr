@@ -41,7 +41,7 @@ When `~/.config/tailr/config.toml` does not exist, create it with:
 
 ```toml
 # tailr configuration file
-# See: https://github.com/wunamesst/tailr
+# See: https://github.com/flolib-org/tailr
 
 # Log directories or files to serve (can specify multiple)
 # Default: current directory's "logs" subdirectory
@@ -264,7 +264,7 @@ tailr --show-config  # Should create directory and show path
 
 ```toml
 # tailr configuration file
-# See: https://github.com/wunamesst/tailr
+# See: https://github.com/flolib-org/tailr
 
 # Log directories or files to serve (can specify multiple)
 log = [

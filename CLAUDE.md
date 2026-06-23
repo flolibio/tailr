@@ -161,4 +161,4 @@ git push -u fork feat/your-feature
 # Create PR on GitHub targeting main
 ```
 
-**Never push directly to `main` or `wunamesst/tailr`.** Always push to your fork and open a PR.
+**Never push directly to `main` or `flolib-org/tailr`.** Always push to your fork and open a PR.

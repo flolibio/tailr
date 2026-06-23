@@ -257,7 +257,7 @@ fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
         return Err(
             "Self-upgrade is only supported on Linux.\n\
              Please download the latest release manually from:\n\
-             https://github.com/wunamesst/tailr/releases"
+             https://github.com/flolib-org/tailr/releases"
                 .into(),
         );
     }
@@ -277,7 +277,7 @@ fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
     let current = cargo_crate_version!();
 
     let updater = self_update::backends::github::Update::configure()
-        .repo_owner("wunamesst")
+        .repo_owner("flolib-org")
         .repo_name("tailr")
         .bin_name("tailr")
         .target(target)
@@ -302,7 +302,7 @@ fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let status = self_update::backends::github::Update::configure()
-        .repo_owner("wunamesst")
+        .repo_owner("flolib-org")
         .repo_name("tailr")
         .bin_name("tailr")
         .target(target)

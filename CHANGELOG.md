@@ -1,5 +1,15 @@
 # Changelog
 
+## [v0.5.1] - 2026-06-23
+
+### Migration
+
+- Repository moved from `wunamesst/tailr` to `flolib-org/tailr`
+- Updated all GitHub URLs in code, docs, and frontend
+- Updated self-upgrade endpoint to new repository
+
+---
+
 ## [v0.5.0] - 2026-06-23
 
 ### Security
