@@ -195,7 +195,8 @@ async fn list_files(
                 Err(_) => return Json(ApiResponse::err("access denied")),
             };
             if let Err(e) = read_dir_entries(&dir, &mut entries).await {
-                return Json(ApiResponse::err(format!("failed to read directory: {}", e)));
+                tracing::error!("failed to read directory {:?}: {}", dir, e);
+                return Json(ApiResponse::err("Internal server error"));
             }
         }
         None => {
@@ -239,7 +240,8 @@ async fn list_files(
             if state.log_dirs.len() == 1 && state.log_files.is_empty() {
                 entries.clear();
                 if let Err(e) = read_dir_entries(&state.log_dirs[0], &mut entries).await {
-                    return Json(ApiResponse::err(format!("failed to read directory: {}", e)));
+                    tracing::error!("failed to read directory {:?}: {}", state.log_dirs[0], e);
+                    return Json(ApiResponse::err("Internal server error"));
                 }
             }
         }
@@ -473,7 +475,10 @@ async fn file_info(
 
     let metadata = match tokio::fs::metadata(&path).await {
         Ok(m) => m,
-        Err(e) => return Json(ApiResponse::err(format!("failed to stat file: {}", e))),
+        Err(e) => {
+            tracing::error!("failed to stat file {:?}: {}", path, e);
+            return Json(ApiResponse::err("Internal server error"));
+        }
     };
 
     let modified = metadata
@@ -513,8 +518,8 @@ async fn search(
         Err(_) => return Json(ApiResponse::err("access denied")),
     };
 
-    let context = params.context.unwrap_or(3);
-    let limit = params.limit.unwrap_or(100);
+    let context = params.context.unwrap_or(3).min(50);
+    let limit = params.limit.unwrap_or(100).min(10000);
     let is_regex = params.regex.unwrap_or(false);
 
     let all_levels: Vec<String> = params
@@ -550,7 +555,10 @@ async fn search(
 
     let result = match state.search_engine.search(&path, &opts) {
         Ok(r) => r,
-        Err(e) => return Json(ApiResponse::err(format!("search failed: {}", e))),
+        Err(e) => {
+            tracing::error!("search failed on {:?}: {}", path, e);
+            return Json(ApiResponse::err("Internal server error"));
+        }
     };
 
     let filter = LogFilter::new()
@@ -598,7 +606,11 @@ async fn health(
 ) -> Json<ApiResponse<HealthData>> {
     Json(ApiResponse::ok(HealthData {
         status: "ok".to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
+        version: if state.token.is_empty() {
+            env!("CARGO_PKG_VERSION").to_string()
+        } else {
+            "authenticated".to_string()
+        },
         uptime_seconds: state.start_time.elapsed().as_secs(),
     }))
 }

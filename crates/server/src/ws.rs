@@ -143,7 +143,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                         let _ = tx
                             .send(WSMessage::Error {
                                 code: "INVALID_MESSAGE".to_string(),
-                                message: format!("failed to parse message: {}", e),
+                                message: "invalid message format".to_string(),
                             })
                             .await;
                     }
@@ -201,7 +201,7 @@ async fn handle_subscribe(
             let _ = tx
                 .send(WSMessage::Error {
                     code: "WATCH_FAILED".to_string(),
-                    message: format!("failed to watch file: {}", e),
+                    message: "failed to watch file".to_string(),
                 })
                 .await;
             return;
