@@ -4,7 +4,7 @@
 
 ### Migration
 
-- Repository moved from `wunamesst/tailr` to `flolib-org/tailr`
+- Repository moved from `wunamesst/tailr` to `flolibio/tailr`
 - Updated all GitHub URLs in code, docs, and frontend
 - Updated self-upgrade endpoint to new repository
 

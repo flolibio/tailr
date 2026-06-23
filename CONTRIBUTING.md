@@ -17,7 +17,7 @@ git clone https://github.com/YOUR_USERNAME/tailr.git
 cd tailr
 
 # Add upstream
-git remote add upstream https://github.com/flolib-org/tailr.git
+git remote add upstream https://github.com/flolibio/tailr.git
 
 # Build frontend (required before cargo build)
 make frontend
@@ -158,5 +158,5 @@ CI builds binaries and creates a **draft release**. Publish it manually after ve
 
 ## Questions?
 
-- Open an [issue](https://github.com/flolib-org/tailr/issues) for bugs or feature requests.
-- Start a [discussion](https://github.com/flolib-org/tailr/discussions) for questions.
+- Open an [issue](https://github.com/flolibio/tailr/issues) for bugs or feature requests.
+- Start a [discussion](https://github.com/flolibio/tailr/discussions) for questions.

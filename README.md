@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/flolib-org/tailr/releases"><img src="https://img.shields.io/github/v/release/flolib-org/tailr" alt="Release"></a>
-  <a href="https://github.com/flolib-org/tailr/stargazers"><img src="https://img.shields.io/github/stars/flolib-org/tailr" alt="Stars"></a>
-  <a href="https://github.com/flolib-org/tailr/blob/main/LICENSE"><img src="https://img.shields.io/github/license/flolib-org/tailr" alt="License"></a>
-  <a href="https://github.com/flolib-org/tailr/actions"><img src="https://img.shields.io/github/actions/workflow/status/flolib-org/tailr/ci.yml" alt="Build"></a>
+  <a href="https://github.com/flolibio/tailr/releases"><img src="https://img.shields.io/github/v/release/flolibio/tailr" alt="Release"></a>
+  <a href="https://github.com/flolibio/tailr/stargazers"><img src="https://img.shields.io/github/stars/flolibio/tailr" alt="Stars"></a>
+  <a href="https://github.com/flolibio/tailr/blob/main/LICENSE"><img src="https://img.shields.io/github/license/flolibio/tailr" alt="License"></a>
+  <a href="https://github.com/flolibio/tailr/actions"><img src="https://img.shields.io/github/actions/workflow/status/flolibio/tailr/ci.yml" alt="Build"></a>
 </p>
 
 <p align="center">
@@ -86,16 +86,16 @@ Open `http://localhost:7700` in your browser.
 
 ### Download binary
 
-Download the latest binary from [GitHub Releases](https://github.com/flolib-org/tailr/releases).
+Download the latest binary from [GitHub Releases](https://github.com/flolibio/tailr/releases).
 
 ```bash
 # Linux x86_64
-curl -LO https://github.com/flolib-org/tailr/releases/latest/download/tailr-x86_64-linux-musl.tar.gz
+curl -LO https://github.com/flolibio/tailr/releases/latest/download/tailr-x86_64-linux-musl.tar.gz
 tar xzf tailr-x86_64-linux-musl.tar.gz
 sudo mv tailr /usr/local/bin/
 
 # Linux ARM64
-curl -LO https://github.com/flolib-org/tailr/releases/latest/download/tailr-aarch64-linux-musl.tar.gz
+curl -LO https://github.com/flolibio/tailr/releases/latest/download/tailr-aarch64-linux-musl.tar.gz
 tar xzf tailr-aarch64-linux-musl.tar.gz
 sudo mv tailr /usr/local/bin/
 ```
@@ -104,7 +104,7 @@ sudo mv tailr /usr/local/bin/
 
 ```bash
 # Clone
-git clone https://github.com/flolib-org/tailr.git
+git clone https://github.com/flolibio/tailr.git
 cd tailr
 
 # Build frontend + Rust binary

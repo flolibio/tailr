@@ -15,7 +15,7 @@ use tailr_protocol::{LevelDef, LogLevelConfig};
 
 /// Default config file template written on first run.
 const DEFAULT_CONFIG_TEMPLATE: &str = r#"# tailr configuration file
-# See: https://github.com/flolib-org/tailr
+# See: https://github.com/flolibio/tailr
 
 # Log directories or files to serve (can specify multiple)
 log = [
