@@ -1,162 +1,116 @@
 # Contributing to tailr
 
-Thanks for your interest in contributing! This guide covers everything you need to get started.
+Thanks for your interest in contributing! 🎉
 
-## Prerequisites
-
-- **Rust** 1.70+ (`rustup show`)
-- **Node.js** 20+ (check `.nvmrc`; use `nvm use`)
-- **npm** 10+
-- **Docker** (only for Linux cross-compilation)
-
-## Getting Started
+## Quick Start
 
 ```bash
-# Clone your fork
-git clone https://github.com/YOUR_USERNAME/tailr.git
+# Clone
+git clone https://github.com/flolibio/tailr.git
 cd tailr
 
-# Add upstream
-git remote add upstream https://github.com/flolibio/tailr.git
-
-# Build frontend (required before cargo build)
+# Build frontend
 make frontend
 
-# Start backend
+# Run dev server
 cargo run
-
-# In another terminal, start Vite dev server
-cd frontend && npm run dev
 ```
-
-The Vite dev server runs on `:5173` and proxies `/api` and `/ws` to `:7700`.
 
 ## Development Workflow
 
-1. **Create a branch** from `main`:
-   ```bash
-   git checkout -b fix/short-description
-   ```
+### Prerequisites
 
-2. **Make changes**, test locally.
+- Rust 1.75+
+- Node.js 18+
+- npm
 
-3. **Run checks before committing**:
-   ```bash
-   make test    # cargo test + clippy + vue-tsc
-   # or individually:
-   make test-backend    # cargo test && cargo clippy -- -D warnings
-   make test-frontend   # vue-tsc --noEmit
-   ```
-
-4. **Commit** using [Conventional Commits](https://www.conventionalcommits.org/):
-   ```
-   feat: add new search filter
-   fix: correct file truncation detection
-   docs: update API documentation
-   refactor: simplify config loading
-   chore: bump dependencies
-   ```
-
-5. **Push and open a PR**:
-   ```bash
-   git push origin fix/short-description
-   ```
-   Then open a Pull Request on GitHub targeting `main`.
-
-## Branch Naming
-
-| Type | Format | Example |
-|------|--------|---------|
-| Bug fix | `fix/description` | `fix/truncation-detection` |
-| Feature | `feat/description` | `feat/regex-search` |
-| Refactor | `refactor/description` | `refactor/cli-subcommands` |
-| Docs | `docs/description` | `docs/api-reference` |
-
-## Code Style
-
-### Rust
-
-- Follow `rustfmt` defaults (no custom config).
-- Run `cargo clippy -- -D warnings` — zero warnings allowed.
-- No `unwrap()` in production code paths (use `?` or `expect()` with context).
-- No `as any` / type suppression.
-- JSON field casing: `camelCase` via `serde(rename_all)`.
-- WS protocol: tagged enum via `serde(tag = "type", rename_all = "camelCase")`.
-
-### Frontend (Vue 3 + TypeScript)
-
-- Use `<script setup>` composition API.
-- No `any` types — define proper interfaces.
-- Run `vue-tsc --noEmit` before committing.
-- Follow existing CSS variable naming (`--c-*`, `--sidebar-*`, etc.).
-
-### Frontend Build
-
-Frontend dist is **gitignored** and built on demand. It is embedded into the binary via `include_dir!` at compile time.
-
-Always use `npm ci` (not `npm install`) to avoid modifying `package-lock.json`:
+### Build Commands
 
 ```bash
-cd frontend && npm ci && npm run build
+make frontend          # Build frontend (npm ci + npm run build)
+make build             # Build everything (frontend + cargo build --release)
+make dev               # Run cargo (run `make frontend` first)
+make check             # Type check (cargo check)
+make test              # Run all tests (cargo test + clippy + vue-tsc)
 ```
 
-Or simply:
+### Running Locally
 
 ```bash
-make frontend
+# Terminal 1: Rust backend
+cargo run              # Starts on 0.0.0.0:7700
+
+# Terminal 2: Vite dev server (with proxy)
+cd frontend && npm run dev   # Starts on :5173, proxies to :7700
 ```
 
-If `package-lock.json` appears modified after `npm install`, do **not** commit it. Run `npm ci` to restore the correct state, or `git checkout -- package-lock.json`.
-
-Only commit `package-lock.json` changes when you intentionally add or upgrade dependencies.
-
-## Testing
-
-```bash
-# All tests
-cargo test --workspace
-
-# Single crate
-cargo test -p tailr-tail-engine
-
-# Single test
-cargo test -p tailr-search-engine test_literal_search_basic
-```
-
-Tests use `tempfile::NamedTempFile` — no external services required.
-
-## Project Structure
+## Code Structure
 
 ```
-src/
-  main.rs           # CLI (clap), subcommand dispatch
-  config.rs         # Config file loading (figment)
-  daemon.rs         # Daemonization, PID, signal handling
+src/main.rs           # CLI entrypoint
+src/config.rs         # Config loading (figment)
+src/daemon.rs         # Daemonization, PID file, signals
 crates/
-  protocol/         # Shared types: LogEntry, WSMessage, LogLevel
-  tail-engine/      # File watching (notify), LineIndex (mmap)
-  search-engine/    # Grep search (grep-regex/grep-searcher)
-  server/           # Axum app: REST API, WebSocket, static files
-frontend/           # Vue 3 + TypeScript + Vite SPA
+  protocol/           # Shared types (LogEntry, WSMessage, LogLevel)
+  tail-engine/        # File watching (notify), LineIndex (memmap2)
+  search-engine/      # Grep-based search, LogFilter
+  server/             # Axum app: REST API, WebSocket, static files
+frontend/             # Vue 3 + TypeScript + Vite SPA
 ```
 
-## Release Process
+## Guidelines
 
-Releases are automated via GitHub Actions. Maintainers only need to push tags:
+### Code Style
 
-```bash
-git tag -a vX.Y.Z -m "vX.Y.Z: description"
-git push origin vX.Y.Z
+- **Rust**: Default rustfmt, follow clippy warnings
+- **TypeScript**: Vue 3 Composition API, TypeScript strict mode
+- **JSON**: camelCase everywhere (serde `rename_all`)
+
+### Commit Messages
+
+```
+type(scope): description
+
+# Examples
+feat(search): add time range filter
+fix(ws): handle connection drop gracefully
+docs(readme): update installation steps
 ```
 
-CI builds binaries and creates a **draft release**. Publish it manually after verification.
+Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
-**SemVer rules**:
-- PATCH (0.0.x): Bug fixes
-- MINOR (0.x.0): New features, backward-compatible changes
-- MAJOR (x.0.0): Breaking changes
+### Pull Requests
+
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feat/amazing-feature`)
+3. Commit your changes
+4. Push to your fork
+5. Open a PR against `main`
+
+PR checklist:
+- [ ] `cargo test --workspace` passes
+- [ ] `cargo clippy -- -D warnings` passes
+- [ ] `cd frontend && npx vue-tsc --noEmit` passes
+- [ ] Manually tested the changes
+
+## Reporting Issues
+
+Use the [Bug Report](https://github.com/flolibio/tailr/issues/new?template=bug_report.md) template.
+
+Include:
+- OS and version
+- tailr version (`tailr --version`)
+- Steps to reproduce
+- Expected vs actual behavior
+
+## Feature Requests
+
+Use the [Feature Request](https://github.com/flolibio/tailr/issues/new?template=feature_request.md) template.
 
 ## Questions?
 
-- Open an [issue](https://github.com/flolibio/tailr/issues) for bugs or feature requests.
-- Start a [discussion](https://github.com/flolibio/tailr/discussions) for questions.
+Open a [Discussion](https://github.com/flolibio/tailr/discussions) or check existing issues.
+
+---
+
+**Thank you for contributing!** 🚀
