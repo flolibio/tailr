@@ -50,10 +50,23 @@ async fn auth_middleware(
         .unwrap_or("");
 
     if auth == format!("Bearer {}", state.token) {
-        next.run(request).await
-    } else {
-        StatusCode::UNAUTHORIZED.into_response()
+        return next.run(request).await;
     }
+
+    // WebSocket: browsers can't set custom headers, allow token via query param
+    if request.uri().path() == "/ws" {
+        if let Some(query) = request.uri().query() {
+            for pair in query.split('&') {
+                if let Some(t) = pair.strip_prefix("token=") {
+                    if t == state.token {
+                        return next.run(request).await;
+                    }
+                }
+            }
+        }
+    }
+
+    StatusCode::UNAUTHORIZED.into_response()
 }
 
 pub fn app(

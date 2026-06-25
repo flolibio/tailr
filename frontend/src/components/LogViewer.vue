@@ -137,17 +137,23 @@ function getBadgeText(level: string): string {
   return level
 }
 
-function formatTimestamp(ts: string | null | undefined): string {
+function formatTimestamp(entry: LogEntry): string {
+  const raw = entry.rawTimestamp
+  if (raw && /^\d{2}:\d{2}:\d{2}/.test(raw)) {
+    return raw
+  }
+  const ts = entry.timestamp ?? entry.rawTimestamp
   if (!ts) return ''
   try {
     const d = new Date(ts)
+    if (isNaN(d.getTime())) return ''
     const hh = String(d.getHours()).padStart(2, '0')
     const mm = String(d.getMinutes()).padStart(2, '0')
     const ss = String(d.getSeconds()).padStart(2, '0')
     const ms = String(d.getMilliseconds()).padStart(3, '0')
     return `${hh}:${mm}:${ss}.${ms}`
   } catch {
-    return ts
+    return ''
   }
 }
 
@@ -437,8 +443,8 @@ defineExpose({ scrollToBottom, scrollToLine })
             ]"
             @click="toggleMark(entry.lineNum)"
           >
-            <span v-if="entry.timestamp" class="col-ts">{{ formatTimestamp(entry.timestamp) }}</span>
             <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)" :style="levelColors && levelColors[entry.level] ? { color: levelColors[entry.level] } : undefined">{{ getBadgeText(entry.level) }}</span></span>
+            <span v-if="entry.rawTimestamp || entry.timestamp" class="col-ts">{{ formatTimestamp(entry) }}</span>
             <span class="col-msg" :ref="(el) => setMsgRef(entry.lineNum, el)">
               <template v-if="isJson(entry.raw)">
                 <span v-if="!expandedLines.has(entry.lineNum)" class="truncate-check" v-html="

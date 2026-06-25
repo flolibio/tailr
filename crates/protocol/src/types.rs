@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 // ── 日志级别配置 ──────────────────────────────────────────
@@ -46,7 +46,10 @@ pub struct LogEntry {
     pub raw: String,
     /// 日志级别名称（动态，支持自定义级别如 "CRITICAL"、"FATAL"）
     pub level: String,
+    /// 解析后的 UTC 时间戳（用于排序/过滤）
     pub timestamp: Option<DateTime<Utc>>,
+    /// 原始日志中的时间文本子串（用于前端精确显示，不做时区转换）
+    pub raw_timestamp: Option<String>,
     pub fields: Option<serde_json::Value>,
 }
 
@@ -90,9 +93,9 @@ pub fn detect_level(line: &str) -> LogLevel {
     }
 }
 
-pub fn try_parse_timestamp(line: &str) -> Option<DateTime<Utc>> {
+pub fn try_parse_timestamp(line: &str) -> (Option<DateTime<Utc>>, Option<String>) {
     if let Ok(dt) = DateTime::parse_from_rfc3339(line.get(..30).unwrap_or(line)) {
-        return Some(dt.with_timezone(&Utc));
+        return (Some(dt.with_timezone(&Utc)), None);
     }
 
     let patterns: &[&str] = &[
@@ -102,15 +105,65 @@ pub fn try_parse_timestamp(line: &str) -> Option<DateTime<Utc>> {
     ];
 
     for pattern in patterns {
-        let len = pattern.len() + 10;
-        if let Some(slice) = line.get(..len.min(line.len())) {
-            if let Ok(dt) = NaiveDateTime::parse_from_str(slice.trim(), pattern) {
-                return Some(dt.and_utc());
+        let target_len = match *pattern {
+            "%Y-%m-%d %H:%M:%S%.3f" => 23,
+            "%Y-%m-%d %H:%M:%S" => 19,
+            "%d/%b/%Y:%H:%M:%S" => 26,
+            _ => pattern.len(),
+        };
+        let end = target_len.min(line.len());
+        let slice = line.get(..end);
+        if let Some(slice) = slice {
+            let trimmed = slice.trim();
+            if let Ok(dt) = NaiveDateTime::parse_from_str(trimmed, pattern) {
+                let utc = Local.from_local_datetime(&dt).earliest().map(|l: DateTime<Local>| l.with_timezone(&Utc));
+                return (utc, Some(trimmed.to_string()));
             }
         }
     }
 
-    None
+    // Unix epoch: look for a standalone number like 1764518400.1775
+    // Scan for sequences of digits (10+ digits) optionally followed by a decimal fraction
+    let mut start = 0;
+    let bytes = line.as_bytes();
+    while start < bytes.len() {
+        if bytes[start].is_ascii_digit() && (start == 0 || !bytes[start - 1].is_ascii_digit()) {
+            let mut end = start;
+            while end < bytes.len() && bytes[end].is_ascii_digit() {
+                end += 1;
+            }
+            // Check for decimal fraction
+            let frac_end = if end < bytes.len() && bytes[end] == b'.' {
+                let mut fe = end + 1;
+                while fe < bytes.len() && bytes[fe].is_ascii_digit() {
+                    fe += 1;
+                }
+                fe
+            } else {
+                end
+            };
+            // Must be 10+ integer digits (seconds since ~2001) and not followed by a digit
+            if end - start >= 10 {
+                let num_str = std::str::from_utf8(&bytes[start..frac_end]).unwrap_or("");
+                if let Ok(secs) = num_str.parse::<f64>() {
+                    if secs > 1_000_000_000.0 && secs < 2_000_000_000.0 {
+                        let secs_int = secs.floor() as i64;
+                        let nanos = (secs.fract() * 1_000_000_000.0) as u32;
+                        let ts = DateTime::from_timestamp(secs_int, nanos);
+                        if let Some(utc) = ts {
+                            let display = utc.with_timezone(&Local).format("%H:%M:%S%.3f").to_string();
+                            return (Some(utc), Some(display));
+                        }
+                    }
+                }
+            }
+            start = frac_end;
+        } else {
+            start += 1;
+        }
+    }
+
+    (None, None)
 }
 
 pub fn try_parse_json_fields(line: &str) -> Option<serde_json::Value> {

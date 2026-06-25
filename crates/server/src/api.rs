@@ -576,6 +576,7 @@ async fn search(
                     raw: m.content.clone(),
                     level: detector.detect(&m.content),
                     timestamp: None,
+                    raw_timestamp: None,
                     fields: None,
                 };
                 filter.matches(&entry)
@@ -740,13 +741,14 @@ async fn read_lines_from(path: &PathBuf, start_byte: u64, max_lines: usize, base
         }
 
         let level = detector.detect(trimmed);
-        let timestamp = try_parse_timestamp(trimmed);
+        let (timestamp, raw_timestamp) = try_parse_timestamp(trimmed);
 
         entries.push(LogEntry {
             line_num,
             raw: trimmed.to_string(),
             level,
             timestamp,
+            raw_timestamp,
             fields: None,
         });
 
