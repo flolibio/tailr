@@ -1,5 +1,26 @@
 # Changelog
 
+## [v0.6.0] - 2026-06-29
+
+### Features
+
+- Timestamp display: raw_timestamp field with Unix epoch support for accurate time rendering
+- Display mode toggle: compact/cozy layouts with timestamp-first column order (LEVEL → TIME → message)
+- Search history: suggestions dropdown in FilterBar, persisted to localStorage
+- Chip editing: double-click to edit existing keyword chips
+- Chip keyboard editing: Backspace on empty input reverts last chip for re-editing
+- Timestamp column follows level color scheme (matches badge color per entry)
+- Optimized line counting with memchr
+
+### Fixes
+
+- Level filter: all-levels-selected now equals no-filter, matching the initial default state (previously hid unclassified lines)
+- WebSocket authentication: allow token via query parameter for browser compatibility
+- FilterBar suggestions dropdown clipping fix (moved to filter-wrap container)
+- Removed inaccurate line number column (replaced by level/time/message display order)
+
+---
+
 ## [v0.5.1] - 2026-06-23
 
 ### Migration
