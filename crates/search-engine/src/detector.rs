@@ -30,6 +30,12 @@ impl LevelDetector {
         Self { levels }
     }
 
+    /// 返回所有已配置的级别名称（按配置顺序）。
+    /// 用于判断 level 过滤集合是否覆盖全部已知级别。
+    pub fn level_names(&self) -> Vec<&str> {
+        self.levels.iter().map(|l| l.name.as_str()).collect()
+    }
+
     /// 检测日志行的级别，返回级别名称。
     /// 无匹配返回 "UNKNOWN"。
     pub fn detect(&self, line: &str) -> String {
@@ -165,5 +171,23 @@ mod tests {
         assert_eq!(detector.detect("<0>EMERG: system is down"), "EMERG");
         assert_eq!(detector.detect("<1>ALERT: take action"), "ALERT");
         assert_eq!(detector.detect("<3>ERR: disk full"), "ERR");
+    }
+
+    #[test]
+    fn test_level_names() {
+        let config = make_config("general", vec![
+            ("ERROR", vec!["ERROR"]),
+            ("WARN", vec!["WARN"]),
+            ("INFO", vec!["INFO"]),
+        ]);
+        let detector = LevelDetector::from_config(&config);
+        assert_eq!(detector.level_names(), vec!["ERROR", "WARN", "INFO"]);
+    }
+
+    #[test]
+    fn test_level_names_empty_config() {
+        let config = make_config("empty", vec![]);
+        let detector = LevelDetector::from_config(&config);
+        assert!(detector.level_names().is_empty());
     }
 }

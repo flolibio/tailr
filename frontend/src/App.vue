@@ -62,7 +62,7 @@ const highlightColors = [
 const filteredEntries = computed(() => {
   let result = entries.value
 
-  if (selectedLevels.value.length > 0) {
+  if (selectedLevels.value.length > 0 && selectedLevels.value.length < allLevels.value.length) {
     const levels = new Set(selectedLevels.value)
     result = result.filter((e) => levels.has(e.level))
   }
@@ -91,6 +91,7 @@ const defaultSettings: Settings = {
   autoScroll: true,
   maxVisibleLines: 50000,
   darkTheme: true,
+  displayMode: 'compact',
 }
 
 function loadSettings(): Settings {
@@ -149,11 +150,30 @@ function selectFile(path: string): void {
 function addKeyword(kw: string): void {
   if (!filterKeywords.value.includes(kw)) {
     filterKeywords.value = [...filterKeywords.value, kw]
+    saveSearchHistory(kw)
   }
+}
+
+function saveSearchHistory(kw: string): void {
+  try {
+    const key = 'tailr-search-history'
+    const history: string[] = JSON.parse(localStorage.getItem(key) || '[]')
+    const normalized = kw.toLowerCase()
+    const filtered = history.filter((h) => h.toLowerCase() !== normalized)
+    filtered.unshift(kw)
+    localStorage.setItem(key, JSON.stringify(filtered.slice(0, 20)))
+  } catch { /* ignore */ }
 }
 
 function removeKeyword(index: number): void {
   filterKeywords.value = filterKeywords.value.filter((_, i) => i !== index)
+}
+
+function editKeyword(index: number, newValue: string): void {
+  const updated = [...filterKeywords.value]
+  updated[index] = newValue
+  filterKeywords.value = updated
+  saveSearchHistory(newValue)
 }
 
 function clearAllKeywords(): void {
@@ -261,6 +281,7 @@ function handleSettingsUpdate(s: Settings): void {
         :colors="highlightColors"
         @add-keyword="addKeyword"
         @remove-keyword="removeKeyword"
+        @edit-keyword="editKeyword"
         @clear-all="clearAllKeywords"
       />
       <button class="settings-btn" @click="showSettings = true" :title="t('app.openSettings')">
@@ -308,6 +329,7 @@ function handleSettingsUpdate(s: Settings): void {
         :max-visible-lines="settings.maxVisibleLines"
         :highlight-keywords="highlightKeywords"
         :level-colors="levelDotColors"
+        :display-mode="settings.displayMode"
         @stick-to-bottom="handleStickToBottom"
       />
     </main>

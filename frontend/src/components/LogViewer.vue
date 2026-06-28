@@ -12,6 +12,7 @@ const props = defineProps<{
   maxVisibleLines?: number
   highlightKeywords?: string[]
   levelColors?: Record<string, string>
+  displayMode?: 'compact' | 'cozy'
 }>()
 
 const emit = defineEmits<{
@@ -20,6 +21,7 @@ const emit = defineEmits<{
 }>()
 
 const lineHeight = computed(() => props.lineHeight ?? 26)
+const displayMode = computed(() => props.displayMode ?? 'compact')
 const containerRef = ref<HTMLDivElement | null>(null)
 const scrollTop = ref(0)
 const containerHeight = ref(600)
@@ -137,18 +139,70 @@ function getBadgeText(level: string): string {
   return level
 }
 
-function formatTimestamp(ts: string | null | undefined): string {
+function formatTimestamp(entry: LogEntry): string {
+  const raw = entry.rawTimestamp
+
+  // Cozy mode: long format YYYY-MM-DD HH:mm:ss.SSS
+  if (displayMode.value === 'cozy') {
+    if (raw && /^\d{4}-\d{2}-\d{2}/.test(raw)) {
+      return raw
+    }
+    if (raw && /^\d{2}:\d{2}:\d{2}/.test(raw)) {
+      const ts = entry.timestamp ?? raw
+      try {
+        const d = new Date(ts)
+        if (!isNaN(d.getTime())) {
+          const yyyy = d.getFullYear()
+          const MM = String(d.getMonth() + 1).padStart(2, '0')
+          const dd = String(d.getDate()).padStart(2, '0')
+          return `${yyyy}-${MM}-${dd} ${raw}`
+        }
+      } catch {}
+      return raw
+    }
+    const ts = entry.timestamp ?? raw
+    if (!ts) return ''
+    try {
+      const d = new Date(ts)
+      if (isNaN(d.getTime())) return ''
+      return formatDateLong(d)
+    } catch {
+      return ''
+    }
+  }
+
+  // Compact mode: short format HH:mm:ss.SSS
+  if (raw && /^\d{2}:\d{2}:\d{2}/.test(raw)) {
+    return raw
+  }
+  const ts = entry.timestamp ?? entry.rawTimestamp
   if (!ts) return ''
   try {
     const d = new Date(ts)
-    const hh = String(d.getHours()).padStart(2, '0')
-    const mm = String(d.getMinutes()).padStart(2, '0')
-    const ss = String(d.getSeconds()).padStart(2, '0')
-    const ms = String(d.getMilliseconds()).padStart(3, '0')
-    return `${hh}:${mm}:${ss}.${ms}`
+    if (isNaN(d.getTime())) return ''
+    return formatDateShort(d)
   } catch {
-    return ts
+    return ''
   }
+}
+
+function formatDateShort(d: Date): string {
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  const ss = String(d.getSeconds()).padStart(2, '0')
+  const ms = String(d.getMilliseconds()).padStart(3, '0')
+  return `${hh}:${mm}:${ss}.${ms}`
+}
+
+function formatDateLong(d: Date): string {
+  const yyyy = d.getFullYear()
+  const MM = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  const ss = String(d.getSeconds()).padStart(2, '0')
+  const ms = String(d.getMilliseconds()).padStart(3, '0')
+  return `${yyyy}-${MM}-${dd} ${hh}:${mm}:${ss}.${ms}`
 }
 
 function onScroll(): void {
@@ -433,37 +487,42 @@ defineExpose({ scrollToBottom, scrollToLine })
             class="log-row"
             :class="[
               'level-' + entry.level.toLowerCase(),
+              'mode-' + displayMode,
               { 'is-copied': copiedLine === entry.lineNum, 'wrap': true, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum, 'is-marked': markedLine === entry.lineNum }
             ]"
             @click="toggleMark(entry.lineNum)"
           >
-            <span v-if="entry.timestamp" class="col-ts">{{ formatTimestamp(entry.timestamp) }}</span>
-            <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)" :style="levelColors && levelColors[entry.level] ? { color: levelColors[entry.level] } : undefined">{{ getBadgeText(entry.level) }}</span></span>
-            <span class="col-msg" :ref="(el) => setMsgRef(entry.lineNum, el)">
-              <template v-if="isJson(entry.raw)">
-                <span v-if="!expandedLines.has(entry.lineNum)" class="truncate-check" v-html="
-                  highlightText(entry.raw)
-                "></span>
-                <pre v-else class="json-expanded" v-html="highlightJson(formatJson(entry.raw))"></pre>
-              </template>
-              <template v-else>
-                <span class="truncate-check" v-html="highlightText(entry.raw)"></span>
-              </template>
-            </span>
-            <span class="col-actions">
-              <span v-if="isJson(entry.raw)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" :title="expandedLines.has(entry.lineNum) ? t('logViewer.collapse') : t('logViewer.expandJson')">
-                <svg v-if="expandedLines.has(entry.lineNum)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            <div class="row-meta">
+              <span v-if="entry.rawTimestamp || entry.timestamp" class="col-ts" :style="levelColors && levelColors[entry.level] ? { color: levelColors[entry.level] } : undefined">{{ formatTimestamp(entry) }}</span>
+              <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)" :style="levelColors && levelColors[entry.level] ? { color: levelColors[entry.level] } : undefined">{{ getBadgeText(entry.level) }}</span></span>
+            </div>
+            <div class="row-content">
+              <span class="col-msg" :ref="(el) => setMsgRef(entry.lineNum, el)">
+                <template v-if="isJson(entry.raw)">
+                  <span v-if="!expandedLines.has(entry.lineNum)" class="truncate-check" v-html="
+                    highlightText(entry.raw)
+                  "></span>
+                  <pre v-else class="json-expanded" v-html="highlightJson(formatJson(entry.raw))"></pre>
+                </template>
+                <template v-else>
+                  <span class="truncate-check" v-html="highlightText(entry.raw)"></span>
+                </template>
               </span>
-              <span class="action-btn" @click="copyLine(entry, $event)" :title="t('logViewer.copy')">
-                <span v-if="copiedLine === entry.lineNum" class="copy-icon copied">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span class="col-actions">
+                <span v-if="isJson(entry.raw)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" :title="expandedLines.has(entry.lineNum) ? t('logViewer.collapse') : t('logViewer.expandJson')">
+                  <svg v-if="expandedLines.has(entry.lineNum)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                 </span>
-                <span v-else class="copy-icon">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span class="action-btn" @click="copyLine(entry, $event)" :title="t('logViewer.copy')">
+                  <span v-if="copiedLine === entry.lineNum" class="copy-icon copied">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </span>
+                  <span v-else class="copy-icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  </span>
                 </span>
               </span>
-            </span>
+            </div>
           </div>
         </div>
       </div>
@@ -503,14 +562,16 @@ defineExpose({ scrollToBottom, scrollToLine })
 /* ── Log Row ── */
 .log-row {
   display: flex;
-  align-items: center;
-  height: var(--line-height, 26px);
-  line-height: var(--line-height, 26px);
+  flex-direction: column;
+  align-items: stretch;
   padding: 0 10px;
   white-space: nowrap;
   position: relative;
   transition: background .08s;
   background: var(--bg);
+  border-radius: 5px;
+  margin: 5px 0;
+  border: 1px solid #e9edf2;
 }
 
 .log-row:hover {
@@ -533,7 +594,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   white-space: pre-wrap;
   word-break: break-all;
   height: auto;
-  min-height: var(--line-height, 26px);
+  min-height: calc(var(--line-height, 26px) * 2);
 }
 
 .log-row.wrap .truncate-check {
@@ -543,7 +604,7 @@ defineExpose({ scrollToBottom, scrollToLine })
 
 .log-row.expanded {
   height: auto;
-  align-items: flex-start;
+  align-items: stretch;
   position: relative;
   z-index: 5;
   background: var(--bg);
@@ -564,6 +625,22 @@ defineExpose({ scrollToBottom, scrollToLine })
   box-shadow: inset 3px 0 0 #64d2ff;
 }
 
+/* ── Row Sections ── */
+.row-meta {
+  display: flex;
+  align-items: center;
+  height: var(--line-height, 26px);
+  line-height: var(--line-height, 26px);
+  flex-shrink: 0;
+}
+
+.row-content {
+  display: flex;
+  align-items: flex-start;
+  min-height: var(--line-height, 26px);
+  line-height: var(--line-height, 26px);
+}
+
 /* ── Columns ── */
 .col-ts {
   width: 84px;
@@ -573,14 +650,19 @@ defineExpose({ scrollToBottom, scrollToLine })
   font-size: 11px;
   white-space: nowrap;
   flex-shrink: 0;
-  align-self: flex-start;
+}
+
+/* Cozy 模式：长格式时间戳（YYYY-MM-DD HH:mm:ss.SSS）需要自适应宽度，
+   固定的 84px 会导致 nowrap 文本溢出覆盖到 badge 上 */
+.log-row.mode-cozy .col-ts {
+  width: auto;
+  min-width: 84px;
 }
 
 .col-badge {
   min-width: 48px;
   padding-right: 14px;
   flex-shrink: 0;
-  align-self: flex-start;
 }
 
 .badge {
@@ -618,15 +700,13 @@ defineExpose({ scrollToBottom, scrollToLine })
 
 .col-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   opacity: 0;
   transition: opacity 0.15s;
   flex-shrink: 0;
   margin-left: 8px;
-  align-self: flex-start;
-  margin-top: 5px;
 }
 
 .action-btn {
@@ -712,6 +792,38 @@ defineExpose({ scrollToBottom, scrollToLine })
 
 :root.dark .json-expanded :deep(.json-bool) {
   color: #e06c75;
+}
+
+/* ── Compact Mode (single-line, original layout) ── */
+.log-row.mode-compact {
+  flex-direction: row;
+  align-items: center;
+  height: var(--line-height, 26px);
+  line-height: var(--line-height, 26px);
+  white-space: nowrap;
+}
+
+.log-row.mode-compact.wrap {
+  white-space: pre-wrap;
+  word-break: break-all;
+  height: auto;
+  min-height: var(--line-height, 26px);
+}
+
+.log-row.mode-compact.expanded {
+  align-items: flex-start;
+}
+
+.log-row.mode-compact .row-meta,
+.log-row.mode-compact .row-content {
+  display: contents;
+}
+
+/* In compact mode the actions column reverts to vertical (original look) */
+.log-row.mode-compact .col-actions {
+  flex-direction: column;
+  align-self: flex-start;
+  margin-top: 5px;
 }
 
 /* ── Long Line ── */

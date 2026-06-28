@@ -8,6 +8,7 @@ interface WSMessage {
     raw: string
     level: string
     timestamp?: string
+    rawTimestamp?: string
     fields?: Record<string, unknown>
   }>
   seq?: number
@@ -35,7 +36,9 @@ export class WSClient {
 
   private getWsUrl(): string {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    return `${protocol}//${location.host}/ws`
+    const base = `${protocol}//${location.host}/ws`
+    const token = localStorage.getItem('tailr-token')
+    return token ? `${base}?token=${encodeURIComponent(token)}` : base
   }
 
   connect(): void {

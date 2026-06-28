@@ -110,6 +110,7 @@ mod tests {
             raw: raw.to_string(),
             level: level.to_string(),
             timestamp: ts,
+            raw_timestamp: None,
             fields: None,
         }
     }

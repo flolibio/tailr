@@ -25,6 +25,26 @@ impl LineIndex {
         }
     }
 
+    pub fn count_lines(path: &Path) -> io::Result<u64> {
+        let file = File::open(path)?;
+        let metadata = file.metadata()?;
+        let file_size = metadata.len();
+
+        if file_size == 0 {
+            return Ok(0);
+        }
+
+        let mmap = unsafe { Mmap::map(&file)? };
+        let nl_count = memchr::memchr_iter(b'\n', &mmap).count() as u64;
+        let ends_with_newline = mmap[file_size as usize - 1] == b'\n';
+
+        Ok(if ends_with_newline || nl_count == 0 {
+            nl_count
+        } else {
+            nl_count + 1
+        })
+    }
+
     pub fn build(path: &Path) -> io::Result<Self> {
         let file = File::open(path)?;
         let metadata = file.metadata()?;

@@ -5,6 +5,7 @@ export interface LogEntry {
   raw: string
   level: string
   timestamp?: string
+  rawTimestamp?: string
   fields?: Record<string, unknown>
 }
 

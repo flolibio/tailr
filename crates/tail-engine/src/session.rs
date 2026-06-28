@@ -136,7 +136,7 @@ impl TailSession {
             }
 
             let level_name = self.level_detector.load().detect(trimmed);
-            let timestamp = try_parse_timestamp(trimmed);
+            let (timestamp, raw_timestamp) = try_parse_timestamp(trimmed);
             let fields = try_parse_json_fields(trimmed);
 
             let entry = LogEntry {
@@ -144,6 +144,7 @@ impl TailSession {
                 raw: trimmed.to_string(),
                 level: level_name,
                 timestamp,
+                raw_timestamp,
                 fields,
             };
 

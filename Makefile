@@ -22,7 +22,7 @@ test-backend:
 	cargo clippy -- -D warnings
 
 test-frontend:
-	cd frontend && npx vue-tsc --noEmit
+	cd frontend && npx vue-tsc --noEmit && npx vue-tsc -b
 
 # ── Frontend ──
 

@@ -543,6 +543,19 @@ async fn search(
             .map(|dt| dt.with_timezone(&Utc))
     });
 
+    let detector = state.level_detector.load();
+
+    let filter_levels = {
+        let known: Vec<String> = detector
+            .level_names()
+            .into_iter()
+            .map(|s| s.to_uppercase())
+            .collect();
+        let all_selected = !known.is_empty()
+            && known.iter().all(|k| all_levels.contains(k));
+        if all_selected { Vec::new() } else { all_levels }
+    };
+
     let opts = SearchOptions {
         pattern: params.q.clone(),
         is_regex,
@@ -550,7 +563,7 @@ async fn search(
         context_before: context,
         context_after: context,
         max_results: limit,
-        level_filter: all_levels.first().cloned(),
+        level_filter: filter_levels.first().cloned(),
     };
 
     let result = match state.search_engine.search(&path, &opts) {
@@ -562,10 +575,9 @@ async fn search(
     };
 
     let filter = LogFilter::new()
-        .with_levels(all_levels)
+        .with_levels(filter_levels)
         .with_time(time_from, time_to);
 
-    let detector = state.level_detector.load();
     let matches: Vec<SearchMatchResult> = result
         .matches
         .into_iter()
@@ -576,6 +588,7 @@ async fn search(
                     raw: m.content.clone(),
                     level: detector.detect(&m.content),
                     timestamp: None,
+                    raw_timestamp: None,
                     fields: None,
                 };
                 filter.matches(&entry)
@@ -740,13 +753,14 @@ async fn read_lines_from(path: &PathBuf, start_byte: u64, max_lines: usize, base
         }
 
         let level = detector.detect(trimmed);
-        let timestamp = try_parse_timestamp(trimmed);
+        let (timestamp, raw_timestamp) = try_parse_timestamp(trimmed);
 
         entries.push(LogEntry {
             line_num,
             raw: trimmed.to_string(),
             level,
             timestamp,
+            raw_timestamp,
             fields: None,
         });
 
