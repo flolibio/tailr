@@ -493,7 +493,7 @@ defineExpose({ scrollToBottom, scrollToLine })
             @click="toggleMark(entry.lineNum)"
           >
             <div class="row-meta">
-              <span v-if="entry.rawTimestamp || entry.timestamp" class="col-ts">{{ formatTimestamp(entry) }}</span>
+              <span v-if="entry.rawTimestamp || entry.timestamp" class="col-ts" :style="levelColors && levelColors[entry.level] ? { color: levelColors[entry.level] } : undefined">{{ formatTimestamp(entry) }}</span>
               <span class="col-badge"><span class="badge" :class="getBadgeClass(entry.level)" :style="levelColors && levelColors[entry.level] ? { color: levelColors[entry.level] } : undefined">{{ getBadgeText(entry.level) }}</span></span>
             </div>
             <div class="row-content">
