@@ -92,6 +92,24 @@ function onKeydown(e: KeyboardEvent): void {
     } else {
       emit('clearAll')
     }
+  } else if (
+    e.key === 'Backspace' &&
+    input.value === '' &&
+    props.keywords.length > 0
+  ) {
+    // Backspace on empty input: revert last chip back into the input field
+    // for editing (open gate, no char deleted on this first press).
+    e.preventDefault()
+    const lastIdx = props.keywords.length - 1
+    input.value = props.keywords[lastIdx]
+    emit('removeKeyword', lastIdx)
+    nextTick(() => {
+      const el = inputRef.value
+      if (el) {
+        const len = input.value.length
+        el.setSelectionRange(len, len)
+      }
+    })
   } else if (e.key === 'Tab' && suggestions.value.length > 0) {
     e.preventDefault()
     selectSuggestion(suggestions.value[0])
