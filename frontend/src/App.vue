@@ -62,7 +62,7 @@ const highlightColors = [
 const filteredEntries = computed(() => {
   let result = entries.value
 
-  if (selectedLevels.value.length > 0) {
+  if (selectedLevels.value.length > 0 && selectedLevels.value.length < allLevels.value.length) {
     const levels = new Set(selectedLevels.value)
     result = result.filter((e) => levels.has(e.level))
   }
