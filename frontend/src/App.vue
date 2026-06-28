@@ -91,6 +91,7 @@ const defaultSettings: Settings = {
   autoScroll: true,
   maxVisibleLines: 50000,
   darkTheme: true,
+  displayMode: 'compact',
 }
 
 function loadSettings(): Settings {
@@ -328,6 +329,7 @@ function handleSettingsUpdate(s: Settings): void {
         :max-visible-lines="settings.maxVisibleLines"
         :highlight-keywords="highlightKeywords"
         :level-colors="levelDotColors"
+        :display-mode="settings.displayMode"
         @stick-to-bottom="handleStickToBottom"
       />
     </main>

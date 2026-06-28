@@ -10,6 +10,7 @@ export interface Settings {
   autoScroll: boolean
   maxVisibleLines: number
   darkTheme: boolean
+  displayMode: 'compact' | 'cozy'
 }
 
 const props = defineProps<{

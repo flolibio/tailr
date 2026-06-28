@@ -262,6 +262,27 @@ onUnmounted(() => {
           <template v-if="activeNav === 'general'">
             <div class="section-title">{{ t('settings.basicSettings') }}</div>
 
+            <!-- Display Mode -->
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-name">{{ t('settings.displayMode') }}</div>
+              </div>
+              <div class="setting-control">
+                <div class="theme-opts">
+                  <button
+                    class="theme-opt"
+                    :class="{ on: local.displayMode === 'compact' }"
+                    @click="updateSetting('displayMode', 'compact')"
+                  >{{ t('settings.compact') }}</button>
+                  <button
+                    class="theme-opt"
+                    :class="{ on: local.displayMode === 'cozy' }"
+                    @click="updateSetting('displayMode', 'cozy')"
+                  >{{ t('settings.cozy') }}</button>
+                </div>
+              </div>
+            </div>
+
             <!-- Font family / size -->
             <div class="setting-row">
               <div class="setting-info">
