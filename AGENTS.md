@@ -124,7 +124,7 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 
 - JSON field casing: `camelCase` everywhere (serde `rename_all`).
 - WS protocol: tagged enum via `serde(tag = "type", rename_all = "camelCase")`.
-- `Cargo.lock` is gitignored (binary crate, not a library).
+- `Cargo.lock` is committed to version control (binary crate, ensures reproducible CI/release builds).
 - No `rustfmt.toml` or `clippy.toml` — use defaults.
 - `LineIndex` and `SearchEngine` use memory-mapped files; test on files small enough for `tempfile`.
 - `detect_level` uses zero-alloc ASCII comparison (`contains_case_insensitive`), no heap allocation.
