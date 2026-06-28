@@ -35,7 +35,7 @@ impl LineIndex {
         }
 
         let mmap = unsafe { Mmap::map(&file)? };
-        let nl_count = memchr::memchr_iter(b'\n', &*mmap).count() as u64;
+        let nl_count = memchr::memchr_iter(b'\n', &mmap).count() as u64;
         let ends_with_newline = mmap[file_size as usize - 1] == b'\n';
 
         Ok(if ends_with_newline || nl_count == 0 {
