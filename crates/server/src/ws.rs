@@ -20,6 +20,7 @@ const RING_BUFFER_SIZE: usize = 2000;
 const CLIENT_CHANNEL_SIZE: usize = 512;
 const SLOW_THRESHOLD: f64 = 0.8;
 const WATCHER_POLL_MS: u64 = 100;
+const WS_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
 pub struct FileSubscribers {
     ring_buffer: VecDeque<LogEntry>,
@@ -108,7 +109,16 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 
     info!(client_id = %client_id, "WebSocket client connected");
 
-    while let Some(result) = ws_rx.next().await {
+    loop {
+        let result = match tokio::time::timeout(WS_IDLE_TIMEOUT, ws_rx.next()).await {
+            Ok(Some(result)) => result,
+            Ok(None) => break,
+            Err(_) => {
+                info!(client_id = %client_id, "WebSocket idle timeout");
+                break;
+            }
+        };
+
         let msg = match result {
             Ok(m) => m,
             Err(e) => {

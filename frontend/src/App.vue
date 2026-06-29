@@ -40,6 +40,10 @@ const { token, showTokenDialog } = useAuth()
 watch(token, () => {
   refreshKey.value++
   loadLogLevels()
+
+  wsClient.disconnect()
+  wsClient.connect()
+
   if (currentFile.value) {
     loadInitial(currentFile.value)
   }

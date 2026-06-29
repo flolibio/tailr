@@ -26,6 +26,8 @@ export class WSClient {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private shouldConnect = false
   private isTabVisible = true
+  private lastPongTime = Date.now()
+  private readonly pongTimeout = 90000 // 3 missed heartbeats = dead connection
 
   constructor() {
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this)
@@ -110,6 +112,7 @@ export class WSClient {
         this.emit('error', new Error(msg.message ?? 'Unknown server error'))
         break
       case 'pong':
+        this.lastPongTime = Date.now()
         break
     }
   }
@@ -158,9 +161,14 @@ export class WSClient {
 
   private startHeartbeat(): void {
     this.stopHeartbeat()
+    this.lastPongTime = Date.now()
     this.heartbeatTimer = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
         this.ws.send(JSON.stringify({ type: 'ping' }))
+
+        if (Date.now() - this.lastPongTime > this.pongTimeout) {
+          this.ws.close()
+        }
       }
     }, 30000)
   }
@@ -186,14 +194,21 @@ export class WSClient {
 
   private handleVisibilityChange(): void {
     this.isTabVisible = !document.hidden
-    if (this.isTabVisible && this.shouldConnect && !this.ws?.readyState) {
-      this.reconnectDelay = 1000
-      if (this.reconnectTimer !== null) {
-        clearTimeout(this.reconnectTimer)
-        this.reconnectTimer = null
-      }
-      this.connect()
+    if (!this.isTabVisible || !this.shouldConnect) return
+
+    this.reconnectDelay = 1000
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
     }
+
+    if (this.ws) {
+      this.ws.onclose = null
+      this.ws.onerror = null
+      this.ws.close()
+      this.ws = null
+    }
+    this.connect()
   }
 
   disconnect(): void {
