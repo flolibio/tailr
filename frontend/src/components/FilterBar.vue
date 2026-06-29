@@ -274,6 +274,7 @@ defineExpose({ focus })
   pointer-events: none;
   display: flex;
   align-items: center;
+  z-index: 1;
 }
 
 .filter-content {
@@ -428,7 +429,7 @@ defineExpose({ focus })
 
 .suggestion-icon {
   color: var(--text-3);
-  font-size: 11px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 
