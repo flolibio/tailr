@@ -808,6 +808,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   word-break: break-all;
   height: auto;
   min-height: var(--line-height, 26px);
+  align-items: flex-start;
 }
 
 .log-row.mode-compact.expanded {
