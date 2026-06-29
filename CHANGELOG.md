@@ -1,5 +1,19 @@
 # Changelog
 
+## [v0.6.1] - 2026-06-29
+
+### Fixes
+
+- WebSocket: detect dead connections via pong timeout (client) and idle timeout (server), fixing intermittent log tailing failures where connections silently died
+- WebSocket: force reconnect on tab visibility regain and token change, preventing stale half-open connections
+- FilterBar: search icon now renders above input background via z-index
+
+### UI
+
+- Increased small font sizes (9–13px → 10–14px) across components for readability
+- Unified input/select backgrounds to `var(--bg)`
+- Standardized control heights and centered settings rows
+
 ## [v0.6.0] - 2026-06-29
 
 ### Features
