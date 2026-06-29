@@ -416,6 +416,7 @@ function onDragEnd() {
   border-radius: 4px;
   padding: 0 6px;
   transition: border-color .12s;
+  height: 30px;
 }
 
 .level-name:hover {
@@ -437,6 +438,7 @@ function onDragEnd() {
   border-radius: 4px;
   padding: 0 6px;
   transition: border-color .12s;
+  height: 30px;
 }
 
 .level-keywords:hover {
