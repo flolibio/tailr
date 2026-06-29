@@ -647,7 +647,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   min-width: 84px;
   padding-right: 10px;
   color: var(--log-ts);
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -668,7 +668,7 @@ defineExpose({ scrollToBottom, scrollToLine })
 .badge {
   display: inline-block;
   padding: 0;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
   font-family: var(--font-mono);
@@ -756,7 +756,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   border-radius: 6px;
   max-height: 400px;
   overflow-y: auto;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   border: 1px solid var(--border);
 }
@@ -839,7 +839,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   color: var(--accent-light);
   padding: 6px 16px;
   border-radius: var(--radius);
-  font-size: 13px;
+  font-size: 14px;
   z-index: 10;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }

@@ -292,7 +292,7 @@ onMounted(() => {
 }
 
 .sidebar-header {
-  height: 44px;
+  height: var(--topbar-h);
   padding: 0 8px;
   display: flex;
   align-items: center;
@@ -318,7 +318,7 @@ onMounted(() => {
 
 .filter-input {
   width: 100%;
-  height: 30px;
+  height: 36px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-2);
@@ -332,6 +332,7 @@ onMounted(() => {
 
 .filter-input:focus {
   border-color: var(--border-2);
+  background: var(--bg);
 }
 
 .filter-input::placeholder {
@@ -350,7 +351,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 12px;
   padding: 0;
   border-radius: 4px;
 }
@@ -457,7 +458,7 @@ onMounted(() => {
 }
 
 .file-name {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
@@ -465,7 +466,7 @@ onMounted(() => {
 }
 
 .file-size {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   margin-top: 2px;
 }
@@ -473,7 +474,7 @@ onMounted(() => {
 .file-empty {
   padding: 16px 12px;
   color: var(--text-3);
-  font-size: 13px;
+  font-size: 14px;
   text-align: center;
   flex: 1;
 }

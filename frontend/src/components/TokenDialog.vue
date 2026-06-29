@@ -87,17 +87,17 @@ function handleKeydown(e: KeyboardEvent): void {
 
 .token-message {
   margin: 0 0 16px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-2);
   line-height: 1.5;
 }
 
 .token-input {
   width: 100%;
-  height: 36px;
-  font-size: 13px;
+  height: 30px;
+  font-size: 14px;
   font-family: var(--font-mono);
-  background: var(--bg-3);
+  background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -120,7 +120,7 @@ function handleKeydown(e: KeyboardEvent): void {
 }
 
 .btn-cancel {
-  height: 32px;
+  height: 30px;
   padding: 0 16px;
   font-size: 12px;
   border-radius: var(--radius);
@@ -138,7 +138,7 @@ function handleKeydown(e: KeyboardEvent): void {
 }
 
 .btn-save {
-  height: 32px;
+  height: 30px;
   padding: 0 16px;
   font-size: 12px;
   border-radius: var(--radius);

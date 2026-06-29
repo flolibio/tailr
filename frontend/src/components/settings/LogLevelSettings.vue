@@ -254,7 +254,7 @@ function onDragEnd() {
 .hint {
   font-weight: 400;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* ── Preset ── */
@@ -265,7 +265,6 @@ function onDragEnd() {
 
 .preset-trigger {
   width: 100%;
-  height: 35px;
   font-size: 12px;
   background: var(--bg-2);
   color: var(--text);
@@ -408,8 +407,7 @@ function onDragEnd() {
 .level-name {
   width: 100px;
   flex-shrink: 0;
-  height: 26px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   font-family: var(--font-mono);
   background: var(--bg);
@@ -432,7 +430,6 @@ function onDragEnd() {
 .level-keywords {
   flex: 1;
   min-width: 0;
-  height: 26px;
   font-size: 10px;
   background: var(--bg);
   color: var(--text-2);
@@ -474,7 +471,7 @@ function onDragEnd() {
 }
 
 .color-dot-label {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-3);
   text-align: center;
   line-height: 1;
@@ -516,7 +513,7 @@ function onDragEnd() {
   gap: 5px;
   width: 100%;
   height: 30px;
-  font-size: 11px;
+  font-size: 12px;
   padding: 0 12px;
   border: 1px dashed var(--border);
   background: transparent;

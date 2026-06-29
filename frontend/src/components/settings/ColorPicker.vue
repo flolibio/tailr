@@ -75,7 +75,7 @@ const emit = defineEmits<{
 }
 
 .picker-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
 }

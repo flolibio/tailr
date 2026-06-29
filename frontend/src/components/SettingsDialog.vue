@@ -518,7 +518,7 @@ onUnmounted(() => {
 }
 
 .dialog-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--text);
@@ -583,7 +583,7 @@ onUnmounted(() => {
   border: none;
   background: transparent;
   color: var(--text-2);
-  font-size: 12.5px;
+  font-size: 12px;
   font-family: var(--font-sans);
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
@@ -628,7 +628,7 @@ onUnmounted(() => {
 }
 
 .placeholder-text {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-3);
   padding: 20px 0;
 }
@@ -636,7 +636,7 @@ onUnmounted(() => {
 /* ── Setting Row ── */
 .setting-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
@@ -652,14 +652,14 @@ onUnmounted(() => {
 }
 
 .setting-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text);
   margin-bottom: 2px;
 }
 
 .setting-description {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-3);
   line-height: 1.5;
 }
@@ -718,9 +718,8 @@ onUnmounted(() => {
 
 .font-select {
   height: 30px;
-  font-size: 12px;
-  font-family: var(--font-mono);
-  background: var(--bg-3);
+  font-size: 14px;
+  background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -742,9 +741,8 @@ onUnmounted(() => {
 .font-input {
   width: 52px;
   height: 30px;
-  font-size: 12px;
-  font-family: var(--font-mono);
-  background: var(--bg-3);
+  font-size: 14px;
+  background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -758,7 +756,7 @@ onUnmounted(() => {
 }
 
 .font-unit {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--text-3);
 }
 
@@ -773,14 +771,14 @@ onUnmounted(() => {
   padding: 6px 12px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
   text-align: center;
   cursor: pointer;
   color: var(--text-2);
   background: transparent;
   transition: all 0.12s;
-  height: auto;
+  height: 30px;
 }
 
 .theme-opt:hover {
@@ -798,9 +796,9 @@ onUnmounted(() => {
 .token-input {
   width: 200px;
   height: 30px;
-  font-size: 12px;
+  font-size: 14px;
   font-family: var(--font-mono);
-  background: var(--bg-3);
+  background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -850,12 +848,12 @@ onUnmounted(() => {
 }
 
 .about-version {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-3);
 }
 
 .about-desc {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-2);
 }
 

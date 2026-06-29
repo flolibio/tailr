@@ -278,7 +278,7 @@ async function switchLocale(newLocale: string): Promise<void> {
   padding: 6px 0;
   border-radius: 6px;
   border: 1px solid var(--border);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   text-align: center;
   cursor: pointer;
@@ -323,7 +323,7 @@ async function switchLocale(newLocale: string): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .footer-version {
