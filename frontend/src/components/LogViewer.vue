@@ -700,7 +700,7 @@ defineExpose({ scrollToBottom, scrollToLine })
 
 .col-actions {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   gap: 4px;
   opacity: 0;
