@@ -571,7 +571,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   background: var(--bg);
   border-radius: 5px;
   margin: 5px 0;
-  border: 1px solid #e9edf2;
+  border: 1px solid var(--border);
 }
 
 .log-row:hover {
