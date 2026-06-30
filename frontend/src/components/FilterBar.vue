@@ -307,7 +307,6 @@ defineExpose({ focus })
   border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 12px;
-  font-family: var(--font-mono);
   color: var(--chip-text);
   white-space: nowrap;
   flex-shrink: 0;
