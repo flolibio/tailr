@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.6.2] - 2026-06-30
+
+### UI
+
+- Search bar and log viewer style refinements
+
 ## [v0.6.1] - 2026-06-29
 
 ### Fixes
