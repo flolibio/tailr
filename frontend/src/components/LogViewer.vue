@@ -2,11 +2,13 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { LogEntry } from '../services/api'
+import { useBookmarks } from '../composables/useBookmarks'
 
 const { t } = useI18n()
 
 const props = defineProps<{
   entries: LogEntry[]
+  filePath?: string
   lineHeight?: number
   isTailMode?: boolean
   maxVisibleLines?: number
@@ -22,6 +24,7 @@ const emit = defineEmits<{
 
 const lineHeight = computed(() => props.lineHeight ?? 26)
 const displayMode = computed(() => props.displayMode ?? 'compact')
+const { isBookmarked, add: addBookmark, remove: removeBookmark } = useBookmarks()
 const containerRef = ref<HTMLDivElement | null>(null)
 const scrollTop = ref(0)
 const containerHeight = ref(600)
@@ -389,6 +392,15 @@ function toggleMark(lineNum: number): void {
   markedLine.value = markedLine.value === lineNum ? null : lineNum
 }
 
+function toggleBookmark(entry: LogEntry): void {
+  if (!props.filePath) return
+  if (isBookmarked(props.filePath, entry.lineNum)) {
+    removeBookmark(props.filePath, entry.lineNum)
+  } else {
+    addBookmark(props.filePath, entry)
+  }
+}
+
 function toggleExpand(lineNum: number): void {
   // Record scroll position and row position before toggle
   const container = containerRef.value
@@ -488,7 +500,7 @@ defineExpose({ scrollToBottom, scrollToLine })
             :class="[
               'level-' + entry.level.toLowerCase(),
               'mode-' + displayMode,
-              { 'is-copied': copiedLine === entry.lineNum, 'wrap': true, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum, 'is-marked': markedLine === entry.lineNum }
+              { 'is-copied': copiedLine === entry.lineNum, 'wrap': true, 'expanded': expandedLines.has(entry.lineNum), 'is-highlighted': highlightedLine === entry.lineNum, 'is-marked': markedLine === entry.lineNum, 'is-bookmarked': filePath ? isBookmarked(filePath, entry.lineNum) : false }
             ]"
             @click="toggleMark(entry.lineNum)"
           >
@@ -509,6 +521,10 @@ defineExpose({ scrollToBottom, scrollToLine })
                 </template>
               </span>
               <span class="col-actions">
+                <span class="action-btn" @click="toggleBookmark(entry)" :title="t('logViewer.bookmark')">
+                  <svg v-if="filePath && isBookmarked(filePath, entry.lineNum)" width="14" height="14" viewBox="0 0 24 24" fill="var(--c-bookmark-border, #64d2ff)" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                </span>
                 <span v-if="isJson(entry.raw)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" :title="expandedLines.has(entry.lineNum) ? t('logViewer.collapse') : t('logViewer.expandJson')">
                   <svg v-if="expandedLines.has(entry.lineNum)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                   <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
@@ -623,6 +639,11 @@ defineExpose({ scrollToBottom, scrollToLine })
 .log-row.is-marked {
   background: rgba(100, 210, 255, 0.15);
   box-shadow: inset 3px 0 0 #64d2ff;
+}
+
+.log-row.is-bookmarked {
+  box-shadow: inset 3px 0 0 var(--c-bookmark-border, #64d2ff);
+  background: var(--c-bookmark-bg, rgba(100, 210, 255, 0.08));
 }
 
 /* ── Row Sections ── */
