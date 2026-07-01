@@ -4,9 +4,34 @@ import { useI18n } from 'vue-i18n'
 import { listFiles } from '../services/api'
 import type { FileEntry } from '../services/api'
 import { useHistoricalFilter } from '../composables/useHistoricalFilter'
+import { useFavoriteFiles } from '../composables/useFavoriteFiles'
+import { useRecentFiles } from '../composables/useRecentFiles'
 
 const { t } = useI18n()
 const { showHistorical, isHistoricalFile, toggle: toggleHistorical } = useHistoricalFilter()
+const { favoriteFiles, isFavorite, toggle: toggleFavorite } = useFavoriteFiles()
+const { recentFiles, remove: removeRecent } = useRecentFiles()
+
+const favCollapsed = ref(false)
+const recentCollapsed = ref(false)
+
+function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return t('fileBrowser.justNow')
+  if (min < 60) return `${min} ${t('fileBrowser.minAgo')}`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr} ${t('fileBrowser.hourAgo')}`
+  const days = Math.floor(hr / 24)
+  if (days === 1) return t('fileBrowser.yesterday')
+  if (days < 7) return `${days} ${t('fileBrowser.daysAgo')}`
+  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function basename(path: string): string {
+  const parts = path.split('/')
+  return parts[parts.length - 1] || path
+}
 
 const emit = defineEmits<{
   select: [path: string]
@@ -254,61 +279,114 @@ onMounted(() => {
         </button>
       </div>
     </div>
-    <div class="file-list" v-if="filteredTree.length > 0">
-      <template v-for="node in filteredTree" :key="node.path">
-        <div
-          class="file-item"
-          :class="{
-            'is-dir': node.isDir,
-            'is-selected': !node.isDir && props.selectedFile === node.path,
-          }"
-          @click="selectFile(node)"
-        >
-          <div v-if="!node.isDir" class="file-dot" :class="props.selectedFile === node.path ? 'live' : 'off'"></div>
-          <div v-else class="file-dir-icon">
-            <svg v-if="node.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    <div class="nav-scroll">
+      <div v-if="favoriteFiles.length > 0" class="nav-section">
+        <div class="section-header" @click="favCollapsed = !favCollapsed">
+          <div class="section-chevron" :class="{ collapsed: favCollapsed }">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
-          <div class="file-meta">
-            <div class="file-name">{{ node.name }}</div>
-            <div v-if="!node.isDir && node.size !== undefined" class="file-size">{{ formatSize(node.size) }}</div>
-          </div>
-          <button class="copy-path-btn" @click="copyPath(node.path, $event)" :title="t('fileBrowser.copyPath')">
-            <svg v-if="copiedPath === node.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          </button>
+          <span class="section-title">★ {{ t('fileBrowser.favorites') }}</span>
         </div>
-        <template v-if="node.isDir && node.expanded">
+        <div v-show="!favCollapsed" class="section-body">
           <div
-            v-for="child in node.children"
-            :key="child.path"
-            class="file-item child"
-            :class="{
-              'is-dir': child.isDir,
-              'is-selected': !child.isDir && props.selectedFile === child.path,
-            }"
-            @click="selectFile(child)"
+            v-for="fav in favoriteFiles"
+            :key="fav.path"
+            class="nav-item"
+            :title="fav.path"
+            @click="emit('select', fav.path)"
           >
-            <div v-if="!child.isDir" class="file-dot" :class="props.selectedFile === child.path ? 'live' : 'off'"></div>
+            <span class="nav-text">{{ basename(fav.path) }}</span>
+            <button class="nav-remove" @click.stop="toggleFavorite(fav.path)">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="recentFiles.length > 0" class="nav-section">
+        <div class="section-header" @click="recentCollapsed = !recentCollapsed">
+          <div class="section-chevron" :class="{ collapsed: recentCollapsed }">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <span class="section-title">{{ t('fileBrowser.recent') }}</span>
+        </div>
+        <div v-show="!recentCollapsed" class="section-body">
+          <div
+            v-for="rf in recentFiles"
+            :key="rf.path"
+            class="nav-item"
+            :title="rf.path"
+            @click="emit('select', rf.path)"
+          >
+            <span class="nav-text">{{ basename(rf.path) }}</span>
+            <span class="nav-time">{{ formatRelativeTime(rf.openedAt) }}</span>
+            <button class="nav-remove" @click.stop="removeRecent(rf.path)">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="file-list" v-if="filteredTree.length > 0">
+        <template v-for="node in filteredTree" :key="node.path">
+          <div
+            class="file-item"
+            :class="{
+              'is-dir': node.isDir,
+              'is-selected': !node.isDir && props.selectedFile === node.path,
+            }"
+            @click="selectFile(node)"
+          >
+            <div v-if="!node.isDir" class="file-dot" :class="props.selectedFile === node.path ? 'live' : 'off'"></div>
             <div v-else class="file-dir-icon">
-              <svg v-if="child.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              <svg v-if="node.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
               <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
             <div class="file-meta">
-              <div class="file-name">{{ child.name }}</div>
-              <div v-if="!child.isDir && child.size !== undefined" class="file-size">{{ formatSize(child.size) }}</div>
+              <div class="file-name">{{ node.name }}</div>
+              <div v-if="!node.isDir && node.size !== undefined" class="file-size">{{ formatSize(node.size) }}</div>
             </div>
-            <button class="copy-path-btn" @click="copyPath(child.path, $event)" :title="t('fileBrowser.copyPath')">
-              <svg v-if="copiedPath === child.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <button v-if="!node.isDir" class="star-btn" :class="{ favorited: isFavorite(node.path) }" @click.stop="toggleFavorite(node.path)" :title="t('fileBrowser.toggleFavorite')">
+              <svg v-if="isFavorite(node.path)" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+              <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+            </button>
+            <button class="copy-path-btn" @click="copyPath(node.path, $event)" :title="t('fileBrowser.copyPath')">
+              <svg v-if="copiedPath === node.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             </button>
           </div>
+          <template v-if="node.isDir && node.expanded">
+            <div
+              v-for="child in node.children"
+              :key="child.path"
+              class="file-item child"
+              :class="{
+                'is-dir': child.isDir,
+                'is-selected': !child.isDir && props.selectedFile === child.path,
+              }"
+              @click="selectFile(child)"
+            >
+              <div v-if="!child.isDir" class="file-dot" :class="props.selectedFile === child.path ? 'live' : 'off'"></div>
+              <div v-else class="file-dir-icon">
+                <svg v-if="child.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+              <div class="file-meta">
+                <div class="file-name">{{ child.name }}</div>
+                <div v-if="!child.isDir && child.size !== undefined" class="file-size">{{ formatSize(child.size) }}</div>
+              </div>
+              <button v-if="!child.isDir" class="star-btn" :class="{ favorited: isFavorite(child.path) }" @click.stop="toggleFavorite(child.path)" :title="t('fileBrowser.toggleFavorite')">
+                <svg v-if="isFavorite(child.path)" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+                <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+              </button>
+              <button class="copy-path-btn" @click="copyPath(child.path, $event)" :title="t('fileBrowser.copyPath')">
+                <svg v-if="copiedPath === child.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </template>
         </template>
-      </template>
+      </div>
+      <div v-else-if="loading" class="file-empty">{{ t('fileBrowser.loading') }}</div>
+      <div v-else-if="filterText" class="file-empty">{{ t('fileBrowser.noMatchingFiles') }}</div>
+      <div v-else class="file-empty">{{ t('fileBrowser.noFilesFound') }}</div>
     </div>
-    <div v-else-if="loading" class="file-empty">{{ t('fileBrowser.loading') }}</div>
-    <div v-else-if="filterText" class="file-empty">{{ t('fileBrowser.noMatchingFiles') }}</div>
-    <div v-else class="file-empty">{{ t('fileBrowser.noFilesFound') }}</div>
     <div
       class="resize-handle"
       :class="{ active: isDragging }"
@@ -321,7 +399,8 @@ onMounted(() => {
 .file-browser {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -401,10 +480,118 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+.nav-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.nav-section {
+  padding: 4px 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background .1s;
+}
+
+.section-header:hover {
+  background: var(--bg-2);
+}
+
+.section-chevron {
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: transform .15s;
+}
+
+.section-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.section-body {
+  padding: 2px 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .1s;
+  user-select: none;
+}
+
+.nav-item:hover {
+  background: var(--bg-2);
+}
+
+.nav-item:hover .nav-remove {
+  opacity: 1;
+}
+
+.nav-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-time {
+  font-size: 12px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.nav-remove {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity .15s, color .12s, background .12s;
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.nav-remove:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
 .file-list {
   padding: 8px;
-  overflow-y: auto;
-  flex: 1;
 }
 
 .file-item {
@@ -435,7 +622,8 @@ onMounted(() => {
   padding-left: 24px;
 }
 
-.file-item:hover .copy-path-btn {
+.file-item:hover .copy-path-btn,
+.file-item:hover .star-btn:not(.favorited) {
   opacity: 1;
 }
 
@@ -459,6 +647,33 @@ onMounted(() => {
 .copy-path-btn:hover {
   background: var(--bg-3);
   color: var(--text);
+}
+
+.star-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity .15s, color .12s, background .12s;
+  flex-shrink: 0;
+}
+
+.star-btn:hover {
+  background: var(--bg-3);
+  color: var(--c-star, #D4A017);
+}
+
+.star-btn.favorited {
+  opacity: 1;
+  color: var(--c-star, #D4A017);
 }
 
 .file-dot {
