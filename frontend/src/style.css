@@ -19,8 +19,10 @@
   --sidebar-w: 300px;
   --settings-w: 320px;
   --topbar-h: 56px;
+  --tabbar-h: 38px;
   --filterbar-h: 48px;
   --statusbar-h: 26px;
+  --c-unread: #5B9DFF;
 
   --c-alert-bg: #FFEBE9; --c-alert-text: #CC2D26; --c-alert-border: #FFC9C5;
   --c-error-bg: #FCEBEB; --c-error-text: #A32D2D; --c-error-border: #F7C1C1;
@@ -244,7 +246,7 @@ input[type="range"] {
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-current-width, var(--sidebar-w)) 1fr;
-  grid-template-rows: var(--topbar-h) var(--filterbar-h) 1fr var(--statusbar-h);
+  grid-template-rows: var(--topbar-h) var(--tabbar-h) var(--filterbar-h) 1fr var(--statusbar-h);
   height: 100vh;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -278,7 +280,7 @@ input[type="range"] {
 
 /* ── Sidebar ── */
 .sidebar {
-  grid-row: 1 / 4;
+  grid-row: 1 / 5;
   grid-column: 1;
   border-right: 1px solid var(--border);
   display: flex;
@@ -441,7 +443,7 @@ input[type="range"] {
 /* ── Filter Bar ── */
 .filterbar {
   grid-column: 2;
-  grid-row: 2;
+  grid-row: 3;
   border-bottom: 1px solid var(--border);
   padding: 0 16px;
   display: flex;
@@ -547,7 +549,7 @@ input[type="range"] {
 /* ── Log Body ── */
 .log-body {
   grid-column: 2;
-  grid-row: 3;
+  grid-row: 4;
   overflow: hidden;
   background: var(--bg);
   display: flex;
@@ -586,7 +588,7 @@ select {
 /* ── Status Bar ── */
 .statusbar {
   grid-column: 1 / 3;
-  grid-row: 4;
+  grid-row: 5;
   height: var(--statusbar-h);
   border-top: 1px solid var(--border);
   padding: 0 16px;

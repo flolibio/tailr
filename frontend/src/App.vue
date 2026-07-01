@@ -4,32 +4,28 @@ import { useI18n } from 'vue-i18n'
 import FileBrowser from './components/FileBrowser.vue'
 import LogViewer from './components/LogViewer.vue'
 import FilterBar from './components/FilterBar.vue'
+import TabBar from './components/TabBar.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import SelectionToolbar from './components/SelectionToolbar.vue'
 import TokenDialog from './components/TokenDialog.vue'
 import type { Settings } from './components/SettingsPanel.vue'
-import { useLogStream } from './composables/useLogStream'
+import { useTabs } from './composables/useTabs'
 import { useLogLevels } from './composables/useLogLevels'
 import { useAuth } from './composables/useAuth'
 
 const { t } = useI18n()
 
 const {
-  currentFile,
-  entries,
-  isTailMode,
+  activeTabPath,
+  activeTab,
   maxLines,
-  totalLines,
-  isLoading,
   wsClient,
-  loadInitial,
+  openTab,
   setTailMode,
-} = useLogStream()
+} = useTabs()
 
 const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
 const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
-const selectedLevels = ref<string[]>([])
-const filterKeywords = ref<string[]>([])
 const showSettings = ref(false)
 const sidebarCollapsed = ref(false)
 const sidebarWidth = ref(300)
@@ -40,20 +36,15 @@ const { token, showTokenDialog } = useAuth()
 watch(token, () => {
   refreshKey.value++
   loadLogLevels()
-
   wsClient.disconnect()
   wsClient.connect()
-
-  if (currentFile.value) {
-    loadInitial(currentFile.value)
-  }
 })
 
-watch(currentFile, (f) => {
-  document.title = f ? `Tailr - ${f}` : 'Tailr'
+watch(activeTabPath, (p) => {
+  document.title = p ? `Tailr - ${p}` : 'Tailr'
 }, { immediate: true })
 
-const highlightKeywords = computed(() => filterKeywords.value)
+const highlightKeywords = computed(() => activeTab.value?.filterKeywords ?? [])
 
 const highlightColors = [
   'rgba(255, 220, 0, 0.4)',
@@ -64,18 +55,23 @@ const highlightColors = [
 ]
 
 const filteredEntries = computed(() => {
-  let result = entries.value
+  const tab = activeTab.value
+  if (!tab) return []
 
-  if (selectedLevels.value.length > 0 && selectedLevels.value.length < allLevels.value.length) {
-    const levels = new Set(selectedLevels.value)
-    result = result.filter((e) => levels.has(e.level))
+  let result = tab.entries
+
+  const levels = tab.selectedLevels
+  if (levels.length > 0 && levels.length < allLevels.value.length) {
+    const levelSet = new Set(levels)
+    result = result.filter((e) => levelSet.has(e.level))
   }
 
-  if (filterKeywords.value.length > 0) {
-    const kws = filterKeywords.value.map((k) => k.toLowerCase())
+  const kws = tab.filterKeywords
+  if (kws.length > 0) {
+    const lowerKws = kws.map((k) => k.toLowerCase())
     result = result.filter((e) => {
       const lower = e.raw.toLowerCase()
-      return kws.every((kw) => lower.includes(kw))
+      return lowerKws.every((kw) => lower.includes(kw))
     })
   }
 
@@ -83,7 +79,8 @@ const filteredEntries = computed(() => {
 })
 
 const matchCount = computed(() => {
-  if (filterKeywords.value.length === 0) return 0
+  const tab = activeTab.value
+  if (!tab || tab.filterKeywords.length === 0) return 0
   return filteredEntries.value.length
 })
 
@@ -116,7 +113,6 @@ function saveSettings(s: Settings): void {
 
 const settings = reactive<Settings>(loadSettings())
 
-// ── 动态日志级别 ──────────────────────────────────────────
 const {
   config: logLevelConfig,
   levelNames,
@@ -124,7 +120,6 @@ const {
   loadFromBackend: loadLogLevels,
 } = useLogLevels()
 
-// Dynamic level color mapping
 const levelDotColors = computed(() => {
   const colors: Record<string, string> = {}
   for (const level of logLevelConfig.value.levels) {
@@ -137,25 +132,21 @@ const levelDotColors = computed(() => {
 const allLevels = computed(() => levelNames.value)
 
 function toggleLevel(lv: string): void {
-  const idx = selectedLevels.value.indexOf(lv)
+  const tab = activeTab.value
+  if (!tab) return
+  const idx = tab.selectedLevels.indexOf(lv)
   if (idx >= 0) {
-    selectedLevels.value.splice(idx, 1)
+    tab.selectedLevels = tab.selectedLevels.filter((_, i) => i !== idx)
   } else {
-    selectedLevels.value.push(lv)
+    tab.selectedLevels = [...tab.selectedLevels, lv]
   }
-}
-
-function selectFile(path: string): void {
-  selectedLevels.value = []
-  filterKeywords.value = []
-  loadInitial(path)
 }
 
 function addKeyword(kw: string): void {
-  if (!filterKeywords.value.includes(kw)) {
-    filterKeywords.value = [...filterKeywords.value, kw]
-    saveSearchHistory(kw)
-  }
+  const tab = activeTab.value
+  if (!tab || tab.filterKeywords.includes(kw)) return
+  tab.filterKeywords = [...tab.filterKeywords, kw]
+  saveSearchHistory(kw)
 }
 
 function saveSearchHistory(kw: string): void {
@@ -170,18 +161,24 @@ function saveSearchHistory(kw: string): void {
 }
 
 function removeKeyword(index: number): void {
-  filterKeywords.value = filterKeywords.value.filter((_, i) => i !== index)
+  const tab = activeTab.value
+  if (!tab) return
+  tab.filterKeywords = tab.filterKeywords.filter((_, i) => i !== index)
 }
 
 function editKeyword(index: number, newValue: string): void {
-  const updated = [...filterKeywords.value]
+  const tab = activeTab.value
+  if (!tab) return
+  const updated = [...tab.filterKeywords]
   updated[index] = newValue
-  filterKeywords.value = updated
+  tab.filterKeywords = updated
   saveSearchHistory(newValue)
 }
 
 function clearAllKeywords(): void {
-  filterKeywords.value = []
+  const tab = activeTab.value
+  if (!tab) return
+  tab.filterKeywords = []
 }
 
 function handleStickToBottom(): void {
@@ -191,7 +188,9 @@ function handleStickToBottom(): void {
 }
 
 function toggleFollowTail(): void {
-  if (isTailMode.value) {
+  const tab = activeTab.value
+  if (!tab) return
+  if (tab.isTailMode) {
     setTailMode(false)
     settings.autoScroll = false
   } else {
@@ -220,7 +219,6 @@ onMounted(() => {
     document.documentElement.dataset.theme = 'light'
   }
 
-  // 初始化动态日志级别颜色
   applyThemeColors(settings.darkTheme)
   loadLogLevels()
 
@@ -262,10 +260,10 @@ function handleSettingsUpdate(s: Settings): void {
     <aside class="sidebar">
       <FileBrowser
         v-show="!sidebarCollapsed"
-        :selected-file="currentFile"
+        :selected-file="activeTabPath"
         :width="sidebarWidth"
         :refresh-key="refreshKey"
-        @select="selectFile"
+        @select="openTab"
         @collapse="sidebarCollapsed = true"
         @resize="sidebarWidth = $event"
       />
@@ -280,8 +278,8 @@ function handleSettingsUpdate(s: Settings): void {
     <header class="topbar">
       <FilterBar
         ref="filterBarRef"
-        :current-file="currentFile"
-        :keywords="filterKeywords"
+        :current-file="activeTabPath"
+        :keywords="activeTab?.filterKeywords ?? []"
         :colors="highlightColors"
         @add-keyword="addKeyword"
         @remove-keyword="removeKeyword"
@@ -293,13 +291,16 @@ function handleSettingsUpdate(s: Settings): void {
       </button>
     </header>
 
+    <!-- Tab bar -->
+    <TabBar />
+
     <!-- Filter bar (levels) -->
     <div class="filterbar">
       <div
         v-for="lv in allLevels"
         :key="lv"
         class="level-tag dynamic-level"
-        :class="{ off: selectedLevels.length > 0 && !selectedLevels.includes(lv) }"
+        :class="{ off: (activeTab?.selectedLevels.length ?? 0) > 0 && !(activeTab?.selectedLevels.includes(lv) ?? false) }"
         :style="{
           color: levelDotColors[lv],
           background: levelDotColors[lv] + '18',
@@ -314,22 +315,23 @@ function handleSettingsUpdate(s: Settings): void {
 
     <!-- Log body -->
     <main class="log-body" :style="{ fontSize: settings.fontSize + 'px', fontFamily: settings.fontFamily === 'monospace' ? 'monospace' : `'${settings.fontFamily}'` }">
-      <div v-if="!currentFile" class="empty-state">
+      <div v-if="!activeTabPath" class="empty-state">
         <div class="empty-text">{{ t('app.selectFile') }}</div>
       </div>
-      <div v-else-if="isLoading" class="empty-state">
+      <div v-else-if="activeTab?.isLoading" class="empty-state">
         <div class="loading-spinner"></div>
         <div class="empty-text">{{ t('app.loading') }}</div>
       </div>
       <div v-else-if="filteredEntries.length === 0" class="empty-state">
-        <div class="empty-text">{{ filterKeywords.length ? t('app.noMatchingLogs') : t('app.waitingForData') }}</div>
+        <div class="empty-text">{{ (activeTab?.filterKeywords.length ?? 0) ? t('app.noMatchingLogs') : t('app.waitingForData') }}</div>
       </div>
       <LogViewer
         v-else
         ref="logViewerRef"
+        :key="activeTabPath ?? ''"
         :entries="filteredEntries"
         :line-height="26"
-        :is-tail-mode="isTailMode"
+        :is-tail-mode="activeTab?.isTailMode ?? true"
         :max-visible-lines="settings.maxVisibleLines"
         :highlight-keywords="highlightKeywords"
         :level-colors="levelDotColors"
@@ -353,15 +355,17 @@ function handleSettingsUpdate(s: Settings): void {
     <div class="statusbar">
       <div class="status-chip">
         <div class="status-dot"></div>
-        <span>{{ currentFile ? currentFile.split('/').pop() : t('app.noFile') }}</span>
+        <span>{{ activeTabPath ? activeTabPath.split('/').pop() : t('app.noFile') }}</span>
       </div>
-      <span v-if="entries.length === totalLines">{{ entries.length }} {{ t('app.lines') }}</span>
-      <span v-else>{{ entries.length }} / {{ totalLines }} {{ t('app.lines') }}</span>
-      <span v-if="filteredEntries.length < entries.length">{{ filteredEntries.length }} {{ t('app.shown') }}</span>
-      <span v-if="filterKeywords.length" class="status-filter-info">{{ matchCount }} {{ t('app.matches') }} · {{ filterKeywords.join(' + ') }}</span>
+      <template v-if="activeTab">
+        <span v-if="activeTab.entries.length === activeTab.totalLines">{{ activeTab.entries.length }} {{ t('app.lines') }}</span>
+        <span v-else>{{ activeTab.entries.length }} / {{ activeTab.totalLines }} {{ t('app.lines') }}</span>
+        <span v-if="filteredEntries.length < activeTab.entries.length">{{ filteredEntries.length }} {{ t('app.shown') }}</span>
+        <span v-if="activeTab.filterKeywords.length" class="status-filter-info">{{ matchCount }} {{ t('app.matches') }} · {{ activeTab.filterKeywords.join(' + ') }}</span>
+      </template>
       <div class="status-spacer"></div>
-      <button class="status-toggle" :class="{ active: isTailMode }" @click="toggleFollowTail" :title="isTailMode ? t('app.pauseTail') : t('app.startTail')">
-        <svg v-if="isTailMode" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      <button class="status-toggle" :class="{ active: activeTab?.isTailMode ?? false }" @click="toggleFollowTail" :title="(activeTab?.isTailMode ?? false) ? t('app.pauseTail') : t('app.startTail')">
+        <svg v-if="activeTab?.isTailMode ?? false" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
         <svg v-else width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
         <span>{{ t('app.follow') }}</span>
       </button>
