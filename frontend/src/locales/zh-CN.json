@@ -69,7 +69,15 @@
     "openFiles": "打开文件",
     "copyPath": "复制路径",
     "showHistory": "显示历史文件",
-    "hideHistory": "隐藏历史文件"
+    "hideHistory": "隐藏历史文件",
+    "favorites": "收藏夹",
+    "recent": "最近打开",
+    "justNow": "刚刚",
+    "minAgo": "分钟前",
+    "hourAgo": "小时前",
+    "yesterday": "昨天",
+    "daysAgo": "天前",
+    "toggleFavorite": "收藏/取消收藏"
   },
   "selection": {
     "copy": "复制",
@@ -80,7 +88,12 @@
     "collapse": "收起",
     "expandJson": "展开 JSON",
     "copy": "复制",
-    "newLogs": "↓ 新日志"
+    "newLogs": "↓ 新日志",
+    "bookmark": "添加书签"
+  },
+  "bookmark": {
+    "title": "书签",
+    "remove": "移除书签"
   },
   "tokenDialog": {
     "title": "需要认证",

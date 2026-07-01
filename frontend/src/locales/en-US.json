@@ -69,7 +69,15 @@
     "openFiles": "Open files",
     "copyPath": "Copy path",
     "showHistory": "Show history files",
-    "hideHistory": "Hide history files"
+    "hideHistory": "Hide history files",
+    "favorites": "Favorites",
+    "recent": "Recent",
+    "justNow": "just now",
+    "minAgo": "min ago",
+    "hourAgo": "hour ago",
+    "yesterday": "yesterday",
+    "daysAgo": "days ago",
+    "toggleFavorite": "Toggle favorite"
   },
   "selection": {
     "copy": "Copy",
@@ -80,7 +88,12 @@
     "collapse": "Collapse",
     "expandJson": "Expand JSON",
     "copy": "Copy",
-    "newLogs": "↓ New logs"
+    "newLogs": "↓ New logs",
+    "bookmark": "Bookmark line"
+  },
+  "bookmark": {
+    "title": "Bookmarks",
+    "remove": "Remove bookmark"
   },
   "tokenDialog": {
     "title": "Authentication Required",

@@ -20,11 +20,6 @@ const collapsed = ref(false)
 const bookmarks = computed(() =>
   props.filePath ? getBookmarks(props.filePath) : [],
 )
-
-function basename(path: string): string {
-  const parts = path.split('/')
-  return parts[parts.length - 1] || path
-}
 </script>
 
 <template>

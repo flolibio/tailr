@@ -5,6 +5,7 @@ import FileBrowser from './components/FileBrowser.vue'
 import LogViewer from './components/LogViewer.vue'
 import FilterBar from './components/FilterBar.vue'
 import TabBar from './components/TabBar.vue'
+import BookmarkPanel from './components/BookmarkPanel.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import SelectionToolbar from './components/SelectionToolbar.vue'
 import TokenDialog from './components/TokenDialog.vue'
@@ -12,6 +13,7 @@ import type { Settings } from './components/SettingsPanel.vue'
 import { useTabs } from './composables/useTabs'
 import { useLogLevels } from './composables/useLogLevels'
 import { useAuth } from './composables/useAuth'
+import { useRecentFiles } from './composables/useRecentFiles'
 
 const { t } = useI18n()
 
@@ -32,6 +34,16 @@ const sidebarWidth = ref(300)
 const refreshKey = ref(0)
 
 const { token, showTokenDialog } = useAuth()
+const { recordOpen } = useRecentFiles()
+
+function handleSelectFile(path: string): void {
+  openTab(path)
+  recordOpen(path)
+}
+
+function handleBookmarkScroll(lineNum: number): void {
+  logViewerRef.value?.scrollToLine(lineNum)
+}
 
 watch(token, () => {
   refreshKey.value++
@@ -263,9 +275,15 @@ function handleSettingsUpdate(s: Settings): void {
         :selected-file="activeTabPath"
         :width="sidebarWidth"
         :refresh-key="refreshKey"
-        @select="openTab"
+        @select="handleSelectFile"
         @collapse="sidebarCollapsed = true"
         @resize="sidebarWidth = $event"
+      />
+      <BookmarkPanel
+        v-show="!sidebarCollapsed"
+        :file-path="activeTabPath"
+        :level-colors="levelDotColors"
+        @scroll-to="handleBookmarkScroll"
       />
       <button v-if="sidebarCollapsed" class="sidebar-reopen" @click="sidebarCollapsed = false" :title="t('app.openFiles')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -330,6 +348,7 @@ function handleSettingsUpdate(s: Settings): void {
         ref="logViewerRef"
         :key="activeTabPath ?? ''"
         :entries="filteredEntries"
+        :file-path="activeTabPath ?? undefined"
         :line-height="26"
         :is-tail-mode="activeTab?.isTailMode ?? true"
         :max-visible-lines="settings.maxVisibleLines"

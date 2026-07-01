@@ -23,6 +23,9 @@
   --filterbar-h: 48px;
   --statusbar-h: 26px;
   --c-unread: #5B9DFF;
+  --c-star: #D4A017;
+  --c-bookmark-border: #64d2ff;
+  --c-bookmark-bg: rgba(100, 210, 255, 0.08);
 
   --c-alert-bg: #FFEBE9; --c-alert-text: #CC2D26; --c-alert-border: #FFC9C5;
   --c-error-bg: #FCEBEB; --c-error-text: #A32D2D; --c-error-border: #F7C1C1;
