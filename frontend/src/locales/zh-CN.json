@@ -67,7 +67,9 @@
     "noMatchingFiles": "没有匹配的文件",
     "noFilesFound": "未找到文件",
     "openFiles": "打开文件",
-    "copyPath": "复制路径"
+    "copyPath": "复制路径",
+    "showHistory": "显示历史文件",
+    "hideHistory": "隐藏历史文件"
   },
   "selection": {
     "copy": "复制",
