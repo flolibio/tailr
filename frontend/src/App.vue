@@ -32,7 +32,7 @@ const selectedLevels = ref<string[]>([])
 const filterKeywords = ref<string[]>([])
 const showSettings = ref(false)
 const sidebarCollapsed = ref(false)
-const sidebarWidth = ref(220)
+const sidebarWidth = ref(300)
 const refreshKey = ref(0)
 
 const { token, showTokenDialog } = useAuth()
