@@ -3,8 +3,10 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listFiles } from '../services/api'
 import type { FileEntry } from '../services/api'
+import { useHistoricalFilter } from '../composables/useHistoricalFilter'
 
 const { t } = useI18n()
+const { showHistorical, isHistoricalFile, toggle: toggleHistorical } = useHistoricalFilter()
 
 const emit = defineEmits<{
   select: [path: string]
@@ -48,8 +50,30 @@ const dragStartWidth = ref(0)
 
 const filteredTree = computed(() => {
   const q = filterText.value.trim().toLowerCase()
-  if (!q) return tree.value
-  return tree.value
+  const hideHist = !showHistorical.value
+
+  // Apply historical file filter (hide logrotate files unless toggle is on)
+  const baseTree = hideHist
+    ? tree.value
+        .map((node) => {
+          if (node.isDir) {
+            return {
+              ...node,
+              children: node.children.filter(
+                (c) => c.isDir || !isHistoricalFile(c.name) || props.selectedFile === c.path
+              ),
+            }
+          }
+          if (isHistoricalFile(node.name) && props.selectedFile !== node.path) {
+            return null
+          }
+          return node
+        })
+        .filter(Boolean) as TreeNode[]
+    : tree.value
+
+  if (!q) return baseTree
+  return baseTree
     .map((node) => {
       if (node.isDir) {
         const filteredChildren = node.children.filter((c) =>
@@ -207,6 +231,16 @@ onMounted(() => {
         <button v-if="filterText" class="filter-clear" @click="filterText = ''">✕</button>
       </div>
       <div class="sidebar-actions">
+        <button
+          class="icon-btn"
+          :class="{ active: showHistorical }"
+          @click="toggleHistorical"
+          :title="showHistorical ? t('fileBrowser.hideHistory') : t('fileBrowser.showHistory')"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </button>
         <button class="icon-btn" @click="refresh" :title="t('fileBrowser.refresh')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>

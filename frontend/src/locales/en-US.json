@@ -67,7 +67,9 @@
     "noMatchingFiles": "No matching files",
     "noFilesFound": "No files found",
     "openFiles": "Open files",
-    "copyPath": "Copy path"
+    "copyPath": "Copy path",
+    "showHistory": "Show history files",
+    "hideHistory": "Hide history files"
   },
   "selection": {
     "copy": "Copy",

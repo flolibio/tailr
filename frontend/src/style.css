@@ -327,6 +327,12 @@ input[type="range"] {
   color: var(--text);
 }
 
+.icon-btn.active {
+  background: var(--bg-2);
+  color: var(--accent);
+  border-color: var(--border-2);
+}
+
 /* ── Top Bar ── */
 .topbar {
   grid-column: 2;
