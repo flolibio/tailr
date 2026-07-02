@@ -77,7 +77,8 @@
     "hourAgo": "小时前",
     "yesterday": "昨天",
     "daysAgo": "天前",
-    "toggleFavorite": "收藏/取消收藏"
+    "toggleFavorite": "收藏/取消收藏",
+    "emptyDir": "（空）"
   },
   "selection": {
     "copy": "复制",

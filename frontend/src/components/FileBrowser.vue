@@ -12,8 +12,9 @@ const { showHistorical, isHistoricalFile, toggle: toggleHistorical } = useHistor
 const { favoriteFiles, isFavorite, toggle: toggleFavorite } = useFavoriteFiles()
 const { recentFiles, remove: removeRecent } = useRecentFiles()
 
-const favCollapsed = ref(false)
-const recentCollapsed = ref(false)
+const favCollapsed = ref(favoriteFiles.value.length === 0)
+const recentCollapsed = ref(recentFiles.value.length === 0)
+const filesCollapsed = ref(false)
 
 function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts
@@ -256,22 +257,6 @@ onMounted(() => {
         <button v-if="filterText" class="filter-clear" @click="filterText = ''">✕</button>
       </div>
       <div class="sidebar-actions">
-        <button
-          class="icon-btn"
-          :class="{ active: showHistorical }"
-          @click="toggleHistorical"
-          :title="showHistorical ? t('fileBrowser.hideHistory') : t('fileBrowser.showHistory')"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </svg>
-        </button>
-        <button class="icon-btn" @click="refresh" :title="t('fileBrowser.refresh')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
-            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
-          </svg>
-        </button>
         <button class="icon-btn" @click="emit('collapse')" :title="t('fileBrowser.collapse')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>
@@ -280,12 +265,12 @@ onMounted(() => {
       </div>
     </div>
     <div class="nav-scroll">
-      <div v-if="favoriteFiles.length > 0" class="nav-section">
+      <div class="nav-section">
         <div class="section-header" @click="favCollapsed = !favCollapsed">
           <div class="section-chevron" :class="{ collapsed: favCollapsed }">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
-          <span class="section-title">★ {{ t('fileBrowser.favorites') }}</span>
+          <span class="section-title">{{ t('fileBrowser.favorites') }}</span>
         </div>
         <div v-show="!favCollapsed" class="section-body">
           <div
@@ -301,7 +286,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-if="recentFiles.length > 0" class="nav-section">
+      <div class="nav-section">
         <div class="section-header" @click="recentCollapsed = !recentCollapsed">
           <div class="section-chevron" :class="{ collapsed: recentCollapsed }">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -323,7 +308,33 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="file-list" v-if="filteredTree.length > 0">
+      <div class="nav-section">
+        <div class="section-header" @click="filesCollapsed = !filesCollapsed">
+          <div class="section-chevron" :class="{ collapsed: filesCollapsed }">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <span class="section-title">{{ t('fileBrowser.files') }}</span>
+          <div class="section-actions" @click.stop>
+            <button
+              class="section-icon-btn"
+              :class="{ active: showHistorical }"
+              @click="toggleHistorical"
+              :title="showHistorical ? t('fileBrowser.hideHistory') : t('fileBrowser.showHistory')"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </button>
+            <button class="section-icon-btn" @click="refresh" :title="t('fileBrowser.refresh')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div v-show="!filesCollapsed">
+          <div class="file-list" v-if="filteredTree.length > 0">
         <template v-for="node in filteredTree" :key="node.path">
           <div
             class="file-item"
@@ -333,7 +344,7 @@ onMounted(() => {
             }"
             @click="selectFile(node)"
           >
-            <div v-if="!node.isDir" class="file-dot" :class="props.selectedFile === node.path ? 'live' : 'off'"></div>
+            <div v-if="!node.isDir" class="file-icon-spacer"></div>
             <div v-else class="file-dir-icon">
               <svg v-if="node.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
               <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -352,6 +363,7 @@ onMounted(() => {
             </button>
           </div>
           <template v-if="node.isDir && node.expanded">
+            <div v-if="node.children.length === 0" class="file-empty-child">{{ t('fileBrowser.emptyDir') }}</div>
             <div
               v-for="child in node.children"
               :key="child.path"
@@ -362,7 +374,7 @@ onMounted(() => {
               }"
               @click="selectFile(child)"
             >
-              <div v-if="!child.isDir" class="file-dot" :class="props.selectedFile === child.path ? 'live' : 'off'"></div>
+              <div v-if="!child.isDir" class="file-icon-spacer"></div>
               <div v-else class="file-dir-icon">
                 <svg v-if="child.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                 <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -386,6 +398,8 @@ onMounted(() => {
       <div v-else-if="loading" class="file-empty">{{ t('fileBrowser.loading') }}</div>
       <div v-else-if="filterText" class="file-empty">{{ t('fileBrowser.noMatchingFiles') }}</div>
       <div v-else class="file-empty">{{ t('fileBrowser.noFilesFound') }}</div>
+        </div>
+      </div>
     </div>
     <div
       class="resize-handle"
@@ -527,8 +541,42 @@ onMounted(() => {
   color: var(--text-3);
 }
 
+.section-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.section-icon-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s, color .12s, border-color .12s;
+}
+
+.section-icon-btn:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
+.section-icon-btn.active {
+  background: var(--bg-2);
+  color: var(--accent);
+  border-color: var(--border-2);
+}
+
 .section-body {
   padding: 2px 8px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .nav-item {
@@ -676,11 +724,18 @@ onMounted(() => {
   color: var(--c-star, #D4A017);
 }
 
+.file-icon-spacer {
+  width: 18px;
+  flex-shrink: 0;
+}
+
 .file-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 7px;
 }
 
 .file-dot.live {
@@ -726,6 +781,13 @@ onMounted(() => {
   font-size: 14px;
   text-align: center;
   flex: 1;
+}
+
+.file-empty-child {
+  padding: 6px 10px 6px 52px;
+  color: var(--text-3);
+  font-size: 12px;
+  font-style: italic;
 }
 
 .resize-handle {
