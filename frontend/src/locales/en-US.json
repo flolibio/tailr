@@ -77,7 +77,8 @@
     "hourAgo": "hour ago",
     "yesterday": "yesterday",
     "daysAgo": "days ago",
-    "toggleFavorite": "Toggle favorite"
+    "toggleFavorite": "Toggle favorite",
+    "emptyDir": "(empty)"
   },
   "selection": {
     "copy": "Copy",
