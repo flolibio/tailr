@@ -18,6 +18,7 @@ import { useRecentFiles } from './composables/useRecentFiles'
 const { t } = useI18n()
 
 const {
+  tabs,
   activeTabPath,
   activeTab,
   maxLines,
@@ -267,7 +268,7 @@ function handleSettingsUpdate(s: Settings): void {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }" :style="{ '--sidebar-current-width': sidebarWidth + 'px' }">
+  <div class="app-shell" :class="{ 'sidebar-collapsed': sidebarCollapsed, 'no-tabs': tabs.length === 0 }" :style="{ '--sidebar-current-width': sidebarWidth + 'px' }">
     <!-- Sidebar -->
     <aside class="sidebar">
       <FileBrowser
