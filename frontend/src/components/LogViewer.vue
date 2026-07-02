@@ -843,9 +843,9 @@ defineExpose({ scrollToBottom, scrollToLine })
 
 /* In compact mode the actions column reverts to vertical (original look) */
 .log-row.mode-compact .col-actions {
-  flex-direction: column;
+  flex-direction: row;
   align-self: flex-start;
-  margin-top: 5px;
+  margin-top: 2px;
 }
 
 /* ── Long Line ── */
