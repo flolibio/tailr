@@ -26,13 +26,17 @@ const recentFiles = ref<RecentFile[]>(loadFromStorage())
 
 export function useRecentFiles() {
   function recordOpen(path: string): void {
-    const filtered = recentFiles.value.filter((f) => f.path !== path)
-    filtered.unshift({ path, openedAt: Date.now() })
-    if (filtered.length > MAX_RECENT) {
-      filtered.splice(MAX_RECENT)
+    const existing = recentFiles.value.find((f) => f.path === path)
+    if (existing) {
+      existing.openedAt = Date.now()
+      saveToStorage(recentFiles.value)
+      return
     }
-    recentFiles.value = filtered
-    saveToStorage(filtered)
+    recentFiles.value = [{ path, openedAt: Date.now() }, ...recentFiles.value]
+    if (recentFiles.value.length > MAX_RECENT) {
+      recentFiles.value = recentFiles.value.slice(0, MAX_RECENT)
+    }
+    saveToStorage(recentFiles.value)
   }
 
   function remove(path: string): void {
