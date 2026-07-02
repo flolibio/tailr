@@ -260,6 +260,10 @@ input[type="range"] {
   grid-template-columns: 40px 1fr;
 }
 
+.app-shell.no-tabs {
+  grid-template-rows: var(--topbar-h) 0px var(--filterbar-h) 1fr var(--statusbar-h);
+}
+
 .sidebar-reopen {
   width: 32px;
   height: 32px;
