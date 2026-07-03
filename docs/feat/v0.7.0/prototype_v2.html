@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Viewer - 改进版原型</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --bg-hover: #1c2128;
+            --border-color: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #484f58;
+            --error: #f85149;
+            --error-bg: rgba(248, 81, 73, 0.08);
+            --error-border: rgba(248, 81, 73, 0.3);
+            --warn: #d29922;
+            --warn-bg: rgba(210, 153, 34, 0.08);
+            --warn-border: rgba(210, 153, 34, 0.3);
+            --info: #58a6ff;
+            --info-bg: rgba(88, 166, 255, 0.08);
+            --info-border: rgba(88, 166, 255, 0.3);
+            --debug: #8b949e;
+            --debug-bg: rgba(139, 148, 158, 0.05);
+            --debug-border: rgba(139, 148, 158, 0.2);
+            --unk: #a371f7;
+            --unk-bg: rgba(163, 113, 247, 0.08);
+            --unk-border: rgba(163, 113, 247, 0.3);
+            --accent: #2f81f7;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            height: 48px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .header-icon {
+            width: 20px;
+            height: 20px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .header-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-secondary);
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .header-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .header-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 220px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-search {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .search-box {
+            width: 100%;
+            height: 32px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0 10px 0 32px;
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.15s;
+            position: relative;
+        }
+
+        .search-box:focus {
+            border-color: var(--accent);
+        }
+
+        .search-wrapper {
+            position: relative;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .sidebar-section {
+            margin-bottom: 4px;
+        }
+
+        .sidebar-section-title {
+            padding: 8px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .sidebar-section-title:hover {
+            color: var(--text-secondary);
+        }
+
+        .sidebar-item {
+            padding: 6px 16px 6px 32px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.1s;
+            position: relative;
+        }
+
+        .sidebar-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .sidebar-item.active {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .sidebar-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--accent);
+        }
+
+        .sidebar-item-icon {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        .sidebar-item-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+
+        .sidebar-item-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .sidebar-item .star {
+            color: #e3b341;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .sidebar-item:hover .star,
+        .sidebar-item.active .star {
+            opacity: 1;
+        }
+
+        .sidebar-item .star.filled {
+            opacity: 1;
+        }
+
+        /* Log Area */
+        .log-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Filter Bar */
+        .filter-bar {
+            height: 48px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .log-search {
+            flex: 1;
+            max-width: 400px;
+            position: relative;
+        }
+
+        .log-search input {
+            width: 100%;
+            height: 32px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0 10px 0 32px;
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .log-search input:focus {
+            border-color: var(--accent);
+        }
+
+        .log-search .search-icon {
+            left: 10px;
+        }
+
+        .level-filters {
+            display: flex;
+            gap: 6px;
+        }
+
+        .level-pill {
+            height: 28px;
+            padding: 0 12px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .level-pill:hover {
+            border-color: var(--text-secondary);
+            color: var(--text-primary);
+        }
+
+        .level-pill.active {
+            font-weight: 600;
+        }
+
+        .level-pill.error.active {
+            background: var(--error-bg);
+            border-color: var(--error-border);
+            color: var(--error);
+        }
+
+        .level-pill.warn.active {
+            background: var(--warn-bg);
+            border-color: var(--warn-border);
+            color: var(--warn);
+        }
+
+        .level-pill.info.active {
+            background: var(--info-bg);
+            border-color: var(--info-border);
+            color: var(--info);
+        }
+
+        .level-pill.debug.active {
+            background: var(--debug-bg);
+            border-color: var(--debug-border);
+            color: var(--debug);
+        }
+
+        .level-count {
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            opacity: 0.8;
+        }
+
+        .filter-divider {
+            width: 1px;
+            height: 20px;
+            background: var(--border-color);
+            margin: 0 4px;
+        }
+
+        .filter-options {
+            display: flex;
+            gap: 4px;
+        }
+
+        .filter-option {
+            height: 28px;
+            padding: 0 10px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .filter-option:hover {
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+        }
+
+        .filter-option.active {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        /* Log List */
+        .log-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .log-list::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .log-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .log-list::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 5px;
+            border: 2px solid var(--bg-primary);
+        }
+
+        .log-list::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Time Group */
+        .time-group {
+            margin-bottom: 4px;
+        }
+
+        .time-group-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            color: var(--text-muted);
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+            position: sticky;
+            top: 0;
+            background: var(--bg-primary);
+            z-index: 10;
+            border-bottom: 1px solid transparent;
+        }
+
+        .time-group-header:hover {
+            color: var(--text-secondary);
+        }
+
+        .time-group-header.sticky {
+            border-bottom-color: var(--border-color);
+        }
+
+        .time-group-header .toggle-icon {
+            font-size: 10px;
+            transition: transform 0.15s;
+            width: 14px;
+            text-align: center;
+        }
+
+        .time-group.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .time-group.collapsed .log-entries {
+            display: none;
+        }
+
+        .time-group-date {
+            color: var(--text-muted);
+        }
+
+        .time-group-time {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .time-group-count {
+            margin-left: auto;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Log Entry */
+        .log-entry {
+            display: flex;
+            align-items: flex-start;
+            padding: 3px 16px;
+            gap: 12px;
+            cursor: pointer;
+            transition: background 0.1s;
+            border-left: 2px solid transparent;
+        }
+
+        .log-entry:hover {
+            background: var(--bg-hover);
+        }
+
+        .log-entry.selected {
+            background: var(--bg-tertiary);
+        }
+
+        .log-entry.error {
+            border-left-color: var(--error);
+            background: var(--error-bg);
+        }
+
+        .log-entry.error:hover {
+            background: rgba(248, 81, 73, 0.12);
+        }
+
+        .log-entry.warn {
+            border-left-color: var(--warn);
+            background: var(--warn-bg);
+        }
+
+        .log-entry.warn:hover {
+            background: rgba(210, 153, 34, 0.12);
+        }
+
+        .log-entry.info {
+            border-left-color: var(--info);
+            background: var(--info-bg);
+        }
+
+        .log-entry.info:hover {
+            background: rgba(88, 166, 255, 0.12);
+        }
+
+        .log-entry.debug {
+            border-left-color: var(--debug);
+            background: var(--debug-bg);
+        }
+
+        .log-entry.unk {
+            border-left-color: var(--unk);
+            background: var(--unk-bg);
+        }
+
+        .log-timestamp {
+            color: var(--text-muted);
+            font-size: 12px;
+            white-space: nowrap;
+            width: 70px;
+            flex-shrink: 0;
+            text-align: right;
+            padding-top: 1px;
+        }
+
+        .log-timestamp .ms {
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+
+        .log-level-badge {
+            width: 44px;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 1px 0;
+            border-radius: 3px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .log-level-badge.error {
+            color: var(--error);
+            background: rgba(248, 81, 73, 0.15);
+        }
+
+        .log-level-badge.warn {
+            color: var(--warn);
+            background: rgba(210, 153, 34, 0.15);
+        }
+
+        .log-level-badge.info {
+            color: var(--info);
+            background: rgba(88, 166, 255, 0.15);
+        }
+
+        .log-level-badge.debug {
+            color: var(--debug);
+            background: rgba(139, 148, 158, 0.15);
+        }
+
+        .log-level-badge.unk {
+            color: var(--unk);
+            background: rgba(163, 113, 247, 0.15);
+        }
+
+        .log-message {
+            color: var(--text-primary);
+            flex: 1;
+            word-break: break-all;
+            line-height: 1.6;
+        }
+
+        .log-message .highlight {
+            background: rgba(210, 153, 34, 0.3);
+            border-radius: 2px;
+            padding: 0 2px;
+        }
+
+        /* Collapsed duplicate group */
+        .log-dup-group {
+            display: flex;
+            align-items: center;
+            padding: 3px 16px;
+            gap: 12px;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .log-dup-group:hover {
+            color: var(--text-secondary);
+        }
+
+        .log-dup-count {
+            background: var(--bg-tertiary);
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            height: 28px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+            gap: 16px;
+        }
+
+        .status-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3fb950;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .follow-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 10px;
+            border-radius: 4px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .follow-btn:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .follow-btn.active {
+            background: rgba(47, 129, 247, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Scroll to top indicator */
+        .scroll-indicator {
+            position: fixed;
+            bottom: 40px;
+            right: 24px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.2s;
+            transform: translateY(10px);
+            z-index: 100;
+        }
+
+        .scroll-indicator.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .scroll-indicator:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .sidebar {
+                width: 180px;
+            }
+        }
+    </style>
+<base target="_blank">
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <svg class="header-icon" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.56 4.5h-2.19a.25.25 0 0 1-.25-.25V4.31Zm-.22-3.19L9.53 3.72a.25.25 0 0 0-.07.13H11.5Z"/>
+        </svg>
+        <span class="header-path">/Users/wuguofeng/Downloads/51talk/logs/demo.log</span>
+        <div class="header-actions">
+            <button class="header-btn" title="设置">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.612 8.053a6.305 6.305 0 0 0 .671 2.458l-.727.727a1.001 1.001 0 0 0 0 1.414l.707.707a1.001 1.001 0 0 0 1.414 0l.727-.727a6.305 6.305 0 0 0 2.458.671l.096.883a1.001 1.001 0 0 0 1.004.904h1a1.001 1.001 0 0 0 1.004-.904l.096-.883a6.305 6.305 0 0 0 2.458-.671l.727.727a1.001 1.001 0 0 0 1.414 0l.707-.707a1.001 1.001 0 0 0 0-1.414l-.727-.727a6.305 6.305 0 0 0 .671-2.458l.883-.096A1.001 1.001 0 0 0 15 7.001v-1a1.001 1.001 0 0 0-.904-1.004l-.883-.096a6.305 6.305 0 0 0-.671-2.458l.727-.727a1.001 1.001 0 0 0 0-1.414l-.707-.707a1.001 1.001 0 0 0-1.414 0l-.727.727a6.305 6.305 0 0 0-2.458-.671l-.096-.883A1.001 1.001 0 0 0 8.999 0h-1a1.001 1.001 0 0 0-1.004.904l-.096.883a6.305 6.305 0 0 0-2.458.671l-.727-.727a1.001 1.001 0 0 0-1.414 0l-.707.707a1.001 1.001 0 0 0 0 1.414l.727.727a6.305 6.305 0 0 0-.671 2.458l-.883.096A1.001 1.001 0 0 0 1 6.001v1a1.001 1.001 0 0 0 .904 1.004l.883.096ZM8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-search">
+                <div class="search-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-box" placeholder="Filter files...">
+                </div>
+            </div>
+            <div class="sidebar-content">
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">
+                        <span>📌 收藏</span>
+                        <span style="font-size: 10px;">▼</span>
+                    </div>
+                    <div class="sidebar-item active">
+                        <span class="sidebar-item-icon">📄</span>
+                        <span class="sidebar-item-name">demo.log</span>
+                        <span class="star filled">★</span>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">
+                        <span>🕐 最近</span>
+                        <span style="font-size: 10px;">▼</span>
+                    </div>
+                    <div class="sidebar-item">
+                        <span class="sidebar-item-icon">📄</span>
+                        <span class="sidebar-item-name">demo.log</span>
+                        <span class="sidebar-item-meta">刚刚</span>
+                    </div>
+                    <div class="sidebar-item">
+                        <span class="sidebar-item-icon">📄</span>
+                        <span class="sidebar-item-name">demo.20260702.log</span>
+                        <span class="sidebar-item-meta">昨天</span>
+                    </div>
+                    <div class="sidebar-item">
+                        <span class="sidebar-item-icon">📄</span>
+                        <span class="sidebar-item-name">demo.20260701.log</span>
+                        <span class="sidebar-item-meta">57分钟前</span>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">
+                        <span>📁 文件</span>
+                        <span style="font-size: 10px;">▼</span>
+                    </div>
+                    <div class="sidebar-item" style="padding-left: 16px;">
+                        <span style="font-size: 10px;">▶</span>
+                        <span class="sidebar-item-name">service</span>
+                    </div>
+                    <div class="sidebar-item active">
+                        <span class="sidebar-item-icon">📄</span>
+                        <span class="sidebar-item-name">demo.log</span>
+                        <span class="sidebar-item-meta" title="1.9 GB">1.9G</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Area -->
+        <div class="log-container">
+            <!-- Filter Bar -->
+            <div class="filter-bar">
+                <div class="log-search">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" placeholder="Filter logs (Enter to add)...">
+                </div>
+                <div class="level-filters">
+                    <button class="level-pill error active">
+                        <span>●</span>
+                        <span>ERROR</span>
+                        <span class="level-count">128</span>
+                    </button>
+                    <button class="level-pill warn active">
+                        <span>●</span>
+                        <span>WARN</span>
+                        <span class="level-count">12</span>
+                    </button>
+                    <button class="level-pill info active">
+                        <span>●</span>
+                        <span>INFO</span>
+                        <span class="level-count">45</span>
+                    </button>
+                    <button class="level-pill debug">
+                        <span>●</span>
+                        <span>DEBUG</span>
+                    </button>
+                </div>
+                <div class="filter-divider"></div>
+                <div class="filter-options">
+                    <button class="filter-option active">精确匹配</button>
+                    <button class="filter-option">正则</button>
+                    <button class="filter-option">区分大小写</button>
+                </div>
+            </div>
+
+            <!-- Log List -->
+            <div class="log-list" id="logList">
+                <!-- Time Group 1 -->
+                <div class="time-group">
+                    <div class="time-group-header" onclick="toggleGroup(this)">
+                        <span class="toggle-icon">▼</span>
+                        <span class="time-group-time">23:20:10</span>
+                        <span class="time-group-date">· 2026-06-28</span>
+                        <span class="time-group-count">24 条</span>
+                    </div>
+                    <div class="log-entries">
+                        <div class="log-entry debug">
+                            <span class="log-timestamp">23:20:10<span class="ms">.000</span></span>
+                            <span class="log-level-badge debug">DEBUG</span>
+                            <span class="log-message">try debug</span>
+                        </div>
+                        <div class="log-entry error">
+                            <span class="log-timestamp">23:20:10<span class="ms">.000</span></span>
+                            <span class="log-level-badge error">ERROR</span>
+                            <span class="log-message">try error</span>
+                        </div>
+                        <div class="log-entry error">
+                            <span class="log-timestamp">23:20:10<span class="ms">.000</span></span>
+                            <span class="log-level-badge error">ERROR</span>
+                            <span class="log-message">try error</span>
+                        </div>
+                        <div class="log-entry error">
+                            <span class="log-timestamp">23:20:10<span class="ms">.000</span></span>
+                            <span class="log-level-badge error">ERROR</span>
+                            <span class="log-message">try error</span>
+                        </div>
+                        <div class="log-dup-group" onclick="expandDups(this)">
+                            <span style="width: 70px; text-align: right;"></span>
+                            <span style="width: 44px;"></span>
+                            <span class="log-dup-count">+ 20 条相同日志</span>
+                            <span style="margin-left: 8px; font-size: 10px;">点击展开</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Time Group 2 -->
+                <div class="time-group">
+                    <div class="time-group-header" onclick="toggleGroup(this)">
+                        <span class="toggle-icon">▼</span>
+                        <span class="time-group-time">16:14:31</span>
+                        <span class="time-group-date">· 2026-06-29</span>
+                        <span class="time-group-count">8 条</span>
+                    </div>
+                    <div class="log-entries">
+                        <div class="log-entry info">
+                            <span class="log-timestamp">16:14:31<span class="ms">.000</span></span>
+                            <span class="log-level-badge info">INFO</span>
+                            <span class="log-message">try info</span>
+                        </div>
+                        <div class="log-entry info">
+                            <span class="log-timestamp">16:14:31<span class="ms">.000</span></span>
+                            <span class="log-level-badge info">INFO</span>
+                            <span class="log-message">try info</span>
+                        </div>
+                        <div class="log-entry info">
+                            <span class="log-timestamp">16:14:31<span class="ms">.000</span></span>
+                            <span class="log-level-badge info">INFO</span>
+                            <span class="log-message">try info</span>
+                        </div>
+                        <div class="log-entry info">
+                            <span class="log-timestamp">16:14:31<span class="ms">.000</span></span>
+                            <span class="log-level-badge info">INFO</span>
+                            <span class="log-message">try info</span>
+                        </div>
+                        <div class="log-dup-group" onclick="expandDups(this)">
+                            <span style="width: 70px; text-align: right;"></span>
+                            <span style="width: 44px;"></span>
+                            <span class="log-dup-count">+ 4 条相同日志</span>
+                            <span style="margin-left: 8px; font-size: 10px;">点击展开</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Time Group 3 -->
+                <div class="time-group">
+                    <div class="time-group-header" onclick="toggleGroup(this)">
+                        <span class="toggle-icon">▼</span>
+                        <span class="time-group-time">17:52:41</span>
+                        <span class="time-group-date">· 2026-06-29</span>
+                        <span class="time-group-count">1 条</span>
+                    </div>
+                    <div class="log-entries">
+                        <div class="log-entry unk">
+                            <span class="log-timestamp">17:52:41<span class="ms">.000</span></span>
+                            <span class="log-level-badge unk">UNK</span>
+                            <span class="log-message">测试日志</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Time Group 4 -->
+                <div class="time-group">
+                    <div class="time-group-header" onclick="toggleGroup(this)">
+                        <span class="toggle-icon">▼</span>
+                        <span class="time-group-time">16:14:31</span>
+                        <span class="time-group-date">· 2026-06-29</span>
+                        <span class="time-group-count">2 条</span>
+                    </div>
+                    <div class="log-entries">
+                        <div class="log-entry info">
+                            <span class="log-timestamp">16:14:31<span class="ms">.000</span></span>
+                            <span class="log-level-badge info">INFO</span>
+                            <span class="log-message">try info</span>
+                        </div>
+                        <div class="log-entry info">
+                            <span class="log-timestamp">16:14:31<span class="ms">.000</span></span>
+                            <span class="log-level-badge info">INFO</span>
+                            <span class="log-message" style="color: var(--text-muted);">try info <span style="color: var(--error);">(疑似重复)</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- More entries for scroll demo -->
+                <div class="time-group">
+                    <div class="time-group-header" onclick="toggleGroup(this)">
+                        <span class="toggle-icon">▼</span>
+                        <span class="time-group-time">09:23:15</span>
+                        <span class="time-group-date">· 2026-06-29</span>
+                        <span class="time-group-count">156 条</span>
+                    </div>
+                    <div class="log-entries">
+                        <div class="log-entry error">
+                            <span class="log-timestamp">09:23:15<span class="ms">.042</span></span>
+                            <span class="log-level-badge error">ERROR</span>
+                            <span class="log-message">Connection timeout after 30000ms <span style="color: var(--text-muted);">— api.gateway.service:443</span></span>
+                        </div>
+                        <div class="log-entry warn">
+                            <span class="log-timestamp">09:23:15<span class="ms">.043</span></span>
+                            <span class="log-level-badge warn">WARN</span>
+                            <span class="log-message">Retry attempt 3/5 failed, backing off for 2000ms</span>
+                        </div>
+                        <div class="log-entry info">
+                            <span class="log-timestamp">09:23:15<span class="ms">.045</span></span>
+                            <span class="log-level-badge info">INFO</span>
+                            <span class="log-message">User login successful <span style="color: var(--text-muted);">— user_id=89234, ip=192.168.1.105</span></span>
+                        </div>
+                        <div class="log-dup-group" onclick="expandDups(this)">
+                            <span style="width: 70px; text-align: right;"></span>
+                            <span style="width: 44px;"></span>
+                            <span class="log-dup-count">+ 153 条日志</span>
+                            <span style="margin-left: 8px; font-size: 10px;">点击展开</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <div class="status-bar-left">
+                    <div class="status-item">
+                        <span class="status-indicator"></span>
+                        <span>demo.log</span>
+                    </div>
+                    <div class="status-item">
+                        <span style="color: var(--text-muted);">200 / 8,609,015 行</span>
+                    </div>
+                    <div class="status-item">
+                        <span style="color: var(--text-muted);">1.9 GB</span>
+                    </div>
+                </div>
+                <button class="follow-btn active" id="followBtn" onclick="toggleFollow()">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.612 8.053a6.305 6.305 0 0 0 .671 2.458l-.727.727a1.001 1.001 0 0 0 0 1.414l.707.707a1.001 1.001 0 0 0 1.414 0l.727-.727a6.305 6.305 0 0 0 2.458.671l.096.883a1.001 1.001 0 0 0 1.004.904h1a1.001 1.001 0 0 0 1.004-.904l.096-.883a6.305 6.305 0 0 0 2.458-.671l.727.727a1.001 1.001 0 0 0 1.414 0l.707-.707a1.001 1.001 0 0 0 0-1.414l-.727-.727a6.305 6.305 0 0 0 .671-2.458l.883-.096A1.001 1.001 0 0 0 15 7.001v-1a1.001 1.001 0 0 0-.904-1.004l-.883-.096a6.305 6.305 0 0 0-.671-2.458l.727-.727a1.001 1.001 0 0 0 0-1.414l-.707-.707a1.001 1.001 0 0 0-1.414 0l-.727.727a6.305 6.305 0 0 0-2.458-.671l-.096-.883A1.001 1.001 0 0 0 8.999 0h-1a1.001 1.001 0 0 0-1.004.904l-.096.883a6.305 6.305 0 0 0-2.458.671l-.727-.727a1.001 1.001 0 0 0-1.414 0l-.707.707a1.001 1.001 0 0 0 0 1.414l.727.727a6.305 6.305 0 0 0-.671 2.458l-.883.096A1.001 1.001 0 0 0 1 6.001v1a1.001 1.001 0 0 0 .904 1.004l.883.096ZM8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/>
+                    </svg>
+                    <span>Follow</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scroll to top -->
+    <div class="scroll-indicator" id="scrollTop" onclick="scrollToTop()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M3.204 11h9.592L8 5.519 3.204 11zm-.753-.659 4.796-5.48a1 1 0 0 1 1.506 0l4.796 5.48c.566.647.106 1.659-.753 1.659H3.204a1 1 0 0 1-.753-1.659z"/>
+        </svg>
+    </div>
+
+    <script>
+        // Toggle time group collapse
+        function toggleGroup(header) {
+            const group = header.parentElement;
+            group.classList.toggle('collapsed');
+        }
+
+        // Toggle follow button
+        function toggleFollow() {
+            const btn = document.getElementById('followBtn');
+            btn.classList.toggle('active');
+        }
+
+        // Expand duplicate group
+        function expandDups(el) {
+            el.style.display = 'none';
+            // In real app, this would load the hidden entries
+        }
+
+        // Scroll to top indicator
+        const logList = document.getElementById('logList');
+        const scrollTop = document.getElementById('scrollTop');
+
+        logList.addEventListener('scroll', () => {
+            if (logList.scrollTop > 300) {
+                scrollTop.classList.add('visible');
+            } else {
+                scrollTop.classList.remove('visible');
+            }
+        });
+
+        function scrollToTop() {
+            logList.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Level filter toggle
+        document.querySelectorAll('.level-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                pill.classList.toggle('active');
+            });
+        });
+
+        // Log entry selection
+        document.querySelectorAll('.log-entry').forEach(entry => {
+            entry.addEventListener('click', () => {
+                document.querySelectorAll('.log-entry').forEach(e => e.classList.remove('selected'));
+                entry.classList.add('selected');
+            });
+        });
+    </script>
+</body>
+</html>
