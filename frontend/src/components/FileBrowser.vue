@@ -257,50 +257,52 @@ onMounted(() => {
       </div>
     </div>
     <div class="nav-scroll">
-      <div class="nav-section">
-        <div class="section-header" @click="favCollapsed = !favCollapsed">
-          <div class="section-chevron" :class="{ collapsed: favCollapsed }">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <div class="quick-access">
+        <div class="nav-section">
+          <div class="section-header" @click="favCollapsed = !favCollapsed">
+            <div class="section-chevron" :class="{ collapsed: favCollapsed }">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <span class="section-title">{{ t('fileBrowser.favorites') }}</span>
           </div>
-          <span class="section-title">{{ t('fileBrowser.favorites') }}</span>
+          <div v-show="!favCollapsed" class="section-body">
+            <div
+              v-for="fav in favoriteFiles"
+              :key="fav.path"
+              class="nav-item"
+              :title="fav.path"
+              @click="emit('select', fav.path)"
+            >
+              <span class="nav-text">{{ basename(fav.path) }}</span>
+              <button class="nav-remove" @click.stop="toggleFavorite(fav.path)">✕</button>
+            </div>
+          </div>
         </div>
-        <div v-show="!favCollapsed" class="section-body">
-          <div
-            v-for="fav in favoriteFiles"
-            :key="fav.path"
-            class="nav-item"
-            :title="fav.path"
-            @click="emit('select', fav.path)"
-          >
-            <span class="nav-text">{{ basename(fav.path) }}</span>
-            <button class="nav-remove" @click.stop="toggleFavorite(fav.path)">✕</button>
+
+        <div class="nav-section">
+          <div class="section-header" @click="recentCollapsed = !recentCollapsed">
+            <div class="section-chevron" :class="{ collapsed: recentCollapsed }">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <span class="section-title">{{ t('fileBrowser.recent') }}</span>
+          </div>
+          <div v-show="!recentCollapsed" class="section-body">
+            <div
+              v-for="rf in recentFiles"
+              :key="rf.path"
+              class="nav-item"
+              :title="rf.path"
+              @click="emit('select', rf.path)"
+            >
+              <span class="nav-text">{{ basename(rf.path) }}</span>
+              <span class="nav-time">{{ formatRelativeTime(rf.openedAt) }}</span>
+              <button class="nav-remove" @click.stop="removeRecent(rf.path)">✕</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="nav-section">
-        <div class="section-header" @click="recentCollapsed = !recentCollapsed">
-          <div class="section-chevron" :class="{ collapsed: recentCollapsed }">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <span class="section-title">{{ t('fileBrowser.recent') }}</span>
-        </div>
-        <div v-show="!recentCollapsed" class="section-body">
-          <div
-            v-for="rf in recentFiles"
-            :key="rf.path"
-            class="nav-item"
-            :title="rf.path"
-            @click="emit('select', rf.path)"
-          >
-            <span class="nav-text">{{ basename(rf.path) }}</span>
-            <span class="nav-time">{{ formatRelativeTime(rf.openedAt) }}</span>
-            <button class="nav-remove" @click.stop="removeRecent(rf.path)">✕</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="nav-section">
+      <div class="nav-section files-section">
         <div class="section-header" @click="filesCollapsed = !filesCollapsed">
           <div class="section-chevron" :class="{ collapsed: filesCollapsed }">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -325,7 +327,7 @@ onMounted(() => {
             </button>
           </div>
         </div>
-        <div v-show="!filesCollapsed">
+        <div v-show="!filesCollapsed" class="files-body">
           <div class="file-list" v-if="filteredTree.length > 0">
         <template v-for="node in filteredTree" :key="node.path">
           <div
@@ -336,10 +338,13 @@ onMounted(() => {
             }"
             @click="selectFile(node)"
           >
-            <div v-if="!node.isDir" class="file-icon-spacer"></div>
+            <div v-if="!node.isDir" class="file-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
             <div v-else class="file-dir-icon">
-              <svg v-if="node.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              <svg v-if="node.expanded" class="section-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              <svg v-else class="section-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              <svg class="folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
             </div>
             <div class="file-meta">
               <div class="file-name">{{ node.name }}</div>
@@ -366,10 +371,13 @@ onMounted(() => {
               }"
               @click="selectFile(child)"
             >
-              <div v-if="!child.isDir" class="file-icon-spacer"></div>
+              <div v-if="!child.isDir" class="file-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
               <div v-else class="file-dir-icon">
-                <svg v-if="child.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg v-if="child.expanded" class="section-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg v-else class="section-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg class="folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
               </div>
               <div class="file-meta">
                 <div class="file-name">{{ child.name }}</div>
@@ -437,20 +445,20 @@ onMounted(() => {
 
 .filter-input {
   width: 100%;
-  height: 36px;
+  height: 34px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm, 6px);
   background: var(--bg-2);
   font-family: var(--font-sans);
   font-size: 12px;
   color: var(--text);
   padding: 0 26px 0 28px;
   outline: none;
-  transition: border-color .15s;
+  transition: border-color .15s ease, background .15s ease;
 }
 
 .filter-input:focus {
-  border-color: var(--border-2);
+  border-color: var(--accent, var(--border-2));
   background: var(--bg);
 }
 
@@ -486,10 +494,66 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+/* ── Scroll container: quick-access card on top, Files tree fills the rest ── */
 .nav-scroll {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 8px;
+}
+
+/* Recessed card groups Favorites + Recent so they read as one secondary
+   cluster, capped so they can never crowd out the Files tree below. */
+.quick-access {
+  flex-shrink: 0;
+  max-height: 44%;
+  overflow-y: auto;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+}
+
+.quick-access .nav-section {
+  padding: 2px 0;
+}
+
+.quick-access .nav-section + .nav-section {
+  border-top: 1px solid var(--border);
+}
+
+/* Files: the primary browse surface — no card, takes all remaining height */
+.files-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.files-section .section-header {
+  flex-shrink: 0;
+}
+
+.files-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.files-body .file-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 6px;
+}
+
+.files-body .file-empty {
+  flex: 1;
 }
 
 .nav-section {
@@ -500,14 +564,14 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 12px;
+  padding: 7px 10px;
   cursor: pointer;
   user-select: none;
-  transition: background .1s;
+  transition: background .1s ease;
 }
 
 .section-header:hover {
-  background: var(--bg-2);
+  background: var(--bg-3);
 }
 
 .section-chevron {
@@ -518,7 +582,7 @@ onMounted(() => {
   justify-content: center;
   color: var(--text-3);
   flex-shrink: 0;
-  transition: transform .15s;
+  transition: transform .15s ease;
 }
 
 .section-chevron.collapsed {
@@ -526,9 +590,9 @@ onMounted(() => {
 }
 
 .section-title {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--text-3);
 }
@@ -543,7 +607,7 @@ onMounted(() => {
   width: 24px;
   height: 24px;
   border: 1px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-sm, 6px);
   background: transparent;
   color: var(--text-3);
   cursor: pointer;
@@ -551,7 +615,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: background .12s, color .12s, border-color .12s;
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
 }
 
 .section-icon-btn:hover {
@@ -560,30 +624,30 @@ onMounted(() => {
 }
 
 .section-icon-btn.active {
-  background: var(--bg-2);
+  background: var(--accent-light, var(--bg-2));
   color: var(--accent);
-  border-color: var(--border-2);
+  border-color: var(--accent);
 }
 
 .section-body {
-  padding: 2px 8px;
-  max-height: 200px;
+  padding: 2px 6px;
+  max-height: 160px;
   overflow-y: auto;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 10px;
-  border-radius: 10px;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius, 8px);
   cursor: pointer;
-  transition: background .1s;
+  transition: background .1s ease;
   user-select: none;
 }
 
 .nav-item:hover {
-  background: var(--bg-2);
+  background: var(--bg-3);
 }
 
 .nav-item:hover .nav-remove {
@@ -593,7 +657,7 @@ onMounted(() => {
 .nav-text {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
@@ -601,7 +665,7 @@ onMounted(() => {
 }
 
 .nav-time {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-3);
   flex-shrink: 0;
 }
@@ -619,47 +683,71 @@ onMounted(() => {
   padding: 0;
   border-radius: 4px;
   opacity: 0;
-  transition: opacity .15s, color .12s, background .12s;
+  transition: opacity .15s ease, color .12s ease, background .12s ease;
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
 }
 
 .nav-remove:hover {
-  background: var(--bg-3);
+  background: var(--border-2);
   color: var(--text);
 }
 
 .file-list {
-  padding: 8px;
+  padding: 4px 6px;
 }
 
 .file-item {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px 10px;
-  border-radius: 10px;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius, 8px);
   cursor: pointer;
-  transition: background .1s;
+  transition: background .1s ease, box-shadow .1s ease;
   user-select: none;
+  position: relative;
 }
 
 .file-item:hover {
   background: var(--bg-2);
 }
 
+/* Selected must read differently from hover — same background as hover
+   made them indistinguishable before. Accent tint + a left rule fixes that. */
 .file-item.is-selected {
-  background: var(--bg-2);
+  background: var(--accent-light, var(--bg-2));
+}
+
+.file-item.is-selected:hover {
+  background: var(--accent-light, var(--bg-2));
 }
 
 .file-item.is-selected .file-name {
-  color: var(--text);
+  color: var(--accent);
   font-weight: 500;
+}
+
+.file-item.is-selected .file-size {
+  color: var(--accent);
+  opacity: 0.75;
 }
 
 .file-item.child {
   padding-left: 24px;
+  position: relative;
+}
+
+/* Indent guide: a hairline that ties a child row back to its parent folder */
+.file-item.child::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
 }
 
 .file-item:hover .copy-path-btn,
@@ -678,14 +766,14 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm, 6px);
   opacity: 0;
-  transition: opacity .15s, color .12s, background .12s;
+  transition: opacity .15s ease, color .12s ease, background .12s ease;
   flex-shrink: 0;
 }
 
 .copy-path-btn:hover {
-  background: var(--bg-3);
+  background: var(--border-2);
   color: var(--text);
 }
 
@@ -700,14 +788,14 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm, 6px);
   opacity: 0;
-  transition: opacity .15s, color .12s, background .12s;
+  transition: opacity .15s ease, color .12s ease, background .12s ease;
   flex-shrink: 0;
 }
 
 .star-btn:hover {
-  background: var(--bg-3);
+  background: var(--border-2);
   color: var(--c-star, #D4A017);
 }
 
@@ -716,9 +804,19 @@ onMounted(() => {
   color: var(--c-star, #D4A017);
 }
 
-.file-icon-spacer {
+.file-icon {
   width: 18px;
+  height: 18px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  align-self: flex-start;
+}
+
+.file-item.is-selected .file-icon {
+  color: var(--accent);
 }
 
 .file-dot {
@@ -739,13 +837,27 @@ onMounted(() => {
 }
 
 .file-dir-icon {
-  width: 18px;
+  width: 32px;
   height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   color: var(--text-2);
   flex-shrink: 0;
+}
+
+.folder-icon {
+  flex-shrink: 0;
+  color: var(--text-2);
+}
+
+.file-item.is-selected .folder-icon {
+  color: var(--accent);
+}
+
+.file-item.is-selected .file-dir-icon {
+  color: var(--accent);
 }
 
 .file-meta {
@@ -754,15 +866,16 @@ onMounted(() => {
 }
 
 .file-name {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.4;
 }
 
 .file-size {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-3);
   margin-top: 2px;
 }
@@ -770,7 +883,7 @@ onMounted(() => {
 .file-empty {
   padding: 16px 12px;
   color: var(--text-3);
-  font-size: 14px;
+  font-size: 13px;
   text-align: center;
   flex: 1;
 }
