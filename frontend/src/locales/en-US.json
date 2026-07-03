@@ -12,7 +12,8 @@
     "pauseTail": "Pause following tail",
     "startTail": "Start following tail",
     "openFiles": "Open files",
-    "openSettings": "Open settings"
+    "openSettings": "Open settings",
+    "copied": "Copied"
   },
   "settings": {
     "title": "Settings",

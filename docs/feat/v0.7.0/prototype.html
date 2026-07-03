@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tailr v0.7.0 — UI Prototype</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN TOKENS — cloned from style.css dark theme (lines 42-69)
+   Only prototype-specific tokens added at bottom.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #141414;
+  --bg-2: #1e1e1e;
+  --bg-3: #282828;
+  --text: #eeeeee;
+  --text-2: #e0e0e0;
+  --text-3: #808080;
+  --border: rgba(255,255,255,0.1);
+  --border-2: rgba(255,255,255,0.18);
+  --log-msg: #e0e0e0;
+  --log-ln: #5a5a5a;
+  --log-ts: #7b7b7b;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --sidebar-w: 260px;
+  --settings-w: 320px;
+  --topbar-h: 56px;
+  --globalbar-h: 40px;
+  --filterbar-h: 48px;
+  --statusbar-h: 26px;
+  --c-alert-bg: #3a1412; --c-alert-text: #FF6B63; --c-alert-border: #5c1a17;
+  --c-error-bg: #2e1515; --c-error-text: #F09595; --c-error-border: #501313;
+  --c-warn-bg: #2b1f08;  --c-warn-text: #EF9F27;  --c-warn-border: #412402;
+  --c-info-bg: #091e35;  --c-info-text: #85B7EB;  --c-info-border: #042C53;
+  --c-debug-bg:#152108;  --c-debug-text:#97C459;  --c-debug-border:#173404;
+  --c-trace-bg:#242420;  --c-trace-text:#B4B2A9;  --c-trace-border:#444441;
+  --c-follow-bg: #022C22; --c-follow-text: #34D399; --c-follow-border: #064E3B; --c-follow-hover: #064E3B;
+  --accent: #185FA5;
+  --accent-light: #E6F1FB;
+  --chip-bg: var(--accent-light);
+  --chip-text: var(--accent);
+  --font-sans: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+  --font-size-base: 14px;
+
+  /* ── Prototype-only tokens ── */
+  --tabbar-h: 38px;
+  --c-star: #D4A017;
+  --c-bookmark-border: #64d2ff;
+  --c-bookmark-bg: rgba(100,210,255,0.15);
+  --c-unread: #5B9DFF;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESET — from style.css lines 96-144
+   ═══════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; width: 100%; overflow: hidden; }
+body {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  background: var(--bg-3);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+::selection { background: rgba(88,166,255,0.3); }
+
+/* ═══════════════════════════════════════════════════════════════
+   BUTTON BASE — from style.css lines 147-189
+   ═══════════════════════════════════════════════════════════════ */
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  padding: 0 14px;
+  height: 36px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background .12s, color .12s, border-color .12s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+button:hover { background: var(--bg-2); color: var(--text); }
+button:active { background: var(--bg-3); }
+
+/* ═══════════════════════════════════════════════════════════════
+   APP SHELL — grid from style.css line 244 + App.vue line 260
+   Added tabbar row between topbar and filterbar.
+   ═══════════════════════════════════════════════════════════════ */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--globalbar-h) var(--tabbar-h) var(--filterbar-h) 1fr var(--statusbar-h);
+  height: 100vh;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR — from style.css line 280
+   ═══════════════════════════════════════════════════════════════ */
+.sidebar {
+  grid-row: 1 / 5;
+  grid-column: 1;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+  position: relative;
+}
+
+.sidebar-header {
+  height: var(--globalbar-h);
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ── icon-btn — from style.css line 309 ── */
+.icon-btn {
+  width: 32px; height: 32px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  padding: 0;
+  transition: background .12s, color .12s;
+}
+.icon-btn:hover { background: var(--bg-2); color: var(--text); }
+.icon-btn.active {
+  background: var(--bg-2);
+  color: var(--accent);
+  border-color: var(--border-2);
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ── filter — from FileBrowser.vue scoped lines 304-362 ── */
+.filter-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.filter-icon {
+  position: absolute;
+  left: 8px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.filter-input {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-2);
+
+  font-size: 12px;
+  color: var(--text);
+  padding: 0 26px 0 28px;
+  outline: none;
+  transition: border-color .15s;
+}
+.filter-input:focus { border-color: var(--border-2); background: var(--bg); }
+.filter-input::placeholder { color: var(--text-3); }
+.filter-clear {
+  position: absolute;
+  right: 4px;
+  width: 20px; height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  padding: 0;
+  border-radius: 4px;
+}
+.filter-clear:hover { background: var(--bg-3); color: var(--text); }
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR SECTIONS (Favorites / Recent / File List / Bookmarks)
+   All use main-branch file-item visual language:
+   padding-driven height, 10px radius, bg-2 hover, no tree lines.
+   ═══════════════════════════════════════════════════════════════ */
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+/* ── Collapsible section header ── */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background .1s;
+}
+.section-header:hover { background: var(--bg-2); }
+.section-chevron {
+  width: 14px; height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: transform .15s;
+}
+.section-chevron.collapsed { transform: rotate(-90deg); }
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.section-action {
+  margin-left: auto;
+  width: 24px; height: 24px;
+  border: none; background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+  transition: background .12s, color .12s;
+}
+.section-action:hover { background: var(--bg-3); color: var(--text); }
+.section-action.active { color: var(--accent); }
+.section-body {
+  overflow: hidden;
+  transition: max-height .2s ease, opacity .15s;
+}
+.section-body.collapsed {
+  max-height: 0 !important;
+  opacity: 0;
+}
+
+/* ── Bookmarks section — pinned at sidebar bottom ── */
+.bm-section {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+}
+.bm-section .section-body {
+  overflow-y: auto;
+}
+
+/* ── file-item — from FileBrowser.vue scoped lines 376-427 ── */
+.file-list {
+  padding: 4px 8px;
+}
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .1s;
+  user-select: none;
+}
+.file-item:hover { background: var(--bg-2); }
+.file-item.is-selected { background: var(--bg-2); }
+.file-item.is-selected .file-name { color: var(--text); font-weight: 500; }
+.file-item.child { padding-left: 24px; }
+.file-item:hover .copy-path-btn,
+.file-item:hover .star-btn,
+.file-item:hover .remove-btn { opacity: 1; }
+
+/* ── file-dot — from FileBrowser.vue scoped lines 430-443 ── */
+.file-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.file-dot.live { background: #1D9E75; }
+.file-dot.off { background: var(--border-2); }
+
+/* ── file-dir-icon — chevron arrows, from FileBrowser.vue scoped lines 445-453 ── */
+.file-dir-icon {
+  width: 18px; height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+/* ── file-meta / file-name / file-size — from FileBrowser.vue scoped lines 455-472 ── */
+.file-meta { flex: 1; min-width: 0; }
+.file-name {
+  font-size: 14px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-size {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* ── copy-path-btn — from FileBrowser.vue scoped lines 408-428 ── */
+.copy-path-btn {
+  width: 22px; height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity .15s, color .12s, background .12s;
+  flex-shrink: 0;
+}
+.copy-path-btn:hover { background: var(--bg-3); color: var(--text); }
+
+/* ── Star/favorite button (same pattern as copy-path-btn) ── */
+.star-btn {
+  width: 22px; height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity .15s, color .12s, background .12s;
+  flex-shrink: 0;
+}
+.star-btn:hover { background: var(--bg-3); color: var(--c-star); }
+.star-btn.favorited {
+  opacity: 1;
+  color: var(--c-star);
+}
+.star-btn.favorited:hover { background: var(--bg-3); color: var(--c-star); }
+
+/* ── Generic remove-btn (hover-reveal, for section items) ── */
+.remove-btn {
+  width: 20px; height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity .15s, color .12s, background .12s;
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+.remove-btn:hover { background: var(--bg-3); color: var(--text); }
+
+/* ── Favorite / Recent list item (same style as file-item) ── */
+.fav-item, .recent-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .1s;
+  user-select: none;
+}
+.fav-item:hover, .recent-item:hover { background: var(--bg-2); }
+.fav-item:hover .remove-btn, .recent-item:hover .remove-btn { opacity: 1; }
+.fav-star {
+  flex-shrink: 0;
+  color: var(--c-star);
+}
+.recent-time {
+  font-size: 12px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+/* ── Bookmark item ── */
+.bm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .1s;
+  user-select: none;
+}
+.bm-item:hover { background: var(--bg-2); }
+.bm-item:hover .remove-btn { opacity: 1; }
+.bm-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.bm-preview {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bm-item.stale { opacity: 0.4; }
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB BAR — Feature 1: Multi-file tabs
+   ═══════════════════════════════════════════════════════════════ */
+.tabbar {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--text-3);
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+  transition: color .12s, background .12s;
+  user-select: none;
+  white-space: nowrap;
+  position: relative;
+  min-height: var(--tabbar-h);
+}
+.tab:hover { color: var(--text-2); background: var(--bg-2); }
+.tab.active {
+  color: var(--text);
+  background: var(--bg);
+}
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px 1px 0 0;
+}
+.tab-close {
+  width: 16px; height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 3px;
+  opacity: 0.4;
+  transition: opacity .12s, background .12s, color .12s;
+  font-size: 14px;
+  line-height: 1;
+}
+.tab:hover .tab-close { opacity: 1; }
+.tab-close:hover { background: var(--bg-3); color: var(--text); }
+.tab-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--c-unread);
+  flex-shrink: 0;
+}
+.tab-name {
+  font-weight: 500;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+    GLOBAL BAR — thin app-level bar (sidebar toggle + path + settings)
+    Truly global: no per-file controls live here.
+    ═══════════════════════════════════════════════════════════════ */
+.globalbar {
+  grid-column: 2;
+  grid-row: 1;
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg);
+}
+.globalbar-path {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.globalbar-path.empty { color: var(--text-3); opacity: 0.5; }
+
+/* ── Sidebar collapsed state: sidebar hides, global bar spans full width ── */
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 0 1fr;
+}
+.app-shell.sidebar-collapsed .sidebar { display: none; }
+
+.settings-btn {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s, color .12s;
+  flex-shrink: 0;
+}
+.settings-btn:hover { background: var(--bg-2); color: var(--text); }
+
+/* ═══════════════════════════════════════════════════════════════
+    FILE TOOLBAR SEARCH — keyword input living inside .filterbar
+    (per-file contextual, below the tab strip)
+    ═══════════════════════════════════════════════════════════════ */
+.ft-search {
+  flex: 1;
+  min-width: 240px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.ft-search-icon {
+  position: absolute;
+  left: 8px;
+  color: var(--text-3);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+.ft-search-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px 0 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-2);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+.ft-search-input:focus { border-color: var(--border-2); background: var(--bg); }
+.ft-search-input::placeholder { color: var(--text-3); }
+
+/* ═══════════════════════════════════════════════════════════════
+   FILTER BAR — from style.css lines 436-539
+   ═══════════════════════════════════════════════════════════════ */
+.filterbar {
+  grid-column: 2;
+  grid-row: 3;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  overflow-x: auto;
+}
+.level-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all .12s;
+  user-select: none;
+  flex-shrink: 0;
+}
+.level-tag .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.level-tag.alert { color: var(--c-alert-text); background: var(--c-alert-bg); border-color: var(--c-alert-border); }
+.level-tag.error { color: var(--c-error-text); background: var(--c-error-bg); border-color: var(--c-error-border); }
+.level-tag.warn  { color: var(--c-warn-text);  background: var(--c-warn-bg);  border-color: var(--c-warn-border); }
+.level-tag.info  { color: var(--c-info-text);  background: var(--c-info-bg);  border-color: var(--c-info-border); }
+.level-tag.debug { color: var(--c-debug-text); background: var(--c-debug-bg); border-color: var(--c-debug-border); }
+.level-tag.trace { color: var(--c-trace-text); background: var(--c-trace-bg); border-color: var(--c-trace-border); }
+.level-tag.off { opacity: 0.35; }
+.filter-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════════════════════════
+   LOG BODY — from style.css lines 542-556
+   ═══════════════════════════════════════════════════════════════ */
+.log-body {
+  grid-column: 2;
+  grid-row: 4;
+  overflow: hidden;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.log-content {
+  flex: 1;
+  overflow-y: auto;
+
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* ── Log line ── */
+.log-line {
+  display: flex;
+  padding: 0 16px;
+  position: relative;
+  transition: background .08s;
+  min-height: 26px;
+}
+.log-line:hover { background: var(--bg-2); }
+.log-line:hover .line-actions { opacity: 1; }
+
+/* ── Bookmarked line styling ── */
+.log-line.bookmarked {
+  border-left: 3px solid var(--c-bookmark-border);
+  background: var(--c-bookmark-bg);
+}
+
+/* ── Line number ── */
+.log-ln {
+  width: 56px;
+  text-align: right;
+  color: var(--log-ln);
+  flex-shrink: 0;
+  padding-right: 16px;
+  user-select: none;
+  font-size: 13px;
+}
+
+/* ── Timestamp ── */
+.log-ts {
+  color: var(--log-ts);
+  flex-shrink: 0;
+  width: 100px;
+  padding-right: 12px;
+  user-select: none;
+  font-size: 13px;
+}
+
+/* ── Level badge ── */
+.log-level {
+  flex-shrink: 0;
+  width: 72px;
+  font-size: 12px;
+  font-weight: 600;
+  padding-right: 10px;
+  user-select: none;
+}
+.level-error { color: var(--c-error-text); }
+.level-warn  { color: var(--c-warn-text); }
+.level-info  { color: var(--c-info-text); }
+.level-debug { color: var(--c-debug-text); }
+
+/* ── Message ── */
+.log-msg {
+  flex: 1;
+  min-width: 0;
+  color: var(--log-msg);
+  word-break: break-all;
+}
+
+/* ── JSON expand toggle ── */
+.json-toggle {
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+  margin-right: 6px;
+  font-size: 12px;
+}
+.json-toggle:hover { color: var(--text-2); }
+.json-body {
+  display: none;
+  color: var(--text-3);
+  font-size: 13px;
+  padding-left: 56px;
+  padding-top: 2px;
+  padding-bottom: 4px;
+}
+.json-body.open { display: block; }
+
+/* ── Line actions (bookmark + copy, hover reveal) ── */
+.line-actions {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.line-action-btn {
+  width: 22px; height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 4px;
+  transition: color .12s, background .12s;
+}
+.line-action-btn:hover { background: var(--bg-3); color: var(--text); }
+.line-action-btn.bookmarked-icon { color: var(--c-bookmark-border); }
+
+/* ═══════════════════════════════════════════════════════════════
+   STATUS BAR — from style.css lines 581-660
+   ═══════════════════════════════════════════════════════════════ */
+.statusbar {
+  grid-column: 1 / 3;
+  grid-row: 5;
+  height: var(--statusbar-h);
+  border-top: 1px solid var(--border);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg-2);
+  font-size: 12px;
+  color: var(--text);
+  flex-shrink: 0;
+}
+.status-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.status-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #1D9E75;
+}
+.status-spacer { flex: 1; }
+.status-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+  user-select: none;
+}
+.status-toggle:hover { background: var(--bg-3); }
+.status-toggle.active {
+  background: var(--c-follow-bg);
+  color: var(--c-follow-text);
+  border-color: var(--c-follow-border);
+}
+.status-toggle.active:hover { background: var(--c-follow-hover); }
+
+/* ═══════════════════════════════════════════════════════════════
+   EMPTY STATE — from style.css lines 663-693
+   ═══════════════════════════════════════════════════════════════ */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-3);
+}
+.empty-text { font-size: 14px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   HIGHLIGHT (simulated match)
+   ═══════════════════════════════════════════════════════════════ */
+.hl {
+  background: rgba(255,220,0,0.35);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="filter-wrap">
+        <svg class="filter-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="text" placeholder="Filter files..." class="filter-input" id="filterInput">
+        <button class="filter-clear" id="filterClear" style="display:none" onclick="document.getElementById('filterInput').value='';document.getElementById('filterClear').style.display='none';">✕</button>
+      </div>
+      <div class="sidebar-actions">
+        <button class="icon-btn" title="Refresh">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="sidebar-scroll">
+
+      <!-- ── Feature 4: Favorites Section ── -->
+      <div class="section-header" onclick="toggleSection('fav')">
+        <div class="section-chevron" id="fav-chevron">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <span class="section-title">Favorites (2)</span>
+      </div>
+      <div class="section-body" id="fav-body" style="max-height:200px;opacity:1;">
+        <div class="fav-item" onclick="selectTab(0)">
+          <span class="fav-star">★</span>
+          <span class="file-name" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">app.log</span>
+          <button class="remove-btn" onclick="event.stopPropagation()" title="Remove">✕</button>
+        </div>
+        <div class="fav-item" onclick="selectTab(2)">
+          <span class="fav-star">★</span>
+          <span class="file-name" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">error.log</span>
+          <button class="remove-btn" onclick="event.stopPropagation()" title="Remove">✕</button>
+        </div>
+      </div>
+
+      <!-- ── Feature 3: Recent Files Section ── -->
+      <div class="section-header" onclick="toggleSection('recent')">
+        <div class="section-chevron" id="recent-chevron">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <span class="section-title">Recent</span>
+      </div>
+      <div class="section-body" id="recent-body" style="max-height:300px;opacity:1;">
+        <div class="recent-item" onclick="selectTab(0)">
+          <div class="file-meta">
+            <span class="file-name" style="color:var(--text-2);">app.log</span>
+          </div>
+          <span class="recent-time">2 min ago</span>
+          <button class="remove-btn" onclick="event.stopPropagation()" title="Remove">✕</button>
+        </div>
+        <div class="recent-item" onclick="selectTab(1)">
+          <div class="file-meta">
+            <span class="file-name" style="color:var(--text-2);">access.log</span>
+          </div>
+          <span class="recent-time">1 hour ago</span>
+          <button class="remove-btn" onclick="event.stopPropagation()" title="Remove">✕</button>
+        </div>
+        <div class="recent-item" onclick="selectTab(2)">
+          <div class="file-meta">
+            <span class="file-name" style="color:var(--text-2);">error.log</span>
+          </div>
+          <span class="recent-time">yesterday</span>
+          <button class="remove-btn" onclick="event.stopPropagation()" title="Remove">✕</button>
+        </div>
+      </div>
+
+      <!-- ── File List ── -->
+      <div class="section-header" onclick="toggleSection('files')">
+        <div class="section-chevron" id="files-chevron">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <span class="section-title">Files</span>
+        <button class="section-action" id="histToggle" title="Show history files" onclick="event.stopPropagation();toggleHistory()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </button>
+      </div>
+      <div class="section-body" id="files-body" style="max-height:600px;opacity:1;">
+        <div class="file-list">
+          <!-- app.log — selected, favorited -->
+          <div class="file-item is-selected" id="file-app" onclick="selectTab(0)">
+            <div class="file-dot live"></div>
+            <div class="file-meta">
+              <div class="file-name">app.log</div>
+              <div class="file-size">2.4 MB</div>
+            </div>
+            <button class="star-btn favorited" onclick="event.stopPropagation();toggleStar(this)" title="Unfavorite">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+            </button>
+            <button class="copy-path-btn" onclick="event.stopPropagation()" title="Copy path">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+          <!-- access.log -->
+          <div class="file-item" id="file-access" onclick="selectTab(1)">
+            <div class="file-dot off"></div>
+            <div class="file-meta">
+              <div class="file-name">access.log</div>
+              <div class="file-size">1.1 MB</div>
+            </div>
+            <button class="star-btn" onclick="event.stopPropagation();toggleStar(this)" title="Favorite">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+            </button>
+            <button class="copy-path-btn" onclick="event.stopPropagation()" title="Copy path">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+          <!-- error.log -->
+          <div class="file-item" id="file-error" onclick="selectTab(2)">
+            <div class="file-dot off"></div>
+            <div class="file-meta">
+              <div class="file-name">error.log</div>
+              <div class="file-size">486 KB</div>
+            </div>
+            <button class="star-btn" onclick="event.stopPropagation();toggleStar(this)" title="Favorite">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+            </button>
+            <button class="copy-path-btn" onclick="event.stopPropagation()" title="Copy path">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+
+          <!-- History files (hidden by default, Feature 5) -->
+          <div class="hist-files" id="histFiles" style="display:none;">
+            <div class="file-item child" onclick="event.stopPropagation()">
+              <div class="file-dot off"></div>
+              <div class="file-meta">
+                <div class="file-name">app.log.1</div>
+                <div class="file-size">5.2 MB</div>
+              </div>
+              <button class="copy-path-btn" onclick="event.stopPropagation()" title="Copy path">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+            <div class="file-item child" onclick="event.stopPropagation()">
+              <div class="file-dot off"></div>
+              <div class="file-meta">
+                <div class="file-name">app-20240630.log</div>
+                <div class="file-size">3.8 MB</div>
+              </div>
+              <button class="copy-path-btn" onclick="event.stopPropagation()" title="Copy path">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+            <div class="file-item child" onclick="event.stopPropagation()">
+              <div class="file-dot off"></div>
+              <div class="file-meta">
+                <div class="file-name">app.log.bak</div>
+                <div class="file-size">1.9 MB</div>
+              </div>
+              <button class="copy-path-btn" onclick="event.stopPropagation()" title="Copy path">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /sidebar-scroll -->
+
+    <!-- ── Feature 2: Bookmarks — pinned at sidebar bottom ── -->
+    <div class="bm-section">
+      <div class="section-header" onclick="toggleSection('bm')">
+        <div class="section-chevron" id="bm-chevron">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <span class="section-title">Bookmarks (3)</span>
+      </div>
+      <div class="section-body" id="bm-body" style="max-height:200px;opacity:1;">
+        <div class="bm-item" onclick="scrollToLine(5)">
+          <span class="bm-dot" style="background:var(--c-error-text);"></span>
+          <span class="bm-preview">Failed to connect to database: timeout after 30s</span>
+          <button class="remove-btn" onclick="event.stopPropagation()" title="Remove">✕</button>
+        </div>
+        <div class="bm-item" onclick="scrollToLine(9)">
+          <span class="bm-dot" style="background:var(--c-warn-text);"></span>
+          <span class="bm-preview">Memory usage at 85%, consider scaling</span>
+          <button class="remove-btn" onclick="event.stopPropagation()" title="Remove">✕</button>
+        </div>
+        <!-- stale bookmark -->
+        <div class="bm-item stale">
+          <span class="bm-dot" style="background:var(--c-info-text);"></span>
+          <span class="bm-preview">User session expired for uid=1024</span>
+          <button class="remove-btn" onclick="event.stopPropagation()" title="Remove">✕</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ════════════ GLOBAL BAR — app-level only (sidebar toggle + path + settings) ════════════ -->
+  <header class="globalbar">
+    <button class="icon-btn" id="sidebarToggle" title="Collapse sidebar" onclick="toggleSidebar()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+    </button>
+    <div class="globalbar-path" id="globalbarPath" title="">/var/log/app/app.log</div>
+    <button class="settings-btn" title="Settings">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </header>
+
+  <!-- ════════════ TAB BAR — Feature 1 ════════════ -->
+  <div class="tabbar" id="tabbar">
+    <div class="tab active" id="tab-0" onclick="selectTab(0)">
+      <span class="tab-name">app.log</span>
+      <button class="tab-close" onclick="event.stopPropagation();closeTab(0)">✕</button>
+    </div>
+    <div class="tab" id="tab-1" onclick="selectTab(1)">
+      <span class="tab-dot"></span>
+      <span class="tab-name">access.log</span>
+      <button class="tab-close" onclick="event.stopPropagation();closeTab(1)">✕</button>
+    </div>
+    <div class="tab" id="tab-2" onclick="selectTab(2)">
+      <span class="tab-name">error.log</span>
+      <button class="tab-close" onclick="event.stopPropagation();closeTab(2)">✕</button>
+    </div>
+  </div>
+
+  <!-- ════════════ FILE TOOLBAR — per-file contextual (keyword + levels + follow) ════════════ -->
+  <div class="filterbar">
+    <div class="ft-search">
+      <svg class="ft-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" placeholder="Filter keywords..." class="ft-search-input">
+    </div>
+    <div class="filter-sep"></div>
+    <div class="level-tag dynamic-level" style="color:var(--c-alert-text);background:var(--c-alert-bg);border-color:var(--c-alert-border);"><span class="dot" style="background:var(--c-alert-text)"></span>ALERT</div>
+    <div class="level-tag dynamic-level" style="color:var(--c-error-text);background:var(--c-error-bg);border-color:var(--c-error-border);"><span class="dot" style="background:var(--c-error-text)"></span>ERROR</div>
+    <div class="level-tag dynamic-level" style="color:var(--c-warn-text);background:var(--c-warn-bg);border-color:var(--c-warn-border);"><span class="dot" style="background:var(--c-warn-text)"></span>WARN</div>
+    <div class="level-tag dynamic-level" style="color:var(--c-info-text);background:var(--c-info-bg);border-color:var(--c-info-border);"><span class="dot" style="background:var(--c-info-text)"></span>INFO</div>
+    <div class="level-tag dynamic-level" style="color:var(--c-debug-text);background:var(--c-debug-bg);border-color:var(--c-debug-border);"><span class="dot" style="background:var(--c-debug-text)"></span>DEBUG</div>
+    <div class="level-tag dynamic-level" style="color:var(--c-trace-text);background:var(--c-trace-bg);border-color:var(--c-trace-border);"><span class="dot" style="background:var(--c-trace-text)"></span>TRACE</div>
+  </div>
+
+  <!-- ════════════ LOG BODY ════════════ -->
+  <main class="log-body">
+    <div class="log-content" id="logContent">
+
+      <!-- Line 1: INFO -->
+      <div class="log-line" id="line-1">
+        <span class="log-ln">1</span>
+        <span class="log-ts">10:23:01.234</span>
+        <span class="log-level level-info">INFO</span>
+        <span class="log-msg">Server started on 0.0.0.0:7700, accepting connections</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(1,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 2: INFO -->
+      <div class="log-line" id="line-2">
+        <span class="log-ln">2</span>
+        <span class="log-ts">10:23:01.456</span>
+        <span class="log-level level-info">INFO</span>
+        <span class="log-msg">Connected to PostgreSQL <span class="hl">database</span> at db.internal:5432</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(2,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 3: DEBUG -->
+      <div class="log-line" id="line-3">
+        <span class="log-ln">3</span>
+        <span class="log-ts">10:23:02.001</span>
+        <span class="log-level level-debug">DEBUG</span>
+        <span class="log-msg">Loading config from ~/.config/tailr/config.toml</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(3,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 4: INFO -->
+      <div class="log-line" id="line-4">
+        <span class="log-ln">4</span>
+        <span class="log-ts">10:23:05.789</span>
+        <span class="log-level level-info">INFO</span>
+        <span class="log-msg">Request: POST /api/auth/login from 192.168.1.42 (200 OK, 12ms)</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(4,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 5: ERROR — bookmarked -->
+      <div class="log-line bookmarked" id="line-5">
+        <span class="log-ln">5</span>
+        <span class="log-ts">10:23:06.112</span>
+        <span class="log-level level-error">ERROR</span>
+        <span class="log-msg">Failed to connect to <span class="hl">database</span>: timeout after 30s — retrying in 5s (attempt 3/5)</span>
+        <div class="line-actions">
+          <button class="line-action-btn bookmarked-icon" onclick="toggleBookmark(5,this)" title="Remove bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--c-bookmark-border)" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 6: WARN -->
+      <div class="log-line" id="line-6">
+        <span class="log-ln">6</span>
+        <span class="log-ts">10:23:08.445</span>
+        <span class="log-level level-warn">WARN</span>
+        <span class="log-msg">Connection pool exhausted, creating new connections (pool_size=50, active=50)</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(6,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 7: INFO + JSON expandable -->
+      <div class="log-line" id="line-7">
+        <span class="log-ln">7</span>
+        <span class="log-ts">10:23:10.023</span>
+        <span class="log-level level-info">INFO</span>
+        <span class="log-msg"><span class="json-toggle" onclick="toggleJson('json-7')">▼</span> User login event: {"user":"admin","ip":"10.0.0.5","method":"oauth"}</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(7,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="json-body" id="json-7">{
+  "user": "admin",
+  "ip": "10.0.0.5",
+  "method": "oauth",
+  "session_id": "sess_a1b2c3d4",
+  "timestamp": "2024-06-30T10:23:10Z"
+}</div>
+
+      <!-- Line 8: INFO -->
+      <div class="log-line" id="line-8">
+        <span class="log-ln">8</span>
+        <span class="log-ts">10:23:12.567</span>
+        <span class="log-level level-info">INFO</span>
+        <span class="log-msg">Request: GET /api/files from 192.168.1.42 (200 OK, 3ms)</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(8,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 9: WARN — bookmarked -->
+      <div class="log-line bookmarked" id="line-9">
+        <span class="log-ln">9</span>
+        <span class="log-ts">10:23:15.890</span>
+        <span class="log-level level-warn">WARN</span>
+        <span class="log-msg">Memory usage at 85%, consider scaling up the instance</span>
+        <div class="line-actions">
+          <button class="line-action-btn bookmarked-icon" onclick="toggleBookmark(9,this)" title="Remove bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--c-bookmark-border)" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 10: INFO + JSON expandable -->
+      <div class="log-line" id="line-10">
+        <span class="log-ln">10</span>
+        <span class="log-ts">10:23:18.234</span>
+        <span class="log-level level-info">INFO</span>
+        <span class="log-msg"><span class="json-toggle" onclick="toggleJson('json-10')">▼</span> API response: {"status":"ok","latency_ms":42,"endpoint":"/api/search"}</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(10,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="json-body" id="json-10">{
+  "status": "ok",
+  "latency_ms": 42,
+  "endpoint": "/api/search",
+  "results_count": 156,
+  "cache_hit": false
+}</div>
+
+      <!-- Line 11: DEBUG -->
+      <div class="log-line" id="line-11">
+        <span class="log-ln">11</span>
+        <span class="log-ts">10:23:20.001</span>
+        <span class="log-level level-debug">DEBUG</span>
+        <span class="log-msg">WebSocket connection established from 10.0.0.12 (session: ws_7f3a)</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(11,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 12: INFO -->
+      <div class="log-line" id="line-12">
+        <span class="log-ln">12</span>
+        <span class="log-ts">10:23:22.456</span>
+        <span class="log-level level-info">INFO</span>
+        <span class="log-msg">Graceful shutdown initiated, draining 12 active connections</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(12,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 13: ERROR -->
+      <div class="log-line" id="line-13">
+        <span class="log-ln">13</span>
+        <span class="log-ts">10:23:25.789</span>
+        <span class="log-level level-error">ERROR</span>
+        <span class="log-msg">Unhandled exception in worker thread-3: NullPointerException at FileWatcher.java:142</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(13,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 14: INFO -->
+      <div class="log-line" id="line-14">
+        <span class="log-ln">14</span>
+        <span class="log-ts">10:23:28.012</span>
+        <span class="log-level level-info">INFO</span>
+        <span class="log-msg">All connections drained, server shutdown complete</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(14,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 15: DEBUG -->
+      <div class="log-line" id="line-15">
+        <span class="log-ln">15</span>
+        <span class="log-ts">10:23:30.567</span>
+        <span class="log-level level-debug">DEBUG</span>
+        <span class="log-msg">Cache invalidation triggered for key: user_sessions:* (affected: 234 entries)</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(15,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 16: INFO -->
+      <div class="log-line" id="line-16">
+        <span class="log-ln">16</span>
+        <span class="log-ts">10:23:32.890</span>
+        <span class="log-level level-info">INFO</span>
+        <span class="log-msg">Request: POST /api/search from 10.0.0.8 (200 OK, 28ms)</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(16,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 17: WARN -->
+      <div class="log-line" id="line-17">
+        <span class="log-ln">17</span>
+        <span class="log-ts">10:23:35.123</span>
+        <span class="log-level level-warn">WARN</span>
+        <span class="log-msg">Rate limit reached for IP 10.0.0.99 (120 req/min), dropping requests</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(17,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Line 18: INFO -->
+      <div class="log-line" id="line-18">
+        <span class="log-ln">18</span>
+        <span class="log-ts">10:23:38.456</span>
+        <span class="log-level level-info">INFO</span>
+        <span class="log-msg">Health check passed (uptime: 4h23m, connections: 45, memory: 2.1GB/4GB)</span>
+        <div class="line-actions">
+          <button class="line-action-btn" onclick="toggleBookmark(18,this)" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="line-action-btn" onclick="event.stopPropagation()" title="Copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ════════════ STATUS BAR — pure read-only info (no controls) ════════════ -->
+  <div class="statusbar">
+    <div class="status-chip">
+      <div class="status-dot"></div>
+      <span id="statusFilename">app.log</span>
+    </div>
+    <span>18 lines</span>
+    <span style="color:var(--text-3);">2 matches</span>
+    <div class="status-spacer"></div>
+    <button class="status-toggle active" id="followToggle" onclick="toggleFollow(this)" title="Follow tail">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      <span>Follow</span>
+    </button>
+  </div>
+
+</div><!-- /app-shell -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   INTERACTIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+// ── Feature 1: Tab management ──
+const tabData = [
+  { name: 'app.log', path: '/var/log/app/app.log', unread: false, active: true },
+  { name: 'access.log', path: '/var/log/nginx/access.log', unread: true, active: false },
+  { name: 'error.log', path: '/var/log/app/error.log', unread: false, active: false },
+];
+
+function selectTab(idx) {
+  tabData.forEach((t, i) => {
+    t.active = (i === idx);
+    if (i === idx) t.unread = false;
+  });
+  renderTabs();
+
+  document.querySelectorAll('.file-item').forEach(el => el.classList.remove('is-selected'));
+  const fileMap = { 0: 'file-app', 1: 'file-access', 2: 'file-error' };
+  const target = document.getElementById(fileMap[idx]);
+  if (target) target.classList.add('is-selected');
+
+  updateGlobalContext(idx);
+}
+
+function updateGlobalContext(idx) {
+  const tab = tabData[idx];
+  const pathEl = document.getElementById('globalbarPath');
+  const nameEl = document.getElementById('statusFilename');
+  if (tab) {
+    pathEl.textContent = tab.path;
+    pathEl.title = tab.path;
+    pathEl.classList.remove('empty');
+    nameEl.textContent = tab.name;
+  } else {
+    pathEl.textContent = '';
+    pathEl.title = '';
+    pathEl.classList.add('empty');
+    nameEl.textContent = '';
+  }
+}
+
+function closeTab(idx) {
+  if (tabData.length <= 1) {
+    document.getElementById('logContent').innerHTML =
+      '<div class="empty-state"><div class="empty-text">Select a file to view logs</div></div>';
+    tabData.length = 0;
+    renderTabs();
+    document.querySelectorAll('.file-item').forEach(el => el.classList.remove('is-selected'));
+    return;
+  }
+  tabData.splice(idx, 1);
+  const nextIdx = Math.min(idx, tabData.length - 1);
+  tabData.forEach((t, i) => t.active = (i === nextIdx));
+  renderTabs();
+
+  document.querySelectorAll('.file-item').forEach(el => el.classList.remove('is-selected'));
+  const fileMap = { 0: 'file-app', 1: 'file-access', 2: 'file-error' };
+  const target = document.getElementById(fileMap[nextIdx]);
+  if (target) target.classList.add('is-selected');
+  updateGlobalContext(nextIdx);
+}
+
+function renderTabs() {
+  const bar = document.getElementById('tabbar');
+  if (tabData.length === 0) {
+    bar.innerHTML = '';
+    return;
+  }
+  bar.innerHTML = tabData.map((t, i) => `
+    <div class="tab ${t.active ? 'active' : ''}" onclick="selectTab(${i})">
+      ${t.unread ? '<span class="tab-dot"></span>' : ''}
+      <span class="tab-name">${t.name}</span>
+      <button class="tab-close" onclick="event.stopPropagation();closeTab(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+// ── Feature 2: Bookmarks on log lines ──
+function toggleBookmark(lineNum, btn) {
+  const line = document.getElementById('line-' + lineNum);
+  const isBookmarked = line.classList.contains('bookmarked');
+  if (isBookmarked) {
+    line.classList.remove('bookmarked');
+    btn.classList.remove('bookmarked-icon');
+    btn.title = 'Bookmark';
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+  } else {
+    line.classList.add('bookmarked');
+    btn.classList.add('bookmarked-icon');
+    btn.title = 'Remove bookmark';
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--c-bookmark-border)" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+  }
+}
+
+function scrollToLine(lineNum) {
+  const line = document.getElementById('line-' + lineNum);
+  if (line) {
+    line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    line.style.background = 'var(--bg-3)';
+    setTimeout(() => { line.style.background = ''; }, 1200);
+  }
+}
+
+// ── Feature 4: Star toggle (favorites) ──
+function toggleStar(btn) {
+  const isFav = btn.classList.contains('favorited');
+  if (isFav) {
+    btn.classList.remove('favorited');
+    btn.title = 'Favorite';
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>';
+  } else {
+    btn.classList.add('favorited');
+    btn.title = 'Unfavorite';
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>';
+  }
+}
+
+// ── Feature 5: History toggle ──
+let histVisible = false;
+function toggleHistory() {
+  histVisible = !histVisible;
+  const el = document.getElementById('histFiles');
+  const btn = document.getElementById('histToggle');
+  el.style.display = histVisible ? 'block' : 'none';
+  btn.classList.toggle('active', histVisible);
+}
+
+// ── Section collapse ──
+function toggleSection(name) {
+  const body = document.getElementById(name + '-body');
+  const chevron = document.getElementById(name + '-chevron');
+  body.classList.toggle('collapsed');
+  chevron.classList.toggle('collapsed');
+}
+
+// ── JSON expand ──
+function toggleJson(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+
+// ── Global bar: sidebar collapse ──
+function toggleSidebar() {
+  const shell = document.querySelector('.app-shell');
+  const btn = document.getElementById('sidebarToggle');
+  shell.classList.toggle('sidebar-collapsed');
+  const collapsed = shell.classList.contains('sidebar-collapsed');
+  btn.title = collapsed ? 'Show sidebar' : 'Collapse sidebar';
+}
+
+// ── File toolbar: follow toggle ──
+function toggleFollow(btn) {
+  btn.classList.toggle('active');
+}
+
+// ── Filter clear visibility ──
+const filterInput = document.getElementById('filterInput');
+const filterClear = document.getElementById('filterClear');
+filterInput.addEventListener('input', function() {
+  filterClear.style.display = this.value ? 'flex' : 'none';
+});
+</script>
+
+</body>
+</html>
