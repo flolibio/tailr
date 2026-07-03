@@ -95,7 +95,8 @@
   },
   "bookmark": {
     "title": "Bookmarks",
-    "remove": "Remove bookmark"
+    "remove": "Remove bookmark",
+    "empty": "No bookmarks yet. Right-click a log line to add one."
   },
   "tokenDialog": {
     "title": "Authentication Required",

@@ -31,6 +31,7 @@ const bookmarks = computed(() =>
       <span class="section-title">{{ t('bookmark.title') }} ({{ bookmarks.length }})</span>
     </div>
     <div v-show="!collapsed" class="bm-body">
+      <div v-if="bookmarks.length === 0" class="bm-empty">{{ t('bookmark.empty') }}</div>
       <div
         v-for="bm in bookmarks"
         :key="bm.lineNum"
@@ -39,6 +40,7 @@ const bookmarks = computed(() =>
         @click="emit('scrollTo', bm.lineNum)"
       >
         <span class="bm-dot" :style="{ background: levelColors?.[bm.level] ?? 'var(--text-3)' }"></span>
+        <span class="bm-line">{{ bm.lineNum }}</span>
         <span class="bm-preview">{{ bm.preview }}</span>
         <button class="bm-remove" @click.stop="props.filePath && remove(props.filePath, bm.lineNum)" :title="t('bookmark.remove')">✕</button>
       </div>
@@ -50,6 +52,7 @@ const bookmarks = computed(() =>
 .bm-section {
   flex-shrink: 0;
   border-top: 1px solid var(--border);
+  background: var(--bg-2);
 }
 
 .section-header {
@@ -95,12 +98,19 @@ const bookmarks = computed(() =>
   padding: 2px 8px 8px;
 }
 
+.bm-empty {
+  padding: 16px 12px;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+}
+
 .bm-item {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 7px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: background .1s;
   user-select: none;
@@ -119,6 +129,15 @@ const bookmarks = computed(() =>
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+.bm-line {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-3);
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: right;
 }
 
 .bm-preview {
