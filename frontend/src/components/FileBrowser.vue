@@ -84,12 +84,10 @@ const filteredTree = computed(() => {
           if (node.isDir) {
             return {
               ...node,
-              children: node.children.filter(
-                (c) => c.isDir || !isHistoricalFile(c.name) || props.selectedFile === c.path
-              ),
+              children: node.children.filter((c) => c.isDir || !isHistoricalFile(c.name)),
             }
           }
-          if (isHistoricalFile(node.name) && props.selectedFile !== node.path) {
+          if (isHistoricalFile(node.name)) {
             return null
           }
           return node
@@ -139,6 +137,28 @@ function entriesToTree(entries: FileEntry[]): TreeNode[] {
     }))
 }
 
+/**
+ * Find the original TreeNode in `tree.value` by path.
+ *
+ * `filteredTree` creates shallow copies (`{ ...node }`) for rendering.
+ * Those copies must NEVER be mutated — `toggleDir` / `loadChildren` would
+ * write to the copy, bypassing the computed filter and leaking unfiltered
+ * children into the view on the next re-render. Always look up the original.
+ */
+function findOriginalNode(path: string): TreeNode | null {
+  function search(nodes: TreeNode[]): TreeNode | null {
+    for (const n of nodes) {
+      if (n.path === path) return n
+      if (n.isDir) {
+        const found = search(n.children)
+        if (found) return found
+      }
+    }
+    return null
+  }
+  return search(tree.value)
+}
+
 async function loadChildren(node: TreeNode): Promise<void> {
   if (node.loaded) return
   loading.value = true
@@ -163,7 +183,14 @@ async function toggleDir(node: TreeNode): Promise<void> {
 
 function selectFile(node: TreeNode): void {
   if (node.isDir) {
-    toggleDir(node)
+    // Always operate on the original tree node — the `node` received from the
+    // template may be a shallow copy produced by `filteredTree`, and mutating
+    // it would bypass the historical-file filter (children set on the copy are
+    // unfiltered, and they leak into view on the next re-render).
+    const original = findOriginalNode(node.path)
+    if (original) {
+      toggleDir(original)
+    }
   } else {
     emit('select', node.path)
   }
@@ -235,6 +262,28 @@ async function copyPath(path: string, event: MouseEvent): Promise<void> {
   } catch {}
 }
 
+/** Ensure the given file path is visible in the tree: expand parent dirs as needed. */
+async function ensureVisible(filePath: string): Promise<void> {
+  await expandToPath(tree.value, filePath)
+}
+
+/** Recursively expand directories along the path to filePath. */
+async function expandToPath(nodes: TreeNode[], filePath: string): Promise<void> {
+  for (const node of nodes) {
+    if (!node.isDir) continue
+    // Check if target file lives inside this directory
+    if (filePath.startsWith(node.path + '/')) {
+      if (!node.loaded) await loadChildren(node)
+      if (!node.expanded) node.expanded = true
+      // Recurse into children to find deeper directories
+      await expandToPath(node.children, filePath)
+      return
+    }
+  }
+}
+
+defineExpose({ ensureVisible })
+
 onMounted(() => {
   refresh()
 })
@@ -258,7 +307,8 @@ onMounted(() => {
     </div>
     <div class="nav-scroll">
       <div class="quick-access">
-        <div class="nav-section">
+        <!-- TODO: temporarily hidden favorites section — re-enable when favorites feature is finalized -->
+        <!-- <div class="nav-section">
           <div class="section-header" @click="favCollapsed = !favCollapsed">
             <div class="section-chevron" :class="{ collapsed: favCollapsed }">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -278,6 +328,7 @@ onMounted(() => {
             </div>
           </div>
         </div>
+        -->
 
         <div class="nav-section">
           <div class="section-header" @click="recentCollapsed = !recentCollapsed">
@@ -342,18 +393,18 @@ onMounted(() => {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             </div>
             <div v-else class="file-dir-icon">
-              <svg v-if="node.expanded" class="section-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              <svg v-else class="section-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-              <svg class="folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <svg v-if="node.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M2 10h20"/></svg>
+              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
             </div>
             <div class="file-meta">
               <div class="file-name">{{ node.name }}</div>
-              <div v-if="!node.isDir && node.size !== undefined" class="file-size">{{ formatSize(node.size) }}</div>
+              <span v-if="!node.isDir && node.size != null" class="file-size">{{ formatSize(node.size) }}</span>
             </div>
-            <button v-if="!node.isDir" class="star-btn" :class="{ favorited: isFavorite(node.path) }" @click.stop="toggleFavorite(node.path)" :title="t('fileBrowser.toggleFavorite')">
-              <svg v-if="isFavorite(node.path)" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-              <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-            </button>
+            <!-- TODO: temporarily hidden favorite button — re-enable when favorites feature is finalized -->
+            <!-- <button v-if="!node.isDir" class="star-btn" :class="{ favorited: isFavorite(node.path) }" @click.stop="toggleFavorite(node.path)" :title="t('fileBrowser.toggleFavorite')">
+              <svg v-if="isFavorite(node.path)" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+            </button> -->
             <button class="copy-path-btn" @click="copyPath(node.path, $event)" :title="t('fileBrowser.copyPath')">
               <svg v-if="copiedPath === node.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -375,18 +426,18 @@ onMounted(() => {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </div>
               <div v-else class="file-dir-icon">
-                <svg v-if="child.expanded" class="section-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                <svg v-else class="section-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                <svg class="folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <svg v-if="child.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M2 10h20"/></svg>
+                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
               </div>
               <div class="file-meta">
                 <div class="file-name">{{ child.name }}</div>
-                <div v-if="!child.isDir && child.size !== undefined" class="file-size">{{ formatSize(child.size) }}</div>
+                <span v-if="!child.isDir && child.size != null" class="file-size">{{ formatSize(child.size) }}</span>
               </div>
-              <button v-if="!child.isDir" class="star-btn" :class="{ favorited: isFavorite(child.path) }" @click.stop="toggleFavorite(child.path)" :title="t('fileBrowser.toggleFavorite')">
-                <svg v-if="isFavorite(child.path)" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-                <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-              </button>
+              <!-- TODO: temporarily hidden favorite button — re-enable when favorites feature is finalized -->
+              <!-- <button v-if="!child.isDir" class="star-btn" :class="{ favorited: isFavorite(child.path) }" @click.stop="toggleFavorite(child.path)" :title="t('fileBrowser.toggleFavorite')">
+                <svg v-if="isFavorite(child.path)" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+              </button> -->
               <button class="copy-path-btn" @click="copyPath(child.path, $event)" :title="t('fileBrowser.copyPath')">
                 <svg v-if="copiedPath === child.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -511,8 +562,8 @@ onMounted(() => {
   flex-shrink: 0;
   max-height: 44%;
   overflow-y: auto;
+  scrollbar-width: none;
   background: var(--bg-2);
-  border: 1px solid var(--border);
   border-radius: var(--radius, 8px);
 }
 
@@ -549,6 +600,7 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: none;
   padding: 4px 6px;
 }
 
@@ -633,6 +685,7 @@ onMounted(() => {
   padding: 2px 6px;
   max-height: 160px;
   overflow-y: auto;
+  scrollbar-width: none;
 }
 
 .nav-item {
@@ -644,6 +697,7 @@ onMounted(() => {
   cursor: pointer;
   transition: background .1s ease;
   user-select: none;
+  position: relative;
 }
 
 .nav-item:hover {
@@ -652,6 +706,11 @@ onMounted(() => {
 
 .nav-item:hover .nav-remove {
   opacity: 1;
+}
+
+/* 互斥显示：默认 time 靠最右，hover 时让位给 remove 按钮 */
+.nav-item:hover .nav-time {
+  opacity: 0;
 }
 
 .nav-text {
@@ -668,6 +727,7 @@ onMounted(() => {
   font-size: 11px;
   color: var(--text-3);
   flex-shrink: 0;
+  transition: opacity .15s ease;
 }
 
 .nav-remove {
@@ -687,6 +747,11 @@ onMounted(() => {
   flex-shrink: 0;
   font-size: 13px;
   line-height: 1;
+  /* 脱离文档流，浮在 nav-item 最右端；与 nav-time 互斥切换 */
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .nav-remove:hover {
@@ -729,11 +794,6 @@ onMounted(() => {
   font-weight: 500;
 }
 
-.file-item.is-selected .file-size {
-  color: var(--accent);
-  opacity: 0.75;
-}
-
 .file-item.child {
   padding-left: 24px;
   position: relative;
@@ -770,6 +830,12 @@ onMounted(() => {
   opacity: 0;
   transition: opacity .15s ease, color .12s ease, background .12s ease;
   flex-shrink: 0;
+  /* 脱离文档流，让 file-meta(flex:1) 撑满，file-size 才能靠最右；
+     与 file-size 互斥切换（同 nav-remove） */
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .copy-path-btn:hover {
@@ -812,7 +878,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: var(--text-3);
-  align-self: flex-start;
+  align-self: center;
 }
 
 .file-item.is-selected .file-icon {
@@ -837,23 +903,13 @@ onMounted(() => {
 }
 
 .file-dir-icon {
-  width: 32px;
+  width: 18px;
   height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
   color: var(--text-2);
   flex-shrink: 0;
-}
-
-.folder-icon {
-  flex-shrink: 0;
-  color: var(--text-2);
-}
-
-.file-item.is-selected .folder-icon {
-  color: var(--accent);
 }
 
 .file-item.is-selected .file-dir-icon {
@@ -863,9 +919,14 @@ onMounted(() => {
 .file-meta {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .file-name {
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   color: var(--text-2);
   white-space: nowrap;
@@ -874,10 +935,16 @@ onMounted(() => {
   line-height: 1.4;
 }
 
+/* 同 nav-time/nav-remove 的互斥模式：默认 size 靠右显示，hover 时让位给 copy-path-btn */
 .file-size {
   font-size: 11px;
   color: var(--text-3);
-  margin-top: 2px;
+  flex-shrink: 0;
+  transition: opacity .15s ease;
+}
+
+.file-item:hover .file-size {
+  opacity: 0;
 }
 
 .file-empty {
@@ -910,5 +977,13 @@ onMounted(() => {
 .resize-handle.active {
   background: var(--accent);
   opacity: 0.5;
+}
+
+/* Hide scrollbar for all scrollable containers (Firefox + WebKit) */
+.nav-scroll::-webkit-scrollbar,
+.nav-quick-card::-webkit-scrollbar,
+.quick-list::-webkit-scrollbar,
+.bm-body::-webkit-scrollbar {
+  display: none;
 }
 </style>

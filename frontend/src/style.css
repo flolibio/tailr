@@ -40,7 +40,7 @@
   --c-unread: #5B9DFF;
   --c-star: #D4A017;
   --c-bookmark-border: #64d2ff;
-  --c-bookmark-bg: rgba(100, 210, 255, 0.08);
+  --c-bookmark-bg: rgba(100, 210, 255, 0.15);
 
   --c-alert-bg: #FFEBE9; --c-alert-text: #CC2D26; --c-alert-border: #FFC9C5;
   --c-error-bg: #FCEBEB; --c-error-text: #A32D2D; --c-error-border: #F7C1C1;
@@ -653,29 +653,34 @@ input[type="range"] {
 .globalbar-path {
   flex: 1;
   min-width: 0;
-  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.globalbar-path .path-text {
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: color .15s ease;
 }
 
-.globalbar-path:hover {
+.globalbar-path .path-text:hover {
   color: var(--text-2);
 }
 
-.globalbar-path .path-copied {
+.globalbar-path .path-check {
   flex-shrink: 0;
-  margin-left: 6px;
   color: var(--c-follow-text, #34D399);
-  animation: copiedFade .3s ease;
+  animation: copiedFade .15s ease;
 }
 
 @keyframes copiedFade {
-  from { opacity: 0; transform: translateX(-4px); }
+  from { opacity: 0; transform: translateX(0); }
   to { opacity: 1; transform: translateX(0); }
 }
 
