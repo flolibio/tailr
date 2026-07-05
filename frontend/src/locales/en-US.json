@@ -96,7 +96,7 @@
   "bookmark": {
     "title": "Bookmarks",
     "remove": "Remove bookmark",
-    "empty": "No bookmarks yet. Right-click a log line to add one."
+    "empty": "No bookmarks yet."
   },
   "tokenDialog": {
     "title": "Authentication Required",

@@ -65,7 +65,7 @@
 
   /* Type */
   --font-sans: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+  --font-mono: monospace, 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New';
   --font-size-base: 14px;
   --fw-regular: 400;
   --fw-medium: 500;
@@ -281,7 +281,7 @@ input:hover, select:hover {
 input:focus, select:focus {
   border-color: var(--accent);
   background: var(--bg);
-  box-shadow: var(--focus-ring);
+  box-shadow: none;
 }
 
 input::placeholder {

@@ -966,7 +966,7 @@ onMounted(() => {
   position: absolute;
   top: 0;
   right: 0;
-  width: 6px;
+  width: 3px;
   height: 100%;
   cursor: col-resize;
   background: transparent;
