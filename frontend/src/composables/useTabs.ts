@@ -170,6 +170,19 @@ function setTailMode(val: boolean): void {
   }
 }
 
+async function reloadActiveTab(): Promise<void> {
+  const tab = activeTab.value
+  if (!tab) return
+  try {
+    const count = Math.max(tab.entries.length, INITIAL_LINES)
+    const data = await getFileTail(tab.path, count)
+    tab.entries = data.entries
+    tab.totalLines = data.totalLines
+  } catch (e) {
+    console.error('Failed to reload after config change:', e)
+  }
+}
+
 export function useTabs() {
   return {
     tabs,
@@ -181,5 +194,6 @@ export function useTabs() {
     closeTab,
     switchTo,
     setTailMode,
+    reloadActiveTab,
   }
 }

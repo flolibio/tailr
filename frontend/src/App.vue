@@ -25,6 +25,7 @@ const {
   wsClient,
   openTab,
   setTailMode,
+  reloadActiveTab,
 } = useTabs()
 
 const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
@@ -39,10 +40,10 @@ const pathCopied = ref(false)
 const { token, showTokenDialog } = useAuth()
 const { recordOpen } = useRecentFiles()
 
-// When active tab changes (e.g. TabBar click), expand sidebar and reveal file in tree
+// When active tab changes (e.g. TabBar click), reveal file in tree.
+// Do NOT auto-expand a collapsed sidebar — the user collapsed it intentionally.
 watch(activeTabPath, (path) => {
   if (!path) return
-  if (sidebarCollapsed.value) sidebarCollapsed.value = false
   fileBrowserRef.value?.ensureVisible(path)
 })
 
@@ -313,7 +314,7 @@ function handleSettingsUpdate(s: Settings): void {
       <button class="icon-btn" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? t('app.openFiles') : t('fileBrowser.collapse')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
       </button>
-            <div class="globalbar-path" :title="pathCopied ? t('app.copied') : t('fileBrowser.copyPath')">
+            <div class="globalbar-path">
               <span class="path-text" @click="copyPath">{{ activeTabPath ?? '' }}</span>
               <svg v-if="pathCopied" class="path-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
@@ -388,6 +389,7 @@ function handleSettingsUpdate(s: Settings): void {
       v-if="showSettings"
       :settings="settings"
       @update="handleSettingsUpdate"
+      @log-levels-saved="reloadActiveTab"
       @close="showSettings = false"
     />
 
