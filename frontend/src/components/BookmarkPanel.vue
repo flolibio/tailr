@@ -40,7 +40,6 @@ const bookmarks = computed(() =>
         @click="emit('scrollTo', bm.lineNum)"
       >
         <span class="bm-dot" :style="{ background: levelColors?.[bm.level] ?? 'var(--text-3)' }"></span>
-        <span class="bm-line">{{ bm.lineNum }}</span>
         <span class="bm-preview">{{ bm.preview }}</span>
         <button class="bm-remove" @click.stop="props.filePath && remove(props.filePath, bm.lineNum)" :title="t('bookmark.remove')">✕</button>
       </div>
@@ -129,15 +128,6 @@ const bookmarks = computed(() =>
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
-}
-
-.bm-line {
-  font-size: 11px;
-  font-family: var(--font-mono);
-  color: var(--text-3);
-  flex-shrink: 0;
-  min-width: 32px;
-  text-align: right;
 }
 
 .bm-preview {

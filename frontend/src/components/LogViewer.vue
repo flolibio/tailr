@@ -522,19 +522,19 @@ defineExpose({ scrollToBottom, scrollToLine })
               </span>
               <span class="col-actions">
                 <span class="action-btn" @click="toggleBookmark(entry)" :title="t('logViewer.bookmark')">
-                  <svg v-if="filePath && isBookmarked(filePath, entry.lineNum)" width="14" height="14" viewBox="0 0 24 24" fill="var(--c-bookmark-border, #64d2ff)" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  <svg v-if="filePath && isBookmarked(filePath, entry.lineNum)" width="16" height="16" viewBox="0 0 24 24" fill="var(--c-bookmark-border, #64d2ff)" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                 </span>
                 <span v-if="isJson(entry.raw)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" :title="expandedLines.has(entry.lineNum) ? t('logViewer.collapse') : t('logViewer.expandJson')">
-                  <svg v-if="expandedLines.has(entry.lineNum)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                  <svg v-if="expandedLines.has(entry.lineNum)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                  <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                 </span>
                 <span class="action-btn" @click="copyLine(entry, $event)" :title="t('logViewer.copy')">
                   <span v-if="copiedLine === entry.lineNum" class="copy-icon copied">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                   </span>
                   <span v-else class="copy-icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                   </span>
                 </span>
               </span>
@@ -583,7 +583,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   padding: 0 10px;
   white-space: nowrap;
   position: relative;
-  transition: background .08s;
+  transition: background .4s ease;
   background: var(--bg);
   border-radius: 5px;
   margin: 5px 0;
@@ -631,19 +631,21 @@ defineExpose({ scrollToBottom, scrollToLine })
 }
 
 .log-row.is-highlighted {
-  background: rgba(255, 220, 0, 0.2);
-  box-shadow: inset 3px 0 0 #e6a800;
-  transition: background 0.5s ease;
+  background: rgba(255, 220, 0, 0.25);
+  animation: highlight-flash 0.5s ease-out;
+}
+
+@keyframes highlight-flash {
+  from { background: rgba(255, 220, 0, 0.5); }
 }
 
 .log-row.is-marked {
-  background: rgba(100, 210, 255, 0.15);
-  box-shadow: inset 3px 0 0 #64d2ff;
+  /* background: linear-gradient(to right, rgba(100, 210, 255, 0.5), rgba(100, 210, 255, 0.1)); */
+  background: var(--c-marked-bg, rgba(100, 210, 255, 0.3));
 }
 
 .log-row.is-bookmarked {
-  box-shadow: inset 3px 0 0 var(--c-bookmark-border, #64d2ff);
-  background: var(--c-bookmark-bg, rgba(100, 210, 255, 0.08));
+  background: var(--c-bookmark-bg, rgba(100, 210, 255, 0.3));
 }
 
 /* ── Row Sections ── */
@@ -680,6 +682,18 @@ defineExpose({ scrollToBottom, scrollToLine })
   min-width: 84px;
 }
 
+/* Cozy 模式：actions 横向排列，浮在 row-meta 行的右侧（与时间戳/level 同行）。
+   row-content 中的消息在第二行，不会与 actions 重叠；actions 仅 hover 可见。 */
+.log-row.mode-cozy .col-actions {
+  flex-direction: row;
+  position: absolute;
+  top: 0;
+  right: 10px;
+  height: var(--line-height, 26px);
+  align-items: center;
+  margin-left: 0;
+}
+
 .col-badge {
   min-width: 48px;
   padding-right: 14px;
@@ -712,7 +726,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.8;
+  line-height: 2;
   color: var(--text);
   display: flex;
   align-items: center;
@@ -844,7 +858,7 @@ defineExpose({ scrollToBottom, scrollToLine })
 /* In compact mode the actions column reverts to vertical (original look) */
 .log-row.mode-compact .col-actions {
   flex-direction: row;
-  align-self: flex-start;
+  align-self: center;
   margin-top: 2px;
 }
 

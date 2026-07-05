@@ -163,7 +163,87 @@ pub fn try_parse_timestamp(line: &str) -> (Option<DateTime<Utc>>, Option<String>
         }
     }
 
+    // Fallback: extract timestamp from JSON fields (e.g. {"time":"2026-07-05 17:51:33"})
+    if let Some((ts, raw)) = try_ts_from_json(line) {
+        return (Some(ts), Some(raw));
+    }
+
     (None, None)
+}
+
+fn parse_datetime_str(s: &str) -> Option<(DateTime<Utc>, String)> {
+    let s = s.trim();
+
+    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+        return Some((dt.with_timezone(&Utc), s.to_string()));
+    }
+
+    const PATTERNS: &[&str] = &[
+        "%Y-%m-%d %H:%M:%S%.3f",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S%.3f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%d/%b/%Y:%H:%M:%S",
+    ];
+
+    for pattern in PATTERNS {
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s, pattern) {
+            let utc = Local
+                .from_local_datetime(&dt)
+                .earliest()
+                .map(|l: DateTime<Local>| l.with_timezone(&Utc));
+            if let Some(utc) = utc {
+                return Some((utc, s.to_string()));
+            }
+        }
+    }
+
+    None
+}
+
+/// "date" is deliberately excluded — it's typically date-only (e.g. "20260705"),
+/// not a full timestamp, and would cause false matches.
+const JSON_TS_KEYS: &[&str] = &[
+    "@timestamp",
+    "timestamp",
+    "time",
+    "datetime",
+    "ts",
+    "log_time",
+    "created_at",
+];
+
+fn try_ts_from_json(line: &str) -> Option<(DateTime<Utc>, String)> {
+    let start = line.find('{')?;
+    let json: serde_json::Value = serde_json::from_str(line.get(start..)?).ok()?;
+    let obj = json.as_object()?;
+
+    for key in JSON_TS_KEYS {
+        let Some(value) = obj.get(*key) else {
+            continue;
+        };
+
+        if let Some(s) = value.as_str() {
+            if let Some(result) = parse_datetime_str(s) {
+                return Some(result);
+            }
+        }
+
+        if let Some(n) = value.as_f64() {
+            let (secs, nanos) = if n > 1e12 {
+                ((n / 1000.0).floor() as i64, ((n % 1000.0) * 1_000_000.0) as u32)
+            } else if n > 1e9 {
+                (n.floor() as i64, (n.fract() * 1_000_000_000.0) as u32)
+            } else {
+                continue;
+            };
+            if let Some(utc) = DateTime::from_timestamp(secs, nanos) {
+                return Some((utc, value.to_string()));
+            }
+        }
+    }
+
+    None
 }
 
 pub fn try_parse_json_fields(line: &str) -> Option<serde_json::Value> {
@@ -223,4 +303,60 @@ pub struct SearchMatch {
     pub content: String,
     pub match_start: usize,
     pub match_end: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_json_time_field_space_format() {
+        let line = r#"{"message":"success","status":200,"date":"20260705","time":"2026-07-05 17:51:33","cityInfo":{"city":"天津市"}}"#;
+        let (ts, raw) = try_parse_timestamp(line);
+        assert!(ts.is_some(), "should extract timestamp from JSON time field");
+        assert_eq!(raw.as_deref(), Some("2026-07-05 17:51:33"));
+    }
+
+    #[test]
+    fn test_json_timestamp_iso() {
+        let line = r#"{"level":"INFO","@timestamp":"2026-07-05T17:51:33Z","msg":"ok"}"#;
+        let (ts, raw) = try_parse_timestamp(line);
+        assert!(ts.is_some());
+        assert_eq!(raw.as_deref(), Some("2026-07-05T17:51:33Z"));
+    }
+
+    #[test]
+    fn test_json_timestamp_epoch_seconds() {
+        let line = r#"{"ts":1751725893,"msg":"hello"}"#;
+        let (ts, _) = try_parse_timestamp(line);
+        assert!(ts.is_some());
+    }
+
+    #[test]
+    fn test_json_timestamp_epoch_millis() {
+        let line = r#"{"timestamp":1751725893000.0,"msg":"hello"}"#;
+        let (ts, _) = try_parse_timestamp(line);
+        assert!(ts.is_some());
+    }
+
+    #[test]
+    fn test_line_start_timestamp_still_works() {
+        let line = "2026-07-05 17:51:33 INFO server started";
+        let (ts, raw) = try_parse_timestamp(line);
+        assert!(ts.is_some());
+        assert_eq!(raw.as_deref(), Some("2026-07-05 17:51:33"));
+    }
+
+    #[test]
+    fn test_no_timestamp_returns_none() {
+        let (ts, _) = try_parse_timestamp("just a plain log line with no time");
+        assert!(ts.is_none());
+    }
+
+    #[test]
+    fn test_json_date_only_not_matched() {
+        let line = r#"{"date":"20260705","msg":"no time here"}"#;
+        let (ts, _) = try_parse_timestamp(line);
+        assert!(ts.is_none(), "date-only field should not be matched");
+    }
 }
