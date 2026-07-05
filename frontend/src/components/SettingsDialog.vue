@@ -14,6 +14,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   update: [settings: Settings]
   close: []
+  logLevelsSaved: []
 }>()
 
 const { t, locale } = useI18n()
@@ -169,6 +170,7 @@ async function handleSave() {
   try {
     await logLevelsRef.value.syncToBackend()
     applyThemeColors(isDark.value)
+    emit('logLevelsSaved')
     saveState.value = 'success'
     saveStateTimer = setTimeout(() => { saveState.value = 'idle' }, 1500)
   } catch {
