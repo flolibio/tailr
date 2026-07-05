@@ -96,7 +96,7 @@
   "bookmark": {
     "title": "书签",
     "remove": "移除书签",
-    "empty": "暂无书签。右键点击日志行即可添加。"
+    "empty": "暂无书签。"
   },
   "tokenDialog": {
     "title": "需要认证",
