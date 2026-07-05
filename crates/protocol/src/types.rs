@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 // ── 日志级别配置 ──────────────────────────────────────────
@@ -94,8 +94,22 @@ pub fn detect_level(line: &str) -> LogLevel {
 }
 
 pub fn try_parse_timestamp(line: &str) -> (Option<DateTime<Utc>>, Option<String>) {
+    if line.starts_with('[') {
+        if let Some(end) = line.find(']') {
+            let inner = line[1..end].trim();
+            let result = try_parse_timestamp(inner);
+            if result.0.is_some() || result.1.is_some() {
+                return result;
+            }
+        }
+    }
+
     if let Ok(dt) = DateTime::parse_from_rfc3339(line.get(..30).unwrap_or(line)) {
         return (Some(dt.with_timezone(&Utc)), None);
+    }
+
+    if let Some((ts, raw)) = try_parse_ctime(line) {
+        return (Some(ts), Some(raw));
     }
 
     let patterns: &[&str] = &[
@@ -120,6 +134,14 @@ pub fn try_parse_timestamp(line: &str) -> (Option<DateTime<Utc>>, Option<String>
                 return (utc, Some(trimmed.to_string()));
             }
         }
+    }
+
+    if let Some((ts, raw)) = try_parse_date_only(line) {
+        return (Some(ts), Some(raw));
+    }
+
+    if let Some((ts, raw)) = try_parse_time_only(line) {
+        return (ts, Some(raw));
     }
 
     // Unix epoch: look for a standalone number like 1764518400.1775
@@ -169,6 +191,138 @@ pub fn try_parse_timestamp(line: &str) -> (Option<DateTime<Utc>>, Option<String>
     }
 
     (None, None)
+}
+
+/// ctime/asctime: `Sun Jul  5 22:43:21 2026` or `... +08 2026`. The offset is
+/// discarded — chrono can't parse 2-digit `%z` — and the naive datetime is
+/// treated as local time, like the fixed-format patterns.
+fn try_parse_ctime(line: &str) -> Option<(DateTime<Utc>, String)> {
+    const WEEKDAYS: &[&str] = &["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    let head = line.get(..line.len().min(64))?;
+    let mut tokens = head.split_whitespace();
+
+    let weekday = tokens.next()?;
+    if weekday.len() != 3 || !WEEKDAYS.contains(&weekday) {
+        return None;
+    }
+    let month = tokens.next()?;
+    if month.len() != 3 || !month.bytes().all(|b| b.is_ascii_alphabetic()) {
+        return None;
+    }
+    let day: u32 = tokens.next()?.split('.').next()?.parse().ok()?;
+    let time = tokens.next()?;
+    let mut parts = time.split(':');
+    let hour: u32 = parts.next()?.parse().ok()?;
+    let min: u32 = parts.next()?.parse().ok()?;
+    let sec: u32 = parts.next()?.split('.').next()?.parse().ok()?;
+
+    let next = tokens.next()?;
+    let year_token = if next.starts_with('+') || next.starts_with('-') {
+        tokens.next()?
+    } else {
+        next
+    };
+    let year_num: i32 = year_token.parse().ok()?;
+
+    let month_num = month_to_num(month)?;
+    let date = NaiveDate::from_ymd_opt(year_num, month_num, day)?;
+    let dt = date.and_hms_opt(hour, min, sec)?;
+    let utc = Local
+        .from_local_datetime(&dt)
+        .earliest()
+        .map(|l: DateTime<Local>| l.with_timezone(&Utc))?;
+
+    let raw = format_raw_components(year_num, month_num, day, hour, min, sec, 0);
+    Some((utc, raw))
+}
+
+fn month_to_num(m: &str) -> Option<u32> {
+    match m {
+        "Jan" => Some(1),
+        "Feb" => Some(2),
+        "Mar" => Some(3),
+        "Apr" => Some(4),
+        "May" => Some(5),
+        "Jun" => Some(6),
+        "Jul" => Some(7),
+        "Aug" => Some(8),
+        "Sep" => Some(9),
+        "Oct" => Some(10),
+        "Nov" => Some(11),
+        "Dec" => Some(12),
+        _ => None,
+    }
+}
+
+/// Date-only prefix `2026-07-05 <content>`. The separator after the date must
+/// be a space/tab/EOL — an ISO `T` is rejected so `2026-07-05T...` isn't
+/// silently truncated to a date.
+fn try_parse_date_only(line: &str) -> Option<(DateTime<Utc>, String)> {
+    let bytes = line.as_bytes();
+    if bytes.len() < 10 {
+        return None;
+    }
+    let slice = line.get(..10)?;
+    let date = NaiveDate::parse_from_str(slice, "%Y-%m-%d").ok()?;
+    match bytes.get(10).copied() {
+        None | Some(b' ') | Some(b'\t') => {}
+        _ => return None,
+    }
+    let dt = date.and_hms_opt(0, 0, 0)?;
+    let utc = Local
+        .from_local_datetime(&dt)
+        .earliest()
+        .map(|l: DateTime<Local>| l.with_timezone(&Utc))?;
+    let raw = format_raw_components(date.year(), date.month(), date.day(), 0, 0, 0, 0);
+    Some((utc, raw))
+}
+
+fn format_raw_components(
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    min: u32,
+    sec: u32,
+    millis: u32,
+) -> String {
+    format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}",
+        year, month, day, hour, min, sec, millis
+    )
+}
+
+/// Time-only prefix `HH:MM:SS` or `HH:MM:SS.fff`. The date is unknown, so no
+/// sortable `DateTime` is produced (returns `None`) and the raw is rendered
+/// with a `0000-00-00` date placeholder.
+fn try_parse_time_only(line: &str) -> Option<(Option<DateTime<Utc>>, String)> {
+    let bytes = line.as_bytes();
+    if bytes.len() < 8 || bytes[2] != b':' || bytes[5] != b':' {
+        return None;
+    }
+    let hour: u32 = line.get(..2)?.parse().ok()?;
+    let min: u32 = line.get(3..5)?.parse().ok()?;
+    let sec: u32 = line.get(6..8)?.parse().ok()?;
+    if hour > 23 || min > 59 || sec > 59 {
+        return None;
+    }
+    let (millis, end) = if bytes.len() >= 12
+        && bytes[8] == b'.'
+        && bytes[9].is_ascii_digit()
+        && bytes[10].is_ascii_digit()
+        && bytes[11].is_ascii_digit()
+    {
+        (line.get(9..12)?.parse().ok()?, 12usize)
+    } else {
+        (0u32, 8usize)
+    };
+    match bytes.get(end).copied() {
+        None | Some(b' ') | Some(b'\t') => {}
+        _ => return None,
+    }
+    let raw = format_raw_components(0, 0, 0, hour, min, sec, millis);
+    Some((None, raw))
 }
 
 fn parse_datetime_str(s: &str) -> Option<(DateTime<Utc>, String)> {
@@ -358,5 +512,72 @@ mod tests {
         let line = r#"{"date":"20260705","msg":"no time here"}"#;
         let (ts, _) = try_parse_timestamp(line);
         assert!(ts.is_none(), "date-only field should not be matched");
+    }
+
+    #[test]
+    fn test_date_only_prefix() {
+        let (ts, raw) = try_parse_timestamp("2026-07-05 some log content here");
+        assert!(ts.is_some(), "date-only prefix should be parsed");
+        assert_eq!(raw.as_deref(), Some("2026-07-05 00:00:00.000"));
+    }
+
+    #[test]
+    fn test_date_only_exact() {
+        let (ts, raw) = try_parse_timestamp("2026-07-05");
+        assert!(ts.is_some());
+        assert_eq!(raw.as_deref(), Some("2026-07-05 00:00:00.000"));
+    }
+
+    #[test]
+    fn test_date_only_rejects_iso_t() {
+        let (ts, _) = try_parse_timestamp("2026-07-05T17:51:33 server started");
+        assert!(ts.is_none(), "ISO-T date must not be truncated to date-only");
+    }
+
+    #[test]
+    fn test_ctime_with_two_digit_offset() {
+        let (ts, raw) = try_parse_timestamp("Sun Jul  5 22:43:21 +08 2026 something happened");
+        assert!(ts.is_some(), "ctime with +08 offset should parse");
+        assert_eq!(raw.as_deref(), Some("2026-07-05 22:43:21.000"));
+    }
+
+    #[test]
+    fn test_ctime_without_offset() {
+        let (ts, raw) = try_parse_timestamp("Mon Dec 15 10:30:00 2025 server started");
+        assert!(ts.is_some());
+        assert_eq!(raw.as_deref(), Some("2025-12-15 10:30:00.000"));
+    }
+
+    #[test]
+    fn test_ctime_rejects_non_weekday() {
+        let (ts, _) = try_parse_timestamp("Run Jul 5 10:30:00 2025 not a real weekday");
+        assert!(ts.is_none(), "non-weekday prefix must not be treated as ctime");
+    }
+
+    #[test]
+    fn test_time_only() {
+        let (ts, raw) = try_parse_timestamp("22:43:21 INFO server started");
+        assert!(ts.is_none(), "time-only has no sortable timestamp");
+        assert_eq!(raw.as_deref(), Some("0000-00-00 22:43:21.000"));
+    }
+
+    #[test]
+    fn test_time_only_with_millis() {
+        let (ts, raw) = try_parse_timestamp("22:43:21.123 DEBUG request handled");
+        assert!(ts.is_none());
+        assert_eq!(raw.as_deref(), Some("0000-00-00 22:43:21.123"));
+    }
+
+    #[test]
+    fn test_time_only_rejects_invalid() {
+        let (ts, _) = try_parse_timestamp("99:99:99 bad time");
+        assert!(ts.is_none(), "out-of-range time must not parse");
+    }
+
+    #[test]
+    fn test_bracketed_timestamp() {
+        let (ts, raw) = try_parse_timestamp("[2026-07-05 12:30:08] [FATAL] something broke");
+        assert!(ts.is_some(), "bracketed timestamp should parse");
+        assert_eq!(raw.as_deref(), Some("2026-07-05 12:30:08"));
     }
 }
