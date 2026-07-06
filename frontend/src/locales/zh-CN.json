@@ -71,14 +71,12 @@
     "copyPath": "复制路径",
     "showHistory": "显示历史文件",
     "hideHistory": "隐藏历史文件",
-    "favorites": "收藏夹",
     "recent": "最近打开",
     "justNow": "刚刚",
     "minAgo": "分钟前",
     "hourAgo": "小时前",
     "yesterday": "昨天",
     "daysAgo": "天前",
-    "toggleFavorite": "收藏/取消收藏",
     "emptyDir": "（空）"
   },
   "selection": {
