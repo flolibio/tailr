@@ -38,7 +38,7 @@ function saveToStorage(value: boolean): void {
  * |-------------------------|--------------------------------|------------------|
  * | `\.\d+$`                | app.log.1, app.log.23          | 编号轮转           |
  * | `[-_.]\d{8}[._]`        | app-20240630.log, demo.20260701.log | 紧凑日期 YYYYMMDD |
- * | `[-_.]\d{4}-\d{2}-\d{2}`| app-2024-06-30.log             | ISO 日期          |
+ * | `[-_.]\d{4}-\d{2}-\d{2}[._]`| app-2024-06-30.log             | ISO 日期          |
  * | `\.(bak|old|prev|save)$`| app.log.bak, app.log.old       | 旧文件标记         |
  */
 const HISTORICAL_PATTERNS: RegExp[] = [

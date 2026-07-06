@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { LogEntry } from '../services/api'
 import { useBookmarks } from '../composables/useBookmarks'
+import { useCopyFeedbackId } from '../composables/useClipboard'
 
 const { t } = useI18n()
 
@@ -29,7 +30,7 @@ const containerRef = ref<HTMLDivElement | null>(null)
 const scrollTop = ref(0)
 const containerHeight = ref(600)
 const showNewLogsButton = ref(false)
-const copiedLine = ref<number | null>(null)
+const { copiedId: copiedLine, copy: copyToText } = useCopyFeedbackId<number>()
 const userScrolledUp = ref(false)
 const highlightedLine = ref<number | null>(null)
 const markedLine = ref<number | null>(null)
@@ -255,24 +256,7 @@ function scrollToLine(lineNum: number): void {
 
 async function copyLine(entry: LogEntry, event: MouseEvent): Promise<void> {
   event.stopPropagation()
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(entry.raw)
-    } else {
-      const textarea = document.createElement('textarea')
-      textarea.value = entry.raw
-      textarea.style.position = 'fixed'
-      textarea.style.left = '-9999px'
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
-    }
-    copiedLine.value = entry.lineNum
-    setTimeout(() => {
-      if (copiedLine.value === entry.lineNum) copiedLine.value = null
-    }, 1500)
-  } catch {}
+  await copyToText(entry.raw, entry.lineNum)
 }
 
 function isJson(str: string): boolean {
@@ -344,12 +328,7 @@ watch(visibleEntries, () => {
   measureVisibleRows()
 })
 
-const lastToggledLine = ref<number | null>(null)
-
 watch(expandedLines, () => {
-  // Don't delete height immediately - let measureVisibleRows update it
-  // This prevents the jump caused by falling back to default lineHeight
-  lastToggledLine.value = null
   heightsVersion.value++
   nextTick(measureVisibleRows)
 })
@@ -411,7 +390,6 @@ function toggleExpand(lineNum: number): void {
   const rowTop = rowEl?.offsetTop ?? 0
   const rowHeight = rowEl?.offsetHeight ?? 0
   
-  lastToggledLine.value = lineNum
   const next = new Set(expandedLines.value)
   if (next.has(lineNum)) next.delete(lineNum)
   else next.add(lineNum)
@@ -666,7 +644,7 @@ defineExpose({ scrollToBottom, scrollToLine })
 
 /* ── Columns ── */
 .col-ts {
-  width: 84px;
+  width: auto;
   min-width: 84px;
   padding-right: 10px;
   color: var(--log-ts);
@@ -675,15 +653,8 @@ defineExpose({ scrollToBottom, scrollToLine })
   flex-shrink: 0;
 }
 
-/* Cozy 模式：长格式时间戳（YYYY-MM-DD HH:mm:ss.SSS）需要自适应宽度，
-   固定的 84px 会导致 nowrap 文本溢出覆盖到 badge 上 */
-.log-row.mode-cozy .col-ts {
-  width: auto;
-  min-width: 84px;
-}
-
-/* Cozy 模式：actions 横向排列，浮在 row-meta 行的右侧（与时间戳/level 同行）。
-   row-content 中的消息在第二行，不会与 actions 重叠；actions 仅 hover 可见。 */
+/* Cozy 模式：actions 浮在 row-meta 行右侧（与时间戳/level 同行），
+   row-content 消息在第二行不重叠；actions 仅 hover 可见。*/
 .log-row.mode-cozy .col-actions {
   flex-direction: row;
   position: absolute;
@@ -862,7 +833,6 @@ defineExpose({ scrollToBottom, scrollToLine })
   margin-top: 2px;
 }
 
-/* ── Long Line ── */
 /* ── New Logs Button ── */
 .new-logs-button {
   position: absolute;

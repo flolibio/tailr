@@ -20,7 +20,7 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 
 // ── Navigation ──
-type NavSection = 'general' | 'logLevels' | 'appearance' | 'server' | 'aiModels' | 'about'
+type NavSection = 'general' | 'logLevels' | 'about'
 const activeNav = ref<NavSection>('general')
 
 const navItems = computed<{ key: NavSection; label: string; icon: string; section: string }[]>(() => [
