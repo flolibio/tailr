@@ -6,6 +6,7 @@ import type { FileEntry } from '../services/api'
 import { useHistoricalFilter } from '../composables/useHistoricalFilter'
 import { useFavoriteFiles } from '../composables/useFavoriteFiles'
 import { useRecentFiles } from '../composables/useRecentFiles'
+import { useCopyFeedbackId } from '../composables/useClipboard'
 
 const { t } = useI18n()
 const { showHistorical, isHistoricalFile, toggle: toggleHistorical } = useHistoricalFilter()
@@ -68,7 +69,7 @@ interface TreeNode {
 const tree = ref<TreeNode[]>([])
 const loading = ref(false)
 const filterText = ref('')
-const copiedPath = ref<string | null>(null)
+const { copiedId: copiedPath, copy: copyToText } = useCopyFeedbackId<string>()
 const isDragging = ref(false)
 const dragStartX = ref(0)
 const dragStartWidth = ref(0)
@@ -242,24 +243,7 @@ onUnmounted(() => {
 
 async function copyPath(path: string, event: MouseEvent): Promise<void> {
   event.stopPropagation()
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(path)
-    } else {
-      const textarea = document.createElement('textarea')
-      textarea.value = path
-      textarea.style.position = 'fixed'
-      textarea.style.left = '-9999px'
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
-    }
-    copiedPath.value = path
-    setTimeout(() => {
-      if (copiedPath.value === path) copiedPath.value = null
-    }, 1500)
-  } catch {}
+  await copyToText(path, path)
 }
 
 /** Ensure the given file path is visible in the tree: expand parent dirs as needed. */

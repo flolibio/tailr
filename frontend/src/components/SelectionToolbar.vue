@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCopyFeedback } from '../composables/useClipboard'
 
 const { t } = useI18n()
 
@@ -12,7 +13,7 @@ const visible = ref(false)
 const x = ref(0)
 const y = ref(0)
 const selectedText = ref('')
-const copied = ref(false)
+const { copied, copy: copyText } = useCopyFeedback()
 
 function updateSelection(): void {
   const sel = window.getSelection()
@@ -59,24 +60,7 @@ function onMouseDown(e: MouseEvent): void {
 }
 
 async function copySelection(): Promise<void> {
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(selectedText.value)
-    } else {
-      const textarea = document.createElement('textarea')
-      textarea.value = selectedText.value
-      textarea.style.position = 'fixed'
-      textarea.style.left = '-9999px'
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
-    }
-    copied.value = true
-    setTimeout(() => {
-      copied.value = false
-    }, 1500)
-  } catch {}
+  await copyText(selectedText.value)
 }
 
 function followSelection(): void {
