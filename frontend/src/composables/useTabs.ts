@@ -61,8 +61,15 @@ function ensureWs(): void {
     if (typeof p !== 'string' || !Array.isArray(catchupEntries)) return
     const tab = tabs.value.find((t) => t.path === p)
     if (!tab) return
-    tab.entries = catchupEntries as LogEntry[]
-    tab.totalLines = tab.entries.length
+    // 仅在 tail 模式下用 catchup 替换；用户在查看历史时不打断
+    if (tab.isTailMode) {
+      let entries = catchupEntries as LogEntry[]
+      if (entries.length > maxLines.value) {
+        entries = entries.slice(entries.length - maxLines.value)
+      }
+      tab.entries = entries
+      tab.totalLines = entries.length
+    }
     tab.isLoading = false
   })
 
@@ -124,6 +131,8 @@ async function loadInitial(tab: TabState): Promise<void> {
   tab.isLoading = true
   try {
     const data = await getFileTail(tab.path, INITIAL_LINES)
+    // 校验 tab 在 await 期间未被关闭，避免幻影 WS 订阅
+    if (!tabs.value.find((t) => t.path === tab.path)) return
     tab.entries = data.entries
     tab.totalLines = data.totalLines
     tab.isTailMode = true
@@ -131,7 +140,9 @@ async function loadInitial(tab: TabState): Promise<void> {
   } catch (e) {
     console.error('Failed to load:', e)
   } finally {
-    tab.isLoading = false
+    if (tabs.value.find((t) => t.path === tab.path)) {
+      tab.isLoading = false
+    }
   }
 }
 
