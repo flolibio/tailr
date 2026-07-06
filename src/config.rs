@@ -34,6 +34,11 @@ bind = "0.0.0.0:7700"
 #   3. Environment variable TAILR_TOKEN
 token = ""
 
+# Timezone for log timestamps without explicit zone (e.g. "2026-07-05 22:43:21").
+# Values: local (server timezone, default) | utc | +HH:MM | +HHMM
+# Ctime lines with explicit offset (e.g. "Sun Jul 5 22:43:21 +08 2026") always use that offset.
+log_timezone = "local"
+
 # Daemon mode settings (optional)
 # [daemon]
 # Custom PID file path
@@ -57,6 +62,8 @@ pub struct Config {
     pub log_levels: Option<LogLevelConfig>,
     /// Token for authentication (empty = no auth required).
     pub token: String,
+    /// Timezone for naive log timestamps. Values: "local" | "utc" | "+HH:MM".
+    pub log_timezone: String,
 }
 
 /// Daemon-specific configuration.
@@ -75,6 +82,7 @@ impl Default for Config {
             daemon: DaemonConfig::default(),
             log_levels: Some(default_log_levels("general")),
             token: String::new(),
+            log_timezone: "local".to_string(),
         }
     }
 }

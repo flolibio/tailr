@@ -242,8 +242,21 @@ async fn run_serve(cfg: config::Config, config_path: PathBuf) {
     let level_config = cfg.log_levels.clone()
         .unwrap_or_else(|| config::default_log_levels("general"));
 
-    let server = axum::serve(listener, app(log_paths, config_path, level_config, cfg.token.clone()))
-        .with_graceful_shutdown(daemon::shutdown_signal());
+    let log_timezone = tailr_protocol::LogTimezone::parse(&cfg.log_timezone)
+        .unwrap_or_else(|e| {
+            tracing::warn!(
+                "invalid log_timezone '{}': {}, using local",
+                cfg.log_timezone,
+                e
+            );
+            tailr_protocol::LogTimezone::default()
+        });
+
+    let server = axum::serve(
+        listener,
+        app(log_paths, config_path, level_config, log_timezone, cfg.token.clone()),
+    )
+    .with_graceful_shutdown(daemon::shutdown_signal());
 
     if let Err(e) = server.await {
         tracing::error!("server error: {}", e);

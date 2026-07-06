@@ -9,7 +9,7 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::Router;
 use dashmap::DashMap;
-use tailr_protocol::LogLevelConfig;
+use tailr_protocol::{LogLevelConfig, LogTimezone};
 use tailr_search_engine::{LevelDetector, SearchEngine};
 use tailr_tail_engine::{FileWatcher, LineIndex};
 use std::collections::HashMap;
@@ -32,6 +32,7 @@ pub struct AppState {
     pub config_path: PathBuf,
     pub token: String,
     pub allowed_dirs: Vec<PathBuf>,
+    pub log_timezone: Arc<LogTimezone>,
 }
 
 async fn auth_middleware(
@@ -73,13 +74,19 @@ pub fn app(
     log_paths: Vec<PathBuf>,
     config_path: PathBuf,
     level_config: LogLevelConfig,
+    log_timezone: LogTimezone,
     token: String,
 ) -> Router {
     let level_detector = LevelDetector::from_config(&level_config);
     let level_detector_arc = Arc::new(ArcSwap::from_pointee(level_detector));
+    let log_timezone_arc = Arc::new(log_timezone);
 
-    let watcher = FileWatcher::new(Duration::from_millis(100), level_detector_arc.clone())
-        .expect("failed to create FileWatcher");
+    let watcher = FileWatcher::new(
+        Duration::from_millis(100),
+        level_detector_arc.clone(),
+        log_timezone_arc.clone(),
+    )
+    .expect("failed to create FileWatcher");
 
     let (log_dirs, log_files): (Vec<_>, Vec<_>) = log_paths
         .into_iter()
@@ -111,6 +118,7 @@ pub fn app(
         config_path,
         token,
         allowed_dirs,
+        log_timezone: log_timezone_arc,
     });
 
     ws::spawn_watcher_loop(state.clone());
