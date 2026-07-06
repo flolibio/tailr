@@ -365,7 +365,7 @@ input[type="range"] {
 }
 
 .sidebar-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--fw-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -450,7 +450,7 @@ input[type="range"] {
 
 .sidebar-section-header .section-label {
   flex: 1;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: var(--fw-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -504,7 +504,7 @@ input[type="range"] {
 }
 
 .sidebar-item .item-icon {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-3);
   flex-shrink: 0;
 }
@@ -516,14 +516,14 @@ input[type="range"] {
 .sidebar-item .item-label {
   flex: 1;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .sidebar-item .item-meta {
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--text-3);
   flex-shrink: 0;
 }
@@ -556,13 +556,13 @@ input[type="range"] {
 }
 
 .sidebar-item.bookmark-item .item-line {
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--font-mono);
   color: var(--text-2);
 }
 
 .sidebar-item.bookmark-item .item-snippet {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
@@ -573,7 +573,7 @@ input[type="range"] {
 .sidebar-tree-header {
   flex-shrink: 0;
   padding: 2px 6px 4px;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: var(--fw-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -607,7 +607,7 @@ input[type="range"] {
 }
 
 .tree-item .item-icon {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-3);
   flex-shrink: 0;
 }
@@ -619,14 +619,14 @@ input[type="range"] {
 .tree-item .item-label {
   flex: 1;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .tree-item .item-size {
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--text-3);
   flex-shrink: 0;
 }

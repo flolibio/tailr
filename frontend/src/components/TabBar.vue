@@ -57,7 +57,7 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
   align-items: center;
   gap: 6px;
   padding: 0 12px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-3);
   cursor: pointer;
   border-right: 1px solid var(--border);

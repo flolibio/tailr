@@ -230,7 +230,7 @@ async function switchLocale(newLocale: string): Promise<void> {
 }
 
 .toggle-name {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--text);
 }
 

@@ -363,7 +363,7 @@ defineExpose({ focus })
   border: none;
   background: transparent;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--text);
   outline: none;
 }
