@@ -639,6 +639,7 @@ onMounted(() => {
   transition: background .1s ease;
   user-select: none;
   position: relative;
+  height: 40px;
 }
 
 .nav-item:hover {
@@ -714,6 +715,7 @@ onMounted(() => {
   transition: background .1s ease, box-shadow .1s ease;
   user-select: none;
   position: relative;
+  height: 40px;
 }
 
 .file-item:hover {

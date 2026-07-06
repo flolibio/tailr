@@ -332,7 +332,7 @@ function handleSettingsUpdate(s: Settings): void {
     <TabBar />
 
     <!-- File toolbar (per-file: keyword filter + levels) -->
-    <div class="filterbar">
+    <div class="filterbar" v-show="tabs.length > 0">
       <FilterBar
         ref="filterBarRef"
         :current-file="activeTabPath"
