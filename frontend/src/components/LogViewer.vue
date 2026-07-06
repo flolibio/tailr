@@ -501,7 +501,7 @@ defineExpose({ scrollToBottom, scrollToLine })
               </span>
               <span class="col-actions">
                 <span class="action-btn" @click="toggleBookmark(entry)" :title="t('logViewer.bookmark')">
-                  <Bookmark :size="16" :stroke-width="2" :fill="filePath && isBookmarked(filePath, entry.lineNum) ? 'var(--c-bookmark-border, #64d2ff)' : 'none'" :stroke="filePath && isBookmarked(filePath, entry.lineNum) ? 'none' : 'currentColor'" />
+                  <Bookmark :size="16" :stroke-width="2" fill="none" :color="filePath && isBookmarked(filePath, entry.lineNum) ? '#FF453A' : 'currentColor'" />
                 </span>
                 <span v-if="isJson(entry.raw)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" :title="expandedLines.has(entry.lineNum) ? t('logViewer.collapse') : t('logViewer.expandJson')">
                   <Minimize2 v-if="expandedLines.has(entry.lineNum)" :size="16" :stroke-width="2" />
@@ -618,7 +618,6 @@ defineExpose({ scrollToBottom, scrollToLine })
 }
 
 .log-row.is-marked {
-  /* background: linear-gradient(to right, rgba(100, 210, 255, 0.5), rgba(100, 210, 255, 0.1)); */
   background: var(--c-marked-bg, rgba(100, 210, 255, 0.3));
 }
 

@@ -693,7 +693,7 @@ input[type="range"] {
 }
 
 .globalbar .filter-sep { height: 22px; }
-.filterbar .filter-sep { height: 18px; }
+.filterbar .filter-sep { height: 36px; }
 
 .regex-badge {
   position: absolute;
@@ -765,14 +765,13 @@ input[type="range"] {
   align-items: center;
   gap: 6px;
   background: var(--bg);
-  overflow-x: auto;
 }
 
 .level-tag {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: var(--fw-semibold);

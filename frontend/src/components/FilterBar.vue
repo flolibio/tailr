@@ -325,7 +325,7 @@ defineExpose({ focus })
   border: none;
   background: var(--bg);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text);
   outline: none;
   padding: 0 2px;
@@ -360,7 +360,7 @@ defineExpose({ focus })
   border: none;
   background: transparent;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text);
   outline: none;
 }
