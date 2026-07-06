@@ -6,7 +6,7 @@ import type { FileEntry } from '../services/api'
 import { useHistoricalFilter } from '../composables/useHistoricalFilter'
 import { useRecentFiles } from '../composables/useRecentFiles'
 import { useCopyFeedbackId } from '../composables/useClipboard'
-import { Search, ChevronDown, Clock, RefreshCw, File as FileIcon, FolderOpen, Folder, Check, Copy } from 'lucide-vue-next'
+import { Search, ChevronDown, RefreshCw, File as FileIcon, FolderOpen, Folder, Check, Copy, History } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const { showHistorical, isHistoricalFile, toggle: toggleHistorical } = useHistoricalFilter()
@@ -323,7 +323,7 @@ onMounted(() => {
               @click="toggleHistorical"
               :title="showHistorical ? t('fileBrowser.hideHistory') : t('fileBrowser.showHistory')"
             >
-              <Clock :size="14" :stroke-width="2" />
+              <History :size="14" :stroke-width="2" />
             </button>
             <button class="section-icon-btn" @click="refresh" :title="t('fileBrowser.refresh')">
               <RefreshCw :size="14" :stroke-width="2" />

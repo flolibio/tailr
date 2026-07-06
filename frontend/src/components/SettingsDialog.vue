@@ -6,7 +6,7 @@ import { healthCheck } from '../services/api'
 import { useLogLevels } from '../composables/useLogLevels'
 import LogLevelSettings from './settings/LogLevelSettings.vue'
 import type { Settings } from './SettingsPanel.vue'
-import { X, Settings as SettingsIcon, Pencil, Info, Check } from 'lucide-vue-next'
+import { X, Settings as SettingsIcon, Info, Check, ChartNoAxesGantt } from 'lucide-vue-next'
 
 const props = defineProps<{
   settings: Settings
@@ -243,7 +243,7 @@ onUnmounted(() => {
               <!-- Settings icon -->
               <SettingsIcon v-if="item.icon === 'settings'" class="nav-icon" :size="16" :stroke-width="2" />
               <!-- Edit icon -->
-              <Pencil v-else-if="item.icon === 'edit'" class="nav-icon" :size="16" :stroke-width="2" />
+              <ChartNoAxesGantt v-else-if="item.icon === 'edit'" class="nav-icon" :size="16" :stroke-width="2" />
               <!-- Info icon -->
               <Info v-else-if="item.icon === 'info'" class="nav-icon" :size="16" :stroke-width="2" />
               {{ item.label }}
