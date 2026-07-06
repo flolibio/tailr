@@ -4,7 +4,7 @@ import type { LogEntry } from '../services/api'
 import { getFileTail } from '../services/api'
 
 const MAX_TABS = 10
-const INITIAL_LINES = 200
+const INITIAL_LINES = 300
 
 export interface TabState {
   path: string
