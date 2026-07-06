@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useBookmarks, type Bookmark } from '../composables/useBookmarks'
 import { useI18n } from 'vue-i18n'
+import { ChevronDown } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -40,7 +41,7 @@ function handleClick(bm: Bookmark): void {
   <div class="bm-section">
     <div class="section-header" @click="collapsed = !collapsed">
       <div class="section-chevron" :class="{ collapsed }">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <ChevronDown :size="14" :stroke-width="2.5" />
       </div>
       <span class="section-title">{{ t('bookmark.title') }} ({{ bookmarks.length }})</span>
     </div>

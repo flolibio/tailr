@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useLogLevels, PRESET_NAMES, COLOR_PALETTE } from '../../composables/useLogLevels'
 import ColorPicker from './ColorPicker.vue'
+import { ChevronDown, Check, GripVertical, X, Plus } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -118,9 +119,7 @@ function onDragEnd() {
       <div class="preset-dropdown" ref="presetDropdownRef">
         <button class="preset-trigger" @click.stop="togglePresetDropdown">
           <span class="preset-current">{{ currentPresetLabel }}</span>
-          <svg class="preset-arrow" :class="{ open: showPresetDropdown }" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
+          <ChevronDown class="preset-arrow" :class="{ open: showPresetDropdown }" :size="10" :stroke-width="2" />
         </button>
         <div v-if="showPresetDropdown" class="preset-menu">
           <button
@@ -130,9 +129,7 @@ function onDragEnd() {
             :class="{ active: config.preset === p.key }"
             @click.stop="selectPreset(p.key)"
           >
-            <svg v-if="config.preset === p.key" class="check-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
+            <Check v-if="config.preset === p.key" class="check-icon" :size="12" :stroke-width="2.5" />
             <span v-else class="check-placeholder"></span>
             {{ p.label }}
           </button>
@@ -165,11 +162,7 @@ function onDragEnd() {
           draggable="true"
           @dragstart="onDragStart($event, index)"
         >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/>
-            <circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>
-            <circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/>
-          </svg>
+          <GripVertical :size="10" />
         </span>
         <input
           class="level-name"
@@ -206,16 +199,12 @@ function onDragEnd() {
           @click="removeLevel(index)"
           :title="t('settings.removeLevel')"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
+          <X :size="14" :stroke-width="2" />
         </button>
       </div>
 
       <button class="add-btn" @click="addLevel">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
+        <Plus :size="10" :stroke-width="2" />
         {{ t('settings.addLevel') }}
       </button>
     </div>

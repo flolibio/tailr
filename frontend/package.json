@@ -16,6 +16,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "lucide-vue-next": "^0.577.0",
     "vue": "^3.5.34",
     "vue-i18n": "^11.4.5"
   },
