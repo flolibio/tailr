@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import type { LogEntry } from '../services/api'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useCopyFeedbackId } from '../composables/useClipboard'
+import { Bookmark, Maximize2, Minimize2, Check, Copy } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -500,19 +501,18 @@ defineExpose({ scrollToBottom, scrollToLine })
               </span>
               <span class="col-actions">
                 <span class="action-btn" @click="toggleBookmark(entry)" :title="t('logViewer.bookmark')">
-                  <svg v-if="filePath && isBookmarked(filePath, entry.lineNum)" width="16" height="16" viewBox="0 0 24 24" fill="var(--c-bookmark-border, #64d2ff)" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                  <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  <Bookmark :size="16" :stroke-width="2" :fill="filePath && isBookmarked(filePath, entry.lineNum) ? 'var(--c-bookmark-border, #64d2ff)' : 'none'" :stroke="filePath && isBookmarked(filePath, entry.lineNum) ? 'none' : 'currentColor'" />
                 </span>
                 <span v-if="isJson(entry.raw)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" :title="expandedLines.has(entry.lineNum) ? t('logViewer.collapse') : t('logViewer.expandJson')">
-                  <svg v-if="expandedLines.has(entry.lineNum)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                  <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                  <Minimize2 v-if="expandedLines.has(entry.lineNum)" :size="16" :stroke-width="2" />
+                  <Maximize2 v-else :size="16" :stroke-width="2" />
                 </span>
                 <span class="action-btn" @click="copyLine(entry, $event)" :title="t('logViewer.copy')">
                   <span v-if="copiedLine === entry.lineNum" class="copy-icon copied">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <Check :size="16" :stroke-width="3" />
                   </span>
                   <span v-else class="copy-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <Copy :size="16" :stroke-width="2" />
                   </span>
                 </span>
               </span>

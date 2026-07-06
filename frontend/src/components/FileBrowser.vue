@@ -6,6 +6,7 @@ import type { FileEntry } from '../services/api'
 import { useHistoricalFilter } from '../composables/useHistoricalFilter'
 import { useRecentFiles } from '../composables/useRecentFiles'
 import { useCopyFeedbackId } from '../composables/useClipboard'
+import { Search, ChevronDown, Clock, RefreshCw, File as FileIcon, FolderOpen, Folder, Check, Copy } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const { showHistorical, isHistoricalFile, toggle: toggleHistorical } = useHistoricalFilter()
@@ -274,9 +275,7 @@ onMounted(() => {
   <div class="file-browser">
     <div class="sidebar-header">
       <div class="filter-wrap">
-        <svg class="filter-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
+        <Search class="filter-icon" :size="14" :stroke-width="2" />
         <input
           v-model="filterText"
           type="text"
@@ -291,7 +290,7 @@ onMounted(() => {
         <div class="nav-section">
           <div class="section-header" @click="recentCollapsed = !recentCollapsed">
             <div class="section-chevron" :class="{ collapsed: recentCollapsed }">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              <ChevronDown :size="14" :stroke-width="2.5" />
             </div>
             <span class="section-title">{{ t('fileBrowser.recent') }}</span>
           </div>
@@ -314,7 +313,7 @@ onMounted(() => {
       <div class="nav-section files-section">
         <div class="section-header" @click="filesCollapsed = !filesCollapsed">
           <div class="section-chevron" :class="{ collapsed: filesCollapsed }">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <ChevronDown :size="14" :stroke-width="2.5" />
           </div>
           <span class="section-title">{{ t('fileBrowser.files') }}</span>
           <div class="section-actions" @click.stop>
@@ -324,15 +323,10 @@ onMounted(() => {
               @click="toggleHistorical"
               :title="showHistorical ? t('fileBrowser.hideHistory') : t('fileBrowser.showHistory')"
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
+              <Clock :size="14" :stroke-width="2" />
             </button>
             <button class="section-icon-btn" @click="refresh" :title="t('fileBrowser.refresh')">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
-                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
-              </svg>
+              <RefreshCw :size="14" :stroke-width="2" />
             </button>
           </div>
         </div>
@@ -348,19 +342,19 @@ onMounted(() => {
             @click="selectFile(node)"
           >
             <div v-if="!node.isDir" class="file-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <FileIcon :size="14" :stroke-width="2" />
             </div>
             <div v-else class="file-dir-icon">
-              <svg v-if="node.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M2 10h20"/></svg>
-              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <FolderOpen v-if="node.expanded" :size="14" :stroke-width="2" />
+              <Folder v-else :size="14" :stroke-width="2" />
             </div>
             <div class="file-meta">
               <div class="file-name">{{ node.name }}</div>
               <span v-if="!node.isDir && node.size != null" class="file-size">{{ formatSize(node.size) }}</span>
             </div>
             <button class="copy-path-btn" @click="copyPath(node.path, $event)" :title="t('fileBrowser.copyPath')">
-              <svg v-if="copiedPath === node.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <Check v-if="copiedPath === node.path" :size="14" :stroke-width="2.5" />
+              <Copy v-else :size="14" :stroke-width="2" />
             </button>
           </div>
           <template v-if="node.isDir && node.expanded">
@@ -376,19 +370,19 @@ onMounted(() => {
               @click="selectFile(child)"
             >
               <div v-if="!child.isDir" class="file-icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <FileIcon :size="14" :stroke-width="2" />
               </div>
               <div v-else class="file-dir-icon">
-                <svg v-if="child.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M2 10h20"/></svg>
-                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <FolderOpen v-if="child.expanded" :size="14" :stroke-width="2" />
+                <Folder v-else :size="14" :stroke-width="2" />
               </div>
               <div class="file-meta">
                 <div class="file-name">{{ child.name }}</div>
                 <span v-if="!child.isDir && child.size != null" class="file-size">{{ formatSize(child.size) }}</span>
               </div>
               <button class="copy-path-btn" @click="copyPath(child.path, $event)" :title="t('fileBrowser.copyPath')">
-                <svg v-if="copiedPath === child.path" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <Check v-if="copiedPath === child.path" :size="14" :stroke-width="2.5" />
+                <Copy v-else :size="14" :stroke-width="2" />
               </button>
             </div>
           </template>

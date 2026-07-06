@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Search, X } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -196,9 +197,7 @@ defineExpose({ focus })
   <div class="filter-bar">
     <div class="filter-wrap">
       <span class="filter-icon">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
+        <Search :size="14" :stroke-width="2" />
       </span>
       <div class="filter-content">
         <span v-for="(kw, i) in keywords" :key="kw" class="chip" :style="colors ? { background: colors[i % colors.length], color: 'inherit' } : {}">
@@ -243,9 +242,7 @@ defineExpose({ focus })
         </div>
       </div>
       <button v-if="keywords.length || input" class="filter-clear" @click="doClearAll" :title="t('filter.clearAll')">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
+        <X :size="14" :stroke-width="2.5" />
       </button>
     </div>
   </div>
