@@ -1,5 +1,75 @@
-use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
+
+/// Timezone assumption used when parsing timezone-less (naive) log timestamps.
+/// Ctime lines with an explicit offset (e.g. `+08`) always use that offset;
+/// this config only applies to naive timestamps.
+#[derive(Debug, Clone, Default)]
+pub enum LogTimezone {
+    /// Server local timezone (default, backward compatible).
+    #[default]
+    Local,
+    /// UTC.
+    Utc,
+    /// Fixed UTC offset (e.g. +08:00).
+    Fixed(FixedOffset),
+}
+
+impl LogTimezone {
+    pub fn parse(s: &str) -> Result<Self, String> {
+        let s = s.trim();
+        match s.to_ascii_lowercase().as_str() {
+            "local" | "" => Ok(LogTimezone::Local),
+            "utc" | "z" => Ok(LogTimezone::Utc),
+            _ => {
+                let off = Self::parse_offset(s).ok_or_else(|| {
+                    format!("invalid timezone '{}': expected local|utc|+HH:MM|+HHMM", s)
+                })?;
+                Ok(LogTimezone::Fixed(off))
+            }
+        }
+    }
+
+    /// Parse an offset token like `+08`, `+0800`, `+08:00`, `-05:00`. Used by ctime parser.
+    pub(crate) fn parse_offset(s: &str) -> Option<FixedOffset> {
+        let (sign, rest) = match s.chars().next()? {
+            '+' => (1i32, &s[1..]),
+            '-' => (-1i32, &s[1..]),
+            _ => return None,
+        };
+        let (h, m) = if let Some((hh, mm)) = rest.split_once(':') {
+            (hh.parse::<i32>().ok()?, mm.parse::<i32>().ok()?)
+        } else if rest.len() == 4 {
+            (
+                rest[..2].parse::<i32>().ok()?,
+                rest[2..].parse::<i32>().ok()?,
+            )
+        } else if rest.len() == 2 {
+            (rest.parse::<i32>().ok()?, 0)
+        } else {
+            return None;
+        };
+        // Valid offsets range from -12:00 to +14:00; clamp hour to ±14, minutes to 0..=59.
+        if !(0..=14).contains(&h) || !(0..=59).contains(&m) {
+            return None;
+        }
+        FixedOffset::east_opt(sign * (h * 3600 + m * 60))
+    }
+
+    fn naive_to_utc(&self, dt: &NaiveDateTime) -> Option<DateTime<Utc>> {
+        match self {
+            LogTimezone::Local => Local
+                .from_local_datetime(dt)
+                .earliest()
+                .map(|l: DateTime<Local>| l.with_timezone(&Utc)),
+            LogTimezone::Utc => Some(Utc.from_utc_datetime(dt)),
+            LogTimezone::Fixed(off) => off
+                .from_local_datetime(dt)
+                .earliest()
+                .map(|d: DateTime<FixedOffset>| d.with_timezone(&Utc)),
+        }
+    }
+}
 
 // ── 日志级别配置 ──────────────────────────────────────────
 
@@ -93,11 +163,14 @@ pub fn detect_level(line: &str) -> LogLevel {
     }
 }
 
-pub fn try_parse_timestamp(line: &str) -> (Option<DateTime<Utc>>, Option<String>) {
+pub fn try_parse_timestamp(
+    line: &str,
+    tz: &LogTimezone,
+) -> (Option<DateTime<Utc>>, Option<String>) {
     if line.starts_with('[') {
         if let Some(end) = line.find(']') {
             let inner = line[1..end].trim();
-            let result = try_parse_timestamp(inner);
+            let result = try_parse_timestamp(inner, tz);
             if result.0.is_some() || result.1.is_some() {
                 return result;
             }
@@ -108,7 +181,7 @@ pub fn try_parse_timestamp(line: &str) -> (Option<DateTime<Utc>>, Option<String>
         return (Some(dt.with_timezone(&Utc)), None);
     }
 
-    if let Some((ts, raw)) = try_parse_ctime(line) {
+    if let Some((ts, raw)) = try_parse_ctime(line, tz) {
         return (Some(ts), Some(raw));
     }
 
@@ -130,13 +203,13 @@ pub fn try_parse_timestamp(line: &str) -> (Option<DateTime<Utc>>, Option<String>
         if let Some(slice) = slice {
             let trimmed = slice.trim();
             if let Ok(dt) = NaiveDateTime::parse_from_str(trimmed, pattern) {
-                let utc = Local.from_local_datetime(&dt).earliest().map(|l: DateTime<Local>| l.with_timezone(&Utc));
+                let utc = tz.naive_to_utc(&dt);
                 return (utc, Some(trimmed.to_string()));
             }
         }
     }
 
-    if let Some((ts, raw)) = try_parse_date_only(line) {
+    if let Some((ts, raw)) = try_parse_date_only(line, tz) {
         return (Some(ts), Some(raw));
     }
 
@@ -186,17 +259,17 @@ pub fn try_parse_timestamp(line: &str) -> (Option<DateTime<Utc>>, Option<String>
     }
 
     // Fallback: extract timestamp from JSON fields (e.g. {"time":"2026-07-05 17:51:33"})
-    if let Some((ts, raw)) = try_ts_from_json(line) {
+    if let Some((ts, raw)) = try_ts_from_json(line, tz) {
         return (Some(ts), Some(raw));
     }
 
     (None, None)
 }
 
-/// ctime/asctime: `Sun Jul  5 22:43:21 2026` or `... +08 2026`. The offset is
-/// discarded — chrono can't parse 2-digit `%z` — and the naive datetime is
-/// treated as local time, like the fixed-format patterns.
-fn try_parse_ctime(line: &str) -> Option<(DateTime<Utc>, String)> {
+/// ctime/asctime: `Sun Jul  5 22:43:21 2026` or `... +08 2026`. The naive
+/// datetime is converted to UTC via `tz` when no offset is present; an
+/// explicit offset (e.g. `+08`) always wins.
+fn try_parse_ctime(line: &str, tz: &LogTimezone) -> Option<(DateTime<Utc>, String)> {
     const WEEKDAYS: &[&str] = &["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     let head = line.get(..line.len().min(64))?;
@@ -218,20 +291,25 @@ fn try_parse_ctime(line: &str) -> Option<(DateTime<Utc>, String)> {
     let sec: u32 = parts.next()?.split('.').next()?.parse().ok()?;
 
     let next = tokens.next()?;
-    let year_token = if next.starts_with('+') || next.starts_with('-') {
-        tokens.next()?
+    let (explicit_offset, year_token) = if next.starts_with('+') || next.starts_with('-') {
+        let off = LogTimezone::parse_offset(next)?;
+        let yr = tokens.next()?;
+        (Some(off), yr)
     } else {
-        next
+        (None, next)
     };
     let year_num: i32 = year_token.parse().ok()?;
 
     let month_num = month_to_num(month)?;
     let date = NaiveDate::from_ymd_opt(year_num, month_num, day)?;
     let dt = date.and_hms_opt(hour, min, sec)?;
-    let utc = Local
-        .from_local_datetime(&dt)
-        .earliest()
-        .map(|l: DateTime<Local>| l.with_timezone(&Utc))?;
+    let utc = if let Some(off) = explicit_offset {
+        off.from_local_datetime(&dt)
+            .earliest()
+            .map(|d: DateTime<FixedOffset>| d.with_timezone(&Utc))?
+    } else {
+        tz.naive_to_utc(&dt)?
+    };
 
     let raw = format_raw_components(year_num, month_num, day, hour, min, sec, 0);
     Some((utc, raw))
@@ -258,7 +336,7 @@ fn month_to_num(m: &str) -> Option<u32> {
 /// Date-only prefix `2026-07-05 <content>`. The separator after the date must
 /// be a space/tab/EOL — an ISO `T` is rejected so `2026-07-05T...` isn't
 /// silently truncated to a date.
-fn try_parse_date_only(line: &str) -> Option<(DateTime<Utc>, String)> {
+fn try_parse_date_only(line: &str, tz: &LogTimezone) -> Option<(DateTime<Utc>, String)> {
     let bytes = line.as_bytes();
     if bytes.len() < 10 {
         return None;
@@ -270,10 +348,7 @@ fn try_parse_date_only(line: &str) -> Option<(DateTime<Utc>, String)> {
         _ => return None,
     }
     let dt = date.and_hms_opt(0, 0, 0)?;
-    let utc = Local
-        .from_local_datetime(&dt)
-        .earliest()
-        .map(|l: DateTime<Local>| l.with_timezone(&Utc))?;
+    let utc = tz.naive_to_utc(&dt)?;
     let raw = format_raw_components(date.year(), date.month(), date.day(), 0, 0, 0, 0);
     Some((utc, raw))
 }
@@ -325,7 +400,7 @@ fn try_parse_time_only(line: &str) -> Option<(Option<DateTime<Utc>>, String)> {
     Some((None, raw))
 }
 
-fn parse_datetime_str(s: &str) -> Option<(DateTime<Utc>, String)> {
+fn parse_datetime_str(s: &str, tz: &LogTimezone) -> Option<(DateTime<Utc>, String)> {
     let s = s.trim();
 
     if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
@@ -342,11 +417,7 @@ fn parse_datetime_str(s: &str) -> Option<(DateTime<Utc>, String)> {
 
     for pattern in PATTERNS {
         if let Ok(dt) = NaiveDateTime::parse_from_str(s, pattern) {
-            let utc = Local
-                .from_local_datetime(&dt)
-                .earliest()
-                .map(|l: DateTime<Local>| l.with_timezone(&Utc));
-            if let Some(utc) = utc {
+            if let Some(utc) = tz.naive_to_utc(&dt) {
                 return Some((utc, s.to_string()));
             }
         }
@@ -367,7 +438,7 @@ const JSON_TS_KEYS: &[&str] = &[
     "created_at",
 ];
 
-fn try_ts_from_json(line: &str) -> Option<(DateTime<Utc>, String)> {
+fn try_ts_from_json(line: &str, tz: &LogTimezone) -> Option<(DateTime<Utc>, String)> {
     let start = line.find('{')?;
     let json: serde_json::Value = serde_json::from_str(line.get(start..)?).ok()?;
     let obj = json.as_object()?;
@@ -378,7 +449,7 @@ fn try_ts_from_json(line: &str) -> Option<(DateTime<Utc>, String)> {
         };
 
         if let Some(s) = value.as_str() {
-            if let Some(result) = parse_datetime_str(s) {
+            if let Some(result) = parse_datetime_str(s, tz) {
                 return Some(result);
             }
         }
@@ -463,10 +534,14 @@ pub struct SearchMatch {
 mod tests {
     use super::*;
 
+    fn parse(line: &str) -> (Option<DateTime<Utc>>, Option<String>) {
+        try_parse_timestamp(line, &LogTimezone::Local)
+    }
+
     #[test]
     fn test_json_time_field_space_format() {
         let line = r#"{"message":"success","status":200,"date":"20260705","time":"2026-07-05 17:51:33","cityInfo":{"city":"天津市"}}"#;
-        let (ts, raw) = try_parse_timestamp(line);
+        let (ts, raw) = parse(line);
         assert!(ts.is_some(), "should extract timestamp from JSON time field");
         assert_eq!(raw.as_deref(), Some("2026-07-05 17:51:33"));
     }
@@ -474,7 +549,7 @@ mod tests {
     #[test]
     fn test_json_timestamp_iso() {
         let line = r#"{"level":"INFO","@timestamp":"2026-07-05T17:51:33Z","msg":"ok"}"#;
-        let (ts, raw) = try_parse_timestamp(line);
+        let (ts, raw) = parse(line);
         assert!(ts.is_some());
         assert_eq!(raw.as_deref(), Some("2026-07-05T17:51:33Z"));
     }
@@ -482,102 +557,112 @@ mod tests {
     #[test]
     fn test_json_timestamp_epoch_seconds() {
         let line = r#"{"ts":1751725893,"msg":"hello"}"#;
-        let (ts, _) = try_parse_timestamp(line);
+        let (ts, _) = parse(line);
         assert!(ts.is_some());
     }
 
     #[test]
     fn test_json_timestamp_epoch_millis() {
         let line = r#"{"timestamp":1751725893000.0,"msg":"hello"}"#;
-        let (ts, _) = try_parse_timestamp(line);
+        let (ts, _) = parse(line);
         assert!(ts.is_some());
     }
 
     #[test]
     fn test_line_start_timestamp_still_works() {
         let line = "2026-07-05 17:51:33 INFO server started";
-        let (ts, raw) = try_parse_timestamp(line);
+        let (ts, raw) = parse(line);
         assert!(ts.is_some());
         assert_eq!(raw.as_deref(), Some("2026-07-05 17:51:33"));
     }
 
     #[test]
     fn test_no_timestamp_returns_none() {
-        let (ts, _) = try_parse_timestamp("just a plain log line with no time");
+        let (ts, _) = parse("just a plain log line with no time");
         assert!(ts.is_none());
     }
 
     #[test]
     fn test_json_date_only_not_matched() {
         let line = r#"{"date":"20260705","msg":"no time here"}"#;
-        let (ts, _) = try_parse_timestamp(line);
+        let (ts, _) = parse(line);
         assert!(ts.is_none(), "date-only field should not be matched");
     }
 
     #[test]
     fn test_date_only_prefix() {
-        let (ts, raw) = try_parse_timestamp("2026-07-05 some log content here");
+        let (ts, raw) = parse("2026-07-05 some log content here");
         assert!(ts.is_some(), "date-only prefix should be parsed");
         assert_eq!(raw.as_deref(), Some("2026-07-05 00:00:00.000"));
     }
 
     #[test]
     fn test_date_only_exact() {
-        let (ts, raw) = try_parse_timestamp("2026-07-05");
+        let (ts, raw) = parse("2026-07-05");
         assert!(ts.is_some());
         assert_eq!(raw.as_deref(), Some("2026-07-05 00:00:00.000"));
     }
 
     #[test]
     fn test_date_only_rejects_iso_t() {
-        let (ts, _) = try_parse_timestamp("2026-07-05T17:51:33 server started");
+        let (ts, _) = parse("2026-07-05T17:51:33 server started");
         assert!(ts.is_none(), "ISO-T date must not be truncated to date-only");
     }
 
     #[test]
     fn test_ctime_with_two_digit_offset() {
-        let (ts, raw) = try_parse_timestamp("Sun Jul  5 22:43:21 +08 2026 something happened");
+        let (ts, raw) = parse("Sun Jul  5 22:43:21 +08 2026 something happened");
         assert!(ts.is_some(), "ctime with +08 offset should parse");
         assert_eq!(raw.as_deref(), Some("2026-07-05 22:43:21.000"));
     }
 
     #[test]
     fn test_ctime_without_offset() {
-        let (ts, raw) = try_parse_timestamp("Mon Dec 15 10:30:00 2025 server started");
+        let (ts, raw) = parse("Mon Dec 15 10:30:00 2025 server started");
         assert!(ts.is_some());
         assert_eq!(raw.as_deref(), Some("2025-12-15 10:30:00.000"));
     }
 
     #[test]
     fn test_ctime_rejects_non_weekday() {
-        let (ts, _) = try_parse_timestamp("Run Jul 5 10:30:00 2025 not a real weekday");
+        let (ts, _) = parse("Run Jul 5 10:30:00 2025 not a real weekday");
         assert!(ts.is_none(), "non-weekday prefix must not be treated as ctime");
     }
 
     #[test]
     fn test_time_only() {
-        let (ts, raw) = try_parse_timestamp("22:43:21 INFO server started");
+        let (ts, raw) = parse("22:43:21 INFO server started");
         assert!(ts.is_none(), "time-only has no sortable timestamp");
         assert_eq!(raw.as_deref(), Some("0000-00-00 22:43:21.000"));
     }
 
     #[test]
     fn test_time_only_with_millis() {
-        let (ts, raw) = try_parse_timestamp("22:43:21.123 DEBUG request handled");
+        let (ts, raw) = parse("22:43:21.123 DEBUG request handled");
         assert!(ts.is_none());
         assert_eq!(raw.as_deref(), Some("0000-00-00 22:43:21.123"));
     }
 
     #[test]
     fn test_time_only_rejects_invalid() {
-        let (ts, _) = try_parse_timestamp("99:99:99 bad time");
+        let (ts, _) = parse("99:99:99 bad time");
         assert!(ts.is_none(), "out-of-range time must not parse");
     }
 
     #[test]
     fn test_bracketed_timestamp() {
-        let (ts, raw) = try_parse_timestamp("[2026-07-05 12:30:08] [FATAL] something broke");
+        let (ts, raw) = parse("[2026-07-05 12:30:08] [FATAL] something broke");
         assert!(ts.is_some(), "bracketed timestamp should parse");
         assert_eq!(raw.as_deref(), Some("2026-07-05 12:30:08"));
+    }
+
+    #[test]
+    fn test_ctime_offset_produces_correct_utc() {
+        let (ts, _) = try_parse_timestamp(
+            "Sun Jul  5 22:43:21 +08 2026 something",
+            &LogTimezone::Utc,
+        );
+        let utc = ts.expect("ctime with offset should parse");
+        assert_eq!(utc.format("%H:%M:%S").to_string(), "14:43:21");
     }
 }

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use tailr_protocol::{try_parse_timestamp, LogLevelConfig, LogEntry};
+use tailr_protocol::{try_parse_timestamp, LogEntry, LogLevelConfig, LogTimezone};
 use tailr_search_engine::{LevelDetector, LogFilter, SearchOptions};
 use tailr_tail_engine::LineIndex;
 
@@ -408,7 +408,15 @@ async fn file_content(
     };
 
     let detector = state.level_detector.load();
-    let entries = read_lines_from(&path, start_byte, limit as usize, offset, &detector).await;
+    let entries = read_lines_from(
+        &path,
+        start_byte,
+        limit as usize,
+        offset,
+        &detector,
+        &state.log_timezone,
+    )
+    .await;
     let end_offset = offset + entries.len() as u64;
     let has_more = end_offset < total_lines;
 
@@ -455,7 +463,15 @@ async fn file_tail(
 
     let start_line = tail.total_lines.saturating_sub(lines as u64);
     let detector = state.level_detector.load();
-    let entries = read_lines_from(&path, tail.start_byte, lines, start_line, &detector).await;
+    let entries = read_lines_from(
+        &path,
+        tail.start_byte,
+        lines,
+        start_line,
+        &detector,
+        &state.log_timezone,
+    )
+    .await;
 
     Json(ApiResponse::ok(FileTailData {
         entries,
@@ -719,7 +735,14 @@ async fn get_or_build_index(state: &AppState, path: &PathBuf) -> LineIndex {
     }
 }
 
-async fn read_lines_from(path: &PathBuf, start_byte: u64, max_lines: usize, base_line: u64, detector: &tailr_search_engine::LevelDetector) -> Vec<LogEntry> {
+async fn read_lines_from(
+    path: &PathBuf,
+    start_byte: u64,
+    max_lines: usize,
+    base_line: u64,
+    detector: &tailr_search_engine::LevelDetector,
+    log_timezone: &LogTimezone,
+) -> Vec<LogEntry> {
     use tokio::io::{AsyncBufReadExt, AsyncSeekExt, BufReader, SeekFrom};
 
     let file = match tokio::fs::File::open(path).await {
@@ -753,7 +776,7 @@ async fn read_lines_from(path: &PathBuf, start_byte: u64, max_lines: usize, base
         }
 
         let level = detector.detect(trimmed);
-        let (timestamp, raw_timestamp) = try_parse_timestamp(trimmed);
+        let (timestamp, raw_timestamp) = try_parse_timestamp(trimmed, log_timezone);
 
         entries.push(LogEntry {
             line_num,

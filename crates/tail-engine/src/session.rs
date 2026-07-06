@@ -1,5 +1,5 @@
 use arc_swap::ArcSwap;
-use tailr_protocol::{try_parse_json_fields, try_parse_timestamp, LogEntry};
+use tailr_protocol::{try_parse_json_fields, try_parse_timestamp, LogEntry, LogTimezone};
 use tailr_search_engine::LevelDetector;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -19,6 +19,7 @@ pub struct TailSession {
     line_num: u64,
     /// 动态级别检测器（通过 ArcSwap 共享，支持热更新）
     level_detector: Arc<ArcSwap<LevelDetector>>,
+    log_timezone: Arc<LogTimezone>,
 }
 
 impl TailSession {
@@ -26,6 +27,7 @@ impl TailSession {
         path: PathBuf,
         initial_lines: u64,
         level_detector: Arc<ArcSwap<LevelDetector>>,
+        log_timezone: Arc<LogTimezone>,
     ) -> std::io::Result<Self> {
         let meta = tokio::fs::metadata(&path).await?;
         let inode = meta.ino();
@@ -43,6 +45,7 @@ impl TailSession {
             seq: 0,
             line_num: initial_lines,
             level_detector,
+            log_timezone,
         })
     }
 
@@ -136,7 +139,7 @@ impl TailSession {
             }
 
             let level_name = self.level_detector.load().detect(trimmed);
-            let (timestamp, raw_timestamp) = try_parse_timestamp(trimmed);
+            let (timestamp, raw_timestamp) = try_parse_timestamp(trimmed, &self.log_timezone);
             let fields = try_parse_json_fields(trimmed);
 
             let entry = LogEntry {
@@ -235,7 +238,14 @@ mod tests {
         f.flush().unwrap();
 
         let initial_size = f.as_file().metadata().unwrap().len();
-        let mut session = TailSession::new(f.path().to_path_buf(), 2, default_detector()).await.unwrap();
+        let mut session = TailSession::new(
+            f.path().to_path_buf(),
+            2,
+            default_detector(),
+            std::sync::Arc::new(tailr_protocol::LogTimezone::default()),
+        )
+        .await
+        .unwrap();
         assert_eq!(session.offset, initial_size);
 
         // Truncate and rewrite

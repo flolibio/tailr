@@ -1,6 +1,6 @@
 use crate::session::TailSession;
 use arc_swap::ArcSwap;
-use tailr_protocol::LogEntry;
+use tailr_protocol::{LogEntry, LogTimezone};
 use tailr_search_engine::LevelDetector;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::{HashMap, HashSet};
@@ -16,10 +16,15 @@ pub struct FileWatcher {
     _watcher: RecommendedWatcher,
     dirty: HashSet<PathBuf>,
     level_detector: Arc<ArcSwap<LevelDetector>>,
+    log_timezone: Arc<LogTimezone>,
 }
 
 impl FileWatcher {
-    pub fn new(poll_interval: Duration, level_detector: Arc<ArcSwap<LevelDetector>>) -> std::io::Result<Self> {
+    pub fn new(
+        poll_interval: Duration,
+        level_detector: Arc<ArcSwap<LevelDetector>>,
+        log_timezone: Arc<LogTimezone>,
+    ) -> std::io::Result<Self> {
         let (tx, rx) = mpsc::channel();
         let watcher = RecommendedWatcher::new(
             move |res: notify::Result<Event>| {
@@ -38,6 +43,7 @@ impl FileWatcher {
             _watcher: watcher,
             dirty: HashSet::new(),
             level_detector,
+            log_timezone,
         })
     }
 
@@ -47,7 +53,13 @@ impl FileWatcher {
             return Ok(());
         }
 
-        let session = TailSession::new(path.clone(), initial_lines, self.level_detector.clone()).await?;
+        let session = TailSession::new(
+            path.clone(),
+            initial_lines,
+            self.level_detector.clone(),
+            self.log_timezone.clone(),
+        )
+        .await?;
         self.watched.insert(path.clone(), session);
 
         self._watcher
