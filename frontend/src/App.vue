@@ -41,6 +41,15 @@ const { copied: pathCopied, copy: copyText } = useCopyFeedback()
 const { token, showTokenDialog } = useAuth()
 const { recordOpen } = useRecentFiles()
 
+const activeLineRange = computed(() => {
+  const tab = activeTab.value
+  if (!tab || tab.entries.length === 0) return { min: 0, max: 0 }
+  return {
+    min: tab.entries[0].lineNum,
+    max: tab.entries[tab.entries.length - 1].lineNum,
+  }
+})
+
 // When active tab changes (e.g. TabBar click), reveal file in tree.
 // Do NOT auto-expand a collapsed sidebar — the user collapsed it intentionally.
 watch(activeTabPath, (path) => {
@@ -299,6 +308,7 @@ function handleSettingsUpdate(s: Settings): void {
         v-show="!sidebarCollapsed"
         :file-path="activeTabPath"
         :level-colors="levelDotColors"
+        :valid-range="activeLineRange"
         @scroll-to="handleBookmarkScroll"
       />
     </aside>
