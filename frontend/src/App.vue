@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FileBrowser from './components/FileBrowser.vue'
 import LogViewer from './components/LogViewer.vue'
@@ -14,6 +14,7 @@ import { useTabs } from './composables/useTabs'
 import { useLogLevels } from './composables/useLogLevels'
 import { useAuth } from './composables/useAuth'
 import { useRecentFiles } from './composables/useRecentFiles'
+import { useCopyFeedback } from './composables/useClipboard'
 
 const { t } = useI18n()
 
@@ -35,7 +36,7 @@ const showSettings = ref(false)
 const sidebarCollapsed = ref(false)
 const sidebarWidth = ref(300)
 const refreshKey = ref(0)
-const pathCopied = ref(false)
+const { copied: pathCopied, copy: copyText } = useCopyFeedback()
 
 const { token, showTokenDialog } = useAuth()
 const { recordOpen } = useRecentFiles()
@@ -57,10 +58,7 @@ function handleSelectFile(path: string): void {
 
 function copyPath(): void {
   if (!activeTabPath.value) return
-  navigator.clipboard.writeText(activeTabPath.value).then(() => {
-    pathCopied.value = true
-    setTimeout(() => { pathCopied.value = false }, 1500)
-  }).catch(() => {})
+  copyText(activeTabPath.value)
 }
 
 function handleBookmarkScroll(lineNum: number): void {
@@ -262,10 +260,6 @@ onMounted(() => {
       filterBarRef.value?.focus()
     }
   })
-})
-
-onUnmounted(() => {
-  wsClient.destroy()
 })
 
 function handleSettingsUpdate(s: Settings): void {
