@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useBookmarks } from '../composables/useBookmarks'
+import { useBookmarks, type Bookmark } from '../composables/useBookmarks'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -8,6 +8,7 @@ const { t } = useI18n()
 const props = defineProps<{
   filePath: string | null
   levelColors?: Record<string, string>
+  validRange?: { min: number; max: number }
 }>()
 
 const emit = defineEmits<{
@@ -20,6 +21,19 @@ const collapsed = ref(true)
 const bookmarks = computed(() =>
   props.filePath ? getBookmarks(props.filePath) : [],
 )
+
+function isValid(lineNum: number): boolean {
+  if (!props.validRange) return true
+  return lineNum >= props.validRange.min && lineNum <= props.validRange.max
+}
+
+function handleClick(bm: Bookmark): void {
+  if (isValid(bm.lineNum)) {
+    emit('scrollTo', bm.lineNum)
+  } else if (props.filePath) {
+    remove(props.filePath, bm.lineNum)
+  }
+}
 </script>
 
 <template>
@@ -36,8 +50,9 @@ const bookmarks = computed(() =>
         v-for="bm in bookmarks"
         :key="bm.lineNum"
         class="bm-item"
+        :class="{ 'bm-invalid': !isValid(bm.lineNum) }"
         :title="bm.preview"
-        @click="emit('scrollTo', bm.lineNum)"
+        @click="handleClick(bm)"
       >
         <span class="bm-dot" :style="{ background: levelColors?.[bm.level] ?? 'var(--text-3)' }"></span>
         <span class="bm-preview">{{ bm.preview }}</span>
@@ -84,7 +99,7 @@ const bookmarks = computed(() =>
 }
 
 .section-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -117,6 +132,15 @@ const bookmarks = computed(() =>
 
 .bm-item:hover {
   background: var(--bg-2);
+}
+
+.bm-item.bm-invalid {
+  opacity: 0.4;
+}
+
+.bm-item.bm-invalid .bm-preview {
+  text-decoration: line-through;
+  text-decoration-color: var(--text-3);
 }
 
 .bm-item:hover .bm-remove {
