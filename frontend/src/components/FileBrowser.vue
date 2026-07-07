@@ -6,7 +6,7 @@ import type { FileEntry } from '../services/api'
 import { useHistoricalFilter } from '../composables/useHistoricalFilter'
 import { useRecentFiles } from '../composables/useRecentFiles'
 import { useCopyFeedbackId } from '../composables/useClipboard'
-import { Search, ChevronDown, RefreshCw, File as FileIcon, FolderOpen, Folder, Check, Copy, History } from 'lucide-vue-next'
+import { Search, ChevronDown, RefreshCw, File as FileIcon, FolderOpen, Folder, Check, Copy, Eye, EyeOff } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const { showHistorical, isHistoricalFile, toggle: toggleHistorical } = useHistoricalFilter()
@@ -319,11 +319,11 @@ onMounted(() => {
           <div class="section-actions" @click.stop>
             <button
               class="section-icon-btn"
-              :class="{ active: showHistorical }"
               @click="toggleHistorical"
               :title="showHistorical ? t('fileBrowser.hideHistory') : t('fileBrowser.showHistory')"
             >
-              <History :size="14" :stroke-width="2" />
+              <Eye v-if="showHistorical" :size="17" :stroke-width="2" />
+              <EyeOff v-else :size="17" :stroke-width="2" />
             </button>
             <button class="section-icon-btn" @click="refresh" :title="t('fileBrowser.refresh')">
               <RefreshCw :size="14" :stroke-width="2" />
@@ -558,6 +558,7 @@ onMounted(() => {
   cursor: pointer;
   user-select: none;
   transition: background .1s ease;
+  height: 35px;
 }
 
 .section-header:hover {
