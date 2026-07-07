@@ -412,7 +412,7 @@ onMounted(() => {
 }
 
 .sidebar-header {
-  height: var(--topbar-h);
+  height: var(--tabbar-h);
   padding: 0 8px;
   display: flex;
   align-items: center;
@@ -438,7 +438,7 @@ onMounted(() => {
 
 .filter-input {
   width: 100%;
-  height: 34px;
+  height: 36px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm, 6px);
   background: var(--bg-2);
@@ -498,19 +498,15 @@ onMounted(() => {
   gap: 8px;
 }
 
-/* Recessed card groups Favorites + Recent so they read as one secondary
-   cluster, capped so they can never crowd out the Files tree below. */
 .quick-access {
   flex-shrink: 0;
   max-height: 44%;
   overflow-y: auto;
   scrollbar-width: none;
-  background: var(--bg-2);
-  border-radius: var(--radius, 8px);
 }
 
 .quick-access .nav-section {
-  padding: 2px 0;
+  padding: 4px 0;
 }
 
 .quick-access .nav-section + .nav-section {
