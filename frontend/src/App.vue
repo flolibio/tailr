@@ -14,8 +14,7 @@ import { useTabs } from './composables/useTabs'
 import { useLogLevels } from './composables/useLogLevels'
 import { useAuth } from './composables/useAuth'
 import { useRecentFiles } from './composables/useRecentFiles'
-import { useCopyFeedback } from './composables/useClipboard'
-import { PanelLeft, Check, Settings as SettingsIcon, Play, Pause } from 'lucide-vue-next'
+import { PanelLeft, Settings as SettingsIcon, Play, Pause } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -37,7 +36,6 @@ const showSettings = ref(false)
 const sidebarCollapsed = ref(false)
 const sidebarWidth = ref(300)
 const refreshKey = ref(0)
-const { copied: pathCopied, copy: copyText } = useCopyFeedback()
 
 const { token, showTokenDialog } = useAuth()
 const { recordOpen } = useRecentFiles()
@@ -64,11 +62,6 @@ function handleSelectFile(path: string): void {
   // Expand sidebar and reveal file in tree
   if (sidebarCollapsed.value) sidebarCollapsed.value = false
   fileBrowserRef.value?.ensureVisible(path)
-}
-
-function copyPath(): void {
-  if (!activeTabPath.value) return
-  copyText(activeTabPath.value)
 }
 
 function handleBookmarkScroll(lineNum: number): void {
@@ -314,22 +307,16 @@ function handleSettingsUpdate(s: Settings): void {
       />
     </aside>
 
-    <!-- Global bar (app-level: sidebar toggle + path + settings) -->
+    <!-- Global bar (app-level: sidebar toggle + tabs + settings) -->
     <header class="globalbar">
       <button class="icon-btn" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? t('app.openFiles') : t('fileBrowser.collapse')">
         <PanelLeft :size="14" :stroke-width="2" />
       </button>
-            <div class="globalbar-path">
-              <span class="path-text" @click="copyPath">{{ activeTabPath ?? '' }}</span>
-              <Check v-if="pathCopied" class="path-check" :size="14" :stroke-width="2.5" />
-            </div>
+      <TabBar class="globalbar-tabs" />
       <button class="settings-btn" @click="showSettings = true" :title="t('app.openSettings')">
         <SettingsIcon :size="16" :stroke-width="2" />
       </button>
     </header>
-
-    <!-- Tab bar -->
-    <TabBar />
 
     <!-- File toolbar (per-file: keyword filter + levels) -->
     <div class="filterbar" v-show="tabs.length > 0">

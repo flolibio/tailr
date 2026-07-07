@@ -32,7 +32,7 @@
   --settings-w: 320px;
   --topbar-h: 56px;
   --globalbar-h: 40px;
-  --tabbar-h: 38px;
+  --tabbar-h: 50px;
   --filterbar-h: 48px;
   --statusbar-h: 26px;
 
@@ -322,7 +322,7 @@ input[type="range"] {
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-current-width, var(--sidebar-w)) 1fr;
-  grid-template-rows: var(--globalbar-h) var(--tabbar-h) var(--filterbar-h) 1fr var(--statusbar-h);
+  grid-template-rows: var(--tabbar-h) var(--filterbar-h) 1fr var(--statusbar-h);
   height: 100vh;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -339,12 +339,12 @@ input[type="range"] {
 }
 
 .app-shell.no-tabs {
-  grid-template-rows: var(--globalbar-h) 0px 0px 1fr var(--statusbar-h);
+  grid-template-rows: var(--tabbar-h) 0px 1fr var(--statusbar-h);
 }
 
 /* ── Sidebar ── */
 .sidebar {
-  grid-row: 1 / 5;
+  grid-row: 1 / 4;
   grid-column: 1;
   border-right: 1px solid var(--border);
   display: flex;
@@ -355,7 +355,7 @@ input[type="range"] {
 }
 
 .sidebar-header {
-  height: var(--globalbar-h);
+  height: var(--tabbar-h);
   padding: 0 var(--space-4);
   display: flex;
   align-items: center;
@@ -650,40 +650,6 @@ input[type="range"] {
   background: var(--bg);
 }
 
-.globalbar-path {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-2);
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.globalbar-path .path-text {
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color .15s ease;
-}
-
-.globalbar-path .path-text:hover {
-  color: var(--text-2);
-}
-
-.globalbar-path .path-check {
-  flex-shrink: 0;
-  color: var(--c-follow-text, #34D399);
-  animation: copiedFade .15s ease;
-}
-
-@keyframes copiedFade {
-  from { opacity: 0; transform: translateX(0); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
 /* Divider — height varies by the bar it sits in */
 .filter-sep {
   width: 1px;
@@ -758,7 +724,7 @@ input[type="range"] {
 /* ── Filter Bar ── */
 .filterbar {
   grid-column: 2;
-  grid-row: 3;
+  grid-row: 2;
   border-bottom: 1px solid var(--border);
   padding: 0 var(--space-4);
   display: flex;
@@ -856,7 +822,7 @@ input[type="range"] {
 /* ── Log Body ── */
 .log-body {
   grid-column: 2;
-  grid-row: 4;
+  grid-row: 3;
   overflow: hidden;
   background: var(--bg);
   display: flex;
@@ -896,7 +862,7 @@ select {
 /* ── Status Bar ── */
 .statusbar {
   grid-column: 1 / 3;
-  grid-row: 5;
+  grid-row: 4;
   height: var(--statusbar-h);
   border-top: 1px solid var(--border);
   padding: 0 var(--space-4);

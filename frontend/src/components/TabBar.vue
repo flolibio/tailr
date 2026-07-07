@@ -22,7 +22,7 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
 </script>
 
 <template>
-  <div v-if="tabs.length > 0" class="tabbar">
+  <div class="tabbar">
     <div
       v-for="tab in tabs"
       :key="tab.path"
@@ -41,15 +41,17 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
 
 <style scoped>
 .tabbar {
-  grid-column: 2;
-  grid-row: 2;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: stretch;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
   overflow-x: auto;
-  flex-shrink: 0;
-  min-height: var(--tabbar-h);
+  scrollbar-width: none;
+  height: var(--tabbar-h);
+}
+
+.tabbar::-webkit-scrollbar {
+  display: none;
 }
 
 .tab {
@@ -65,6 +67,7 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
   user-select: none;
   white-space: nowrap;
   position: relative;
+  height: 100%;
 }
 
 .tab:hover {
