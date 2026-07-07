@@ -827,6 +827,7 @@ input[type="range"] {
   background: var(--bg);
   display: flex;
   flex-direction: column;
+  font-weight: 500;
 }
 
 .log-body,

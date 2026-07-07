@@ -78,6 +78,7 @@ function handleClick(bm: Bookmark): void {
   cursor: pointer;
   user-select: none;
   transition: background .1s;
+  height: 35px;
 }
 
 .section-header:hover {
