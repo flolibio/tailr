@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 
-const MAX_RECENT = 15
+const MAX_RECENT = 10
 const STORAGE_KEY = 'tailr-recent-files'
 
 export interface RecentFile {
