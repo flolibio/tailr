@@ -76,7 +76,35 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
 
 .tab:hover:not(.active) {
   color: var(--text-2);
+}
+
+/* Hover highlight is an inset rounded "pill" (Chrome-style), not a full-bleed
+   fill: left/right/bottom margins keep the bar's recessed color showing so the
+   highlight reads as a floating rectangle. The top is flush (0) so the pill's top
+   edge aligns with the active tab's top. Scoped to non-active tabs via
+   :not(.active) so it never collides with the active tab's ear pseudo-elements. */
+.tab:not(.active)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 5px;
+  bottom: 5px;
+  left: 5px;
+  border-radius: var(--radius);
+  background: transparent;
+  z-index: 0;
+  pointer-events: none;
+  transition: background .12s;
+}
+
+.tab:not(.active):hover::before {
   background: var(--bg-3);
+}
+
+/* Tab content sits above the hover-highlight layer */
+.tab > * {
+  position: relative;
+  z-index: 1;
 }
 
 .tab.active {
