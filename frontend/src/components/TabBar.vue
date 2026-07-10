@@ -44,7 +44,7 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: stretch;
+  align-items: flex-end;
   overflow-x: auto;
   scrollbar-width: none;
   height: var(--tabbar-h);
@@ -59,36 +59,54 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
   align-items: center;
   gap: 6px;
   padding: 0 12px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-3);
   cursor: pointer;
-  border-right: 1px solid var(--border);
   transition: color .12s, background .12s;
   user-select: none;
   white-space: nowrap;
   position: relative;
-  height: 100%;
+  /* anchor to bottom of the bar so the active tab grows upward to meet content */
+  align-self: flex-end;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: transparent;
 }
 
-.tab:hover {
+.tab:hover:not(.active) {
   color: var(--text-2);
-  background: var(--bg-2);
+  background: var(--bg-3);
 }
 
 .tab.active {
   color: var(--text);
   background: var(--bg);
+  z-index: 2;
 }
 
+/* ★ Chrome-style "ears": radial-gradient circles sit just outside each bottom
+   corner of the active tab. Only the inner quarter is visible (the rest is
+   clipped by overflow), so it looks like the white tab splays outward at the
+   base. Color comes from --bg, so it tracks theme automatically. */
+.tab.active::before,
 .tab.active::after {
   content: '';
   position: absolute;
   bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--accent);
-  border-radius: 1px 1px 0 0;
+  width: var(--radius);
+  height: var(--radius);
+  pointer-events: none;
+}
+
+.tab.active::before {
+  left: calc(-1 * var(--radius));
+  background: radial-gradient(circle at top left, transparent calc(var(--radius) - 1px), var(--bg) calc(var(--radius) - 1px));
+}
+
+.tab.active::after {
+  right: calc(-1 * var(--radius));
+  background: radial-gradient(circle at top right, transparent calc(var(--radius) - 1px), var(--bg) calc(var(--radius) - 1px));
 }
 
 .tab-close {
@@ -113,9 +131,13 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
   opacity: 1;
 }
 
+.tab.active .tab-close {
+  opacity: 0.7;
+}
+
 .tab-close:hover {
-  background: var(--bg-3);
-  color: var(--text);
+  background: var(--c-error-bg, var(--bg-3));
+  color: var(--c-error-text, var(--text));
 }
 
 .tab-dot {
