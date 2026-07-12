@@ -13,3 +13,5 @@
 .idea/
 .playwright-mcp/
 .codex/
+.zcode/
+.cursor/
