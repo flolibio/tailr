@@ -39,8 +39,13 @@
   /* Accent / semantic dots */
   --c-unread: #5B9DFF;
   --c-star: #D4A017;
-  --c-bookmark-border: #64d2ff;
-  --c-bookmark-bg: rgba(100, 210, 255, 0.15);
+
+  /* Keyword highlight hues (HSL channels, shared by chips & <mark>) */
+  --kw-1: 43  96%  50%;   /* amber */
+  --kw-2: 200 95%  55%;   /* sky */
+  --kw-3: 280 75%  60%;   /* violet */
+  --kw-4: 150 65%  45%;   /* emerald */
+  --kw-5: 20  90%  55%;   /* tangerine */
 
   --c-alert-bg: #FFEBE9; --c-alert-text: #CC2D26; --c-alert-border: #FFC9C5;
   --c-error-bg: #FCEBEB; --c-error-text: #A32D2D; --c-error-border: #F7C1C1;
@@ -103,6 +108,13 @@
   --chip-bg: var(--accent-light);
   --chip-text: #85B7EB;
 
+  /* Keyword hues: brighter on dark background for visibility */
+  --kw-1: 43  100% 60%;
+  --kw-2: 200 100% 65%;
+  --kw-3: 280 80%  68%;
+  --kw-4: 150 70%  55%;
+  --kw-5: 20  100% 62%;
+
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
   --shadow-md: 0 4px 14px rgba(0,0,0,0.4);
   --shadow-popover: 0 8px 28px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
@@ -161,7 +173,7 @@ body {
   font-family: var(--font-sans);
   font-size: var(--font-size-base);
   font-weight: var(--fw-regular);
-  background: var(--bg-3);
+  background: var(--bg);
   color: var(--text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -312,6 +324,18 @@ input[type="range"] {
 .level-debug { color: var(--c-debug-text); }
 .level-trace { color: var(--c-trace-text); }
 
+/* ── Keyword highlight <mark> ──
+   Shared by FilterBar chips and in-log text highlights so "the word I searched"
+   reads as one color everywhere. Hue comes from --kw-* (set per-index below);
+   background uses a higher opacity than chips so hits stand out inside a row. */
+mark.kw-mark { padding: 0 1px; border-radius: 2px; color: hsl(var(--kw-cur)); background: hsl(var(--kw-cur) / 30%); }
+:root.dark mark.kw-mark { background: hsl(var(--kw-cur) / 28%); }
+mark.kw-mark-1 { --kw-cur: var(--kw-1); }
+mark.kw-mark-2 { --kw-cur: var(--kw-2); }
+mark.kw-mark-3 { --kw-cur: var(--kw-3); }
+mark.kw-mark-4 { --kw-cur: var(--kw-4); }
+mark.kw-mark-5 { --kw-cur: var(--kw-5); }
+
 /* ── Dynamic level tags ── */
 .level-tag.dynamic-level {
   background: transparent;
@@ -349,7 +373,7 @@ input[type="range"] {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  background: var(--bg-2);
   overflow: hidden;
   position: relative;
 }
@@ -598,7 +622,7 @@ input[type="range"] {
 }
 
 .tree-item:hover {
-  background: var(--bg-2);
+  background: var(--bg-3);
 }
 
 .tree-item.active {
@@ -644,12 +668,12 @@ input[type="range"] {
   grid-row: 1;
   /* Recessed surface: the active tab fills with --bg and "grows" out of this
      strip into the content area below, Chrome-style. No border-bottom — the
-     bg contrast (bg-2 vs bg) separates the bars and keeps the merge seamless. */
+     bg contrast separates the bars and keeps the merge seamless. */
   padding: 0 var(--space-3);
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  background: var(--bg-2);
+  background: color-mix(in srgb, var(--text) 3%, var(--bg));
 }
 
 /* Buttons on the recessed globalbar need a deeper hover surface than --bg-2 */
@@ -878,7 +902,7 @@ select {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  background: var(--bg-2);
+  background: var(--bg);
   font-size: 12px;
   color: var(--text-2);
   flex-shrink: 0;

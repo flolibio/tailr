@@ -81,14 +81,6 @@ watch(activeTabPath, (p) => {
 
 const highlightKeywords = computed(() => activeTab.value?.filterKeywords ?? [])
 
-const highlightColors = [
-  'rgba(255, 220, 0, 0.4)',
-  'rgba(0, 200, 255, 0.3)',
-  'rgba(255, 100, 255, 0.3)',
-  'rgba(100, 255, 100, 0.3)',
-  'rgba(255, 150, 0, 0.3)',
-]
-
 const filteredEntries = computed(() => {
   const tab = activeTab.value
   if (!tab) return []
@@ -324,7 +316,6 @@ function handleSettingsUpdate(s: Settings): void {
         ref="filterBarRef"
         :current-file="activeTabPath"
         :keywords="activeTab?.filterKeywords ?? []"
-        :colors="highlightColors"
         @add-keyword="addKeyword"
         @remove-keyword="removeKeyword"
         @edit-keyword="editKeyword"

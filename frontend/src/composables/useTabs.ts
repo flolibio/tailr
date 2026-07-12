@@ -86,7 +86,7 @@ function ensureWs(): void {
   })
 
   wsClient.on('delete', (p: unknown) => {
-    if (typeof p !== 'string') closeTab(p)
+    if (typeof p === 'string') closeTab(p)
   })
 
   // Subscribed carries the exact total line count (LineIndex::build), which

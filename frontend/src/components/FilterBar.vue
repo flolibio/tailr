@@ -8,7 +8,6 @@ const { t } = useI18n()
 const props = defineProps<{
   currentFile: string | null
   keywords: string[]
-  colors?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -200,7 +199,7 @@ defineExpose({ focus })
         <Search :size="14" :stroke-width="2" />
       </span>
       <div class="filter-content">
-        <span v-for="(kw, i) in keywords" :key="kw" class="chip" :style="colors ? { background: colors[i % colors.length], color: 'inherit' } : {}">
+        <span v-for="(kw, i) in keywords" :key="kw" class="chip kw-chip" :class="'kw-' + ((i % 5) + 1)">
           <template v-if="editingIndex === i">
             <input
               ref="editInputRef"
@@ -298,23 +297,51 @@ defineExpose({ focus })
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 6px 2px 8px;
+  gap: 5px;
+  padding: 4px 6px 4px 10px;
   background: var(--chip-bg);
   border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 12px;
+  line-height: 1;
   color: var(--chip-text);
   white-space: nowrap;
   flex-shrink: 0;
   transition: background .15s;
+  font-weight: 600;
 }
+
+/* Keyword chips: each chip gets a kw-N class that sets --kw-cur, then the
+   shared .kw-chip rule derives bg/text/border from that hue. Shares the same
+   --kw-* palette as in-log <mark> highlights (defined in style.css). */
+.chip.kw-chip {
+  background: hsl(var(--kw-cur) / 14%);
+  color: hsl(var(--kw-cur) / 90%);
+  border-color: hsl(var(--kw-cur) / 30%);
+}
+.chip.kw-chip:hover {
+  background: hsl(var(--kw-cur) / 22%);
+  color: hsl(var(--kw-cur));
+}
+:global(:root.dark) .chip.kw-chip {
+  background: hsl(var(--kw-cur) / 16%);
+  color: hsl(var(--kw-cur) / 85%);
+}
+:global(:root.dark) .chip.kw-chip:hover {
+  background: hsl(var(--kw-cur) / 26%);
+}
+.chip.kw-1 { --kw-cur: var(--kw-1); }
+.chip.kw-2 { --kw-cur: var(--kw-2); }
+.chip.kw-3 { --kw-cur: var(--kw-3); }
+.chip.kw-4 { --kw-cur: var(--kw-4); }
+.chip.kw-5 { --kw-cur: var(--kw-5); }
 
 .chip-text {
   max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: default;
+  line-height: 1.2;
 }
 
 .chip-edit-input {

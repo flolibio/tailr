@@ -334,13 +334,9 @@ watch(expandedLines, () => {
   nextTick(measureVisibleRows)
 })
 
-const HIGHLIGHT_COLORS = [
-  'rgba(255, 220, 0, 0.4)',
-  'rgba(0, 200, 255, 0.3)',
-  'rgba(255, 100, 255, 0.3)',
-  'rgba(100, 255, 100, 0.3)',
-  'rgba(255, 150, 0, 0.3)',
-]
+/* Keyword highlight hues cycle through 5 CSS classes (kw-mark-1..5) defined
+   globally in style.css, so chips and in-log <mark> share the same palette. */
+const KW_CLASS_COUNT = 5
 
 function highlightText(text: string): string {
   const keywords = props.highlightKeywords
@@ -356,8 +352,8 @@ function highlightText(text: string): string {
     .map((part) => {
       const idx = keywords.findIndex((k) => k.toLowerCase() === part.toLowerCase())
       if (idx >= 0) {
-        const color = HIGHLIGHT_COLORS[idx % HIGHLIGHT_COLORS.length]
-        return `<mark style="background:${color};color:inherit;padding:0 1px;border-radius:2px">${escapeHtml(part)}</mark>`
+        const cls = `kw-mark kw-mark-${(idx % KW_CLASS_COUNT) + 1}`
+        return `<mark class="${cls}">${escapeHtml(part)}</mark>`
       }
       return escapeHtml(part)
     })
@@ -572,13 +568,54 @@ defineExpose({ scrollToBottom, scrollToLine })
   background: var(--bg-3);
 }
 
-.log-row.level-alert:hover { background: var(--c-alert-bg); }
-.log-row.level-error:hover { background: var(--c-error-bg); }
-.log-row.level-warn:hover { background: var(--c-warn-bg); }
-.log-row.level-info:hover { background: var(--c-info-bg); }
-.log-row.level-debug:hover { background: var(--c-debug-bg); }
-.log-row.level-trace:hover { background: var(--c-trace-bg); }
+/* ── Row state colors: same-hue transparency layering ──
+   Every state derives from the row's level root color (--c-*-text), so an
+   ERROR row reads red whether resting, hovered, marked, or bookmarked.
+   Opacity encodes intensity: hover 10%, marked 14%, bookmarked 8%.
+   Compound selectors (.is-X:hover.level-Y) win over plain :hover so state
+   feedback survives hovering. Order matters: later = higher priority. */
+.log-row.level-alert:hover   { background: color-mix(in srgb, var(--c-alert-text)  10%, var(--bg)); }
+.log-row.level-error:hover   { background: color-mix(in srgb, var(--c-error-text)  10%, var(--bg)); }
+.log-row.level-warn:hover    { background: color-mix(in srgb, var(--c-warn-text)   10%, var(--bg)); }
+.log-row.level-info:hover    { background: color-mix(in srgb, var(--c-info-text)   10%, var(--bg)); }
+.log-row.level-debug:hover   { background: color-mix(in srgb, var(--c-debug-text)  10%, var(--bg)); }
+.log-row.level-trace:hover   { background: color-mix(in srgb, var(--c-trace-text)  10%, var(--bg)); }
 .log-row.level-unknown:hover { background: var(--bg-3); }
+
+/* marked (click-select): 14% tint + left color bar, per level */
+.log-row.is-marked.level-alert   { background: color-mix(in srgb, var(--c-alert-text)  14%, var(--bg)); }
+.log-row.is-marked.level-error   { background: color-mix(in srgb, var(--c-error-text)  14%, var(--bg)); }
+.log-row.is-marked.level-warn    { background: color-mix(in srgb, var(--c-warn-text)   14%, var(--bg)); }
+.log-row.is-marked.level-info    { background: color-mix(in srgb, var(--c-info-text)   14%, var(--bg)); }
+.log-row.is-marked.level-debug   { background: color-mix(in srgb, var(--c-debug-text)  14%, var(--bg)); }
+.log-row.is-marked.level-trace   { background: color-mix(in srgb, var(--c-trace-text)  14%, var(--bg)); }
+.log-row.is-marked.level-unknown { background: var(--bg-3); }
+
+/* bookmarked: 8% tint + ★ icon (added in template), per level */
+.log-row.is-bookmarked.level-alert   { background: color-mix(in srgb, var(--c-alert-text)  8%, var(--bg)); }
+.log-row.is-bookmarked.level-error   { background: color-mix(in srgb, var(--c-error-text)  8%, var(--bg)); }
+.log-row.is-bookmarked.level-warn    { background: color-mix(in srgb, var(--c-warn-text)   8%, var(--bg)); }
+.log-row.is-bookmarked.level-info    { background: color-mix(in srgb, var(--c-info-text)   8%, var(--bg)); }
+.log-row.is-bookmarked.level-debug   { background: color-mix(in srgb, var(--c-debug-text)  8%, var(--bg)); }
+.log-row.is-bookmarked.level-trace   { background: color-mix(in srgb, var(--c-trace-text)  8%, var(--bg)); }
+.log-row.is-bookmarked.level-unknown { background: color-mix(in srgb, var(--text-3) 8%, var(--bg)); }
+
+/* Stacked hover on state rows: deepen so feedback isn't lost (16% / 18%) */
+.log-row.is-bookmarked:hover.level-alert   { background: color-mix(in srgb, var(--c-alert-text)  16%, var(--bg)); }
+.log-row.is-bookmarked:hover.level-error   { background: color-mix(in srgb, var(--c-error-text)  16%, var(--bg)); }
+.log-row.is-bookmarked:hover.level-warn    { background: color-mix(in srgb, var(--c-warn-text)   16%, var(--bg)); }
+.log-row.is-bookmarked:hover.level-info    { background: color-mix(in srgb, var(--c-info-text)   16%, var(--bg)); }
+.log-row.is-bookmarked:hover.level-debug   { background: color-mix(in srgb, var(--c-debug-text)  16%, var(--bg)); }
+.log-row.is-bookmarked:hover.level-trace   { background: color-mix(in srgb, var(--c-trace-text)  16%, var(--bg)); }
+.log-row.is-bookmarked:hover.level-unknown { background: color-mix(in srgb, var(--text-3) 16%, var(--bg)); }
+
+.log-row.is-marked:hover.level-alert   { background: color-mix(in srgb, var(--c-alert-text)  18%, var(--bg)); }
+.log-row.is-marked:hover.level-error   { background: color-mix(in srgb, var(--c-error-text)  18%, var(--bg)); }
+.log-row.is-marked:hover.level-warn    { background: color-mix(in srgb, var(--c-warn-text)   18%, var(--bg)); }
+.log-row.is-marked:hover.level-info    { background: color-mix(in srgb, var(--c-info-text)   18%, var(--bg)); }
+.log-row.is-marked:hover.level-debug   { background: color-mix(in srgb, var(--c-debug-text)  18%, var(--bg)); }
+.log-row.is-marked:hover.level-trace   { background: color-mix(in srgb, var(--c-trace-text)  18%, var(--bg)); }
+.log-row.is-marked:hover.level-unknown { background: var(--bg-3); }
 
 .log-row:hover .col-actions {
   opacity: 1;
@@ -604,25 +641,19 @@ defineExpose({ scrollToBottom, scrollToLine })
   background: var(--bg);
 }
 
+/* Copied feedback: accent-derived (not level), transient confirmation */
 .log-row.is-copied {
-  background: rgba(24, 95, 165, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
 }
 
+/* Jump-highlight on bookmark navigation: accent pulse (was hardcoded yellow) */
 .log-row.is-highlighted {
-  background: rgba(255, 220, 0, 0.25);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg));
   animation: highlight-flash 0.5s ease-out;
 }
 
 @keyframes highlight-flash {
-  from { background: rgba(255, 220, 0, 0.5); }
-}
-
-.log-row.is-marked {
-  background: var(--c-marked-bg, rgba(100, 210, 255, 0.3));
-}
-
-.log-row.is-bookmarked {
-  background: var(--c-bookmark-bg, rgba(100, 210, 255, 0.3));
+  from { background: color-mix(in srgb, var(--accent) 28%, var(--bg)); }
 }
 
 /* ── Row Sections ── */
@@ -838,17 +869,19 @@ defineExpose({ scrollToBottom, scrollToLine })
   bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-color: var(--accent);
-  color: var(--accent-light);
+  color: var(--accent);
   padding: 6px 16px;
   border-radius: var(--radius);
   font-size: 14px;
   z-index: 10;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(8px);
+  transition: background .12s ease;
 }
 
 .new-logs-button:hover {
-  opacity: 0.88;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 </style>

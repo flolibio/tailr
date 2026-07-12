@@ -13,7 +13,6 @@ const { showHistorical, isHistoricalFile, toggle: toggleHistorical } = useHistor
 const { recentFiles, remove: removeRecent } = useRecentFiles()
 
 const recentCollapsed = ref(recentFiles.value.length === 0)
-const filesCollapsed = ref(false)
 
 function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts
@@ -289,10 +288,10 @@ onMounted(() => {
       <div class="quick-access">
         <div class="nav-section">
           <div class="section-header" @click="recentCollapsed = !recentCollapsed">
+            <span class="section-title">{{ t('fileBrowser.recent') }}</span>
             <div class="section-chevron" :class="{ collapsed: recentCollapsed }">
               <ChevronDown :size="14" :stroke-width="2.5" />
             </div>
-            <span class="section-title">{{ t('fileBrowser.recent') }}</span>
           </div>
           <div v-show="!recentCollapsed" class="section-body">
             <div
@@ -311,10 +310,7 @@ onMounted(() => {
       </div>
 
       <div class="nav-section files-section">
-        <div class="section-header" @click="filesCollapsed = !filesCollapsed">
-          <div class="section-chevron" :class="{ collapsed: filesCollapsed }">
-            <ChevronDown :size="14" :stroke-width="2.5" />
-          </div>
+        <div class="section-header">
           <span class="section-title">{{ t('fileBrowser.files') }}</span>
           <div class="section-actions" @click.stop>
             <button
@@ -330,7 +326,7 @@ onMounted(() => {
             </button>
           </div>
         </div>
-        <div v-show="!filesCollapsed" class="files-body">
+        <div class="files-body">
           <div class="file-list" v-if="filteredTree.length > 0">
         <template v-for="node in filteredTree" :key="node.path">
           <div
@@ -524,6 +520,7 @@ onMounted(() => {
 
 .files-section .section-header {
   flex-shrink: 0;
+  border-top: 1px solid var(--border);
 }
 
 .files-body {
@@ -539,7 +536,6 @@ onMounted(() => {
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: none;
-  padding: 4px 6px;
 }
 
 .files-body .file-empty {
@@ -554,15 +550,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 10px;
+  padding: 6px 8px;
   cursor: pointer;
   user-select: none;
   transition: background .1s ease;
   height: 35px;
-}
-
-.section-header:hover {
-  background: var(--bg-3);
 }
 
 .section-chevron {
@@ -573,6 +565,7 @@ onMounted(() => {
   justify-content: center;
   color: var(--text-3);
   flex-shrink: 0;
+  margin-left: auto;
   transition: transform .15s ease;
 }
 
@@ -581,9 +574,7 @@ onMounted(() => {
 }
 
 .section-title {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
+  font-size: 14px;
   color: var(--text-3);
 }
 
@@ -620,7 +611,6 @@ onMounted(() => {
 }
 
 .section-body {
-  padding: 2px 6px;
   max-height: 160px;
   overflow-y: auto;
   scrollbar-width: none;
@@ -698,10 +688,6 @@ onMounted(() => {
   color: var(--text);
 }
 
-.file-list {
-  padding: 4px 6px;
-}
-
 .file-item {
   display: flex;
   align-items: center;
@@ -716,7 +702,7 @@ onMounted(() => {
 }
 
 .file-item:hover {
-  background: var(--bg-2);
+  background: var(--bg-3);
 }
 
 /* Selected must read differently from hover — same background as hover
