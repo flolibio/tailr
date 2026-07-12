@@ -242,6 +242,7 @@ async fn handle_subscribe(
     let _ = tx
         .send(WSMessage::Subscribed {
             path: path.to_string(),
+            total_lines: initial_lines,
         })
         .await;
 

@@ -494,6 +494,11 @@ pub enum WSMessage {
     #[serde(rename_all = "camelCase")]
     Subscribed {
         path: String,
+        /// Exact total line count from LineIndex::build. The HTTP file_tail
+        /// endpoint only estimates this (tail_start), so the frontend carries
+        /// an estimated lineNum coordinate on first load; this value lets it
+        /// correct those line numbers once the precise index is ready.
+        total_lines: u64,
     },
     #[serde(rename_all = "camelCase")]
     Append {
