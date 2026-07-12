@@ -48,6 +48,9 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
   overflow-x: auto;
   scrollbar-width: none;
   height: var(--tabbar-h);
+  /* Accommodate the active tab's outward "ear" pseudo-elements (±--radius).
+     Without this, the first/last tab's outer ear is clipped by overflow-x. */
+  padding: 0 var(--radius);
 }
 
 .tabbar::-webkit-scrollbar {
