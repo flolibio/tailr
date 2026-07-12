@@ -720,7 +720,7 @@ defineExpose({ scrollToBottom, scrollToLine })
 .badge-debug { color: #30D158; }
 .badge-trace { color: #BF5AF2; }
 .badge-unknown { color: #666666; }
-.badge-dynamic { /* color from inline style */ }
+/* .badge-dynamic { color from inline style } */
 
 .col-msg {
   flex: 1;
