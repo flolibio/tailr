@@ -32,7 +32,7 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
       @click="switchTo(tab.path)"
       @mouseup="handleMiddleClick(tab.path, $event)"
     >
-      <span v-if="tab.hasUnread && tab.path !== activeTabPath" class="tab-dot"></span>
+      <span class="tab-dot" :class="{ 'is-unread': tab.hasUnread && tab.path !== activeTabPath }"></span>
       <span class="tab-name">{{ basename(tab.path) }}</span>
       <button class="tab-close" @click="handleClose(tab.path, $event)">✕</button>
     </div>
@@ -68,7 +68,12 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
   position: relative;
   /* anchor to bottom of the bar so the active tab grows upward to meet content */
   align-self: flex-end;
-  height: 36px;
+  height: 40px;
+  /* Bottom padding matches the hover-pill's bottom inset (5px), so content
+     centers in the pill region (top 0 → bottom 5) rather than the full height.
+     Result: content sits in the pill's vertical center; on the active tab the
+     fill spans the full height, so content reads as nudged slightly up. */
+  padding: 0 12px 5px;
   flex-shrink: 0;
   border-radius: var(--radius) var(--radius) 0 0;
   background: transparent;
@@ -168,12 +173,19 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
   color: var(--c-error-text, var(--text));
 }
 
+/* The dot always reserves its slot (no v-if) so unread state toggling doesn't
+   shift the tab width. Only opacity changes when there's actually unread content. */
 .tab-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--c-unread, #5B9DFF);
   flex-shrink: 0;
+  opacity: 0;
+}
+
+.tab-dot.is-unread {
+  opacity: 1;
 }
 
 .tab-name {
