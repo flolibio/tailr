@@ -61,14 +61,12 @@ function ensureWs(): void {
     if (typeof p !== 'string' || !Array.isArray(catchupEntries)) return
     const tab = tabs.value.find((t) => t.path === p)
     if (!tab) return
-    // 仅在 tail 模式下用 catchup 替换；用户在查看历史时不打断
+    // 仅在 tail 模式下合并 catchup；用户在查看历史时不打断。
+    // catchup 来自后端环形缓冲区，可能与已显示的历史（HTTP 初始加载 +
+    // 实时 append）重叠。这里按 lineNum 去重合并，只补齐缺失的行，
+    // 而不是用 catchup 整体覆盖——否则重连/切标签页会导致日志区被清空。
     if (tab.isTailMode) {
-      let entries = catchupEntries as LogEntry[]
-      if (entries.length > maxLines.value) {
-        entries = entries.slice(entries.length - maxLines.value)
-      }
-      tab.entries = entries
-      tab.totalLines = entries.length
+      mergeCatchup(tab, catchupEntries as LogEntry[])
     }
     tab.isLoading = false
   })
@@ -94,6 +92,18 @@ function appendToEntries(tab: TabState, newEntries: LogEntry[]): void {
   }
   tab.entries = arr
   tab.totalLines = arr.length
+}
+
+function mergeCatchup(tab: TabState, catchupEntries: LogEntry[]): void {
+  if (catchupEntries.length === 0) return
+
+  // catchup 来自后端环形缓冲区，lineNum 空间与 append 一致。
+  // 只补齐比当前已显示最大 lineNum 更新的行，避免用缓冲区覆盖已有历史。
+  const maxLineNum = tab.entries.length > 0 ? tab.entries[tab.entries.length - 1].lineNum : -1
+  const newOnes = catchupEntries.filter((e) => e.lineNum > maxLineNum)
+  if (newOnes.length === 0) return
+
+  appendToEntries(tab, newOnes)
 }
 
 function drainPending(tab: TabState): void {
