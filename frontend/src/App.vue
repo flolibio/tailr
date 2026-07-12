@@ -395,8 +395,7 @@ function handleSettingsUpdate(s: Settings): void {
         <span>{{ activeTabPath ? activeTabPath.split('/').pop() : t('app.noFile') }}</span>
       </div>
       <template v-if="activeTab">
-        <span v-if="activeTab.entries.length === activeTab.totalLines">{{ activeTab.entries.length }} {{ t('app.lines') }}</span>
-        <span v-else>{{ activeTab.entries.length }} / {{ activeTab.totalLines }} {{ t('app.lines') }}</span>
+        <span>{{ activeTab.entries.length }} / {{ maxLines }} {{ t('app.lines') }}</span>
         <span v-if="filteredEntries.length < activeTab.entries.length">{{ filteredEntries.length }} {{ t('app.shown') }}</span>
         <span v-if="activeTab.filterKeywords.length" class="status-filter-info">{{ matchCount }} {{ t('app.matches') }} · {{ activeTab.filterKeywords.join(' + ') }}</span>
       </template>
