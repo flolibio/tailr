@@ -12,6 +12,9 @@ interface WSMessage {
     fields?: Record<string, unknown>
   }>
   seq?: number
+  // 后端 Catchup 消息用 last_seq（序列化为 camelCase 的 lastSeq），
+  // 与 Append 的 seq 区分。两者都代表"客户端应记录的高水位 seq"。
+  lastSeq?: number
   lineNum?: number
   message?: string
 }
@@ -92,9 +95,12 @@ export class WSClient {
         break
       case 'catchup':
         if (msg.path && msg.entries) {
-          this.emit('catchup', msg.path, msg.entries, msg.seq)
-          if (msg.seq !== undefined) {
-            this.subscriptions.set(msg.path, msg.seq)
+          // 后端 Catchup 用 last_seq（JSON: lastSeq）携带高水位；
+          // 兼容回退到 seq，避免协议不一致时丢更新。
+          const catchupSeq = msg.lastSeq ?? msg.seq
+          this.emit('catchup', msg.path, msg.entries, catchupSeq)
+          if (catchupSeq !== undefined) {
+            this.subscriptions.set(msg.path, catchupSeq)
           }
         }
         break
