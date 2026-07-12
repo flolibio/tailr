@@ -110,6 +110,14 @@ const filteredTree = computed(() => {
     .filter(Boolean) as TreeNode[]
 })
 
+const filteredRecentFiles = computed(() => {
+  const q = filterText.value.trim().toLowerCase()
+  if (!q) return recentFiles.value
+  return recentFiles.value.filter((rf) =>
+    basename(rf.path).toLowerCase().includes(q)
+  )
+})
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -293,9 +301,9 @@ onMounted(() => {
               <ChevronDown :size="14" :stroke-width="2.5" />
             </div>
           </div>
-          <div v-show="!recentCollapsed" class="section-body">
+          <div v-show="!recentCollapsed || (filterText && filteredRecentFiles.length > 0)" class="section-body">
             <div
-              v-for="rf in recentFiles"
+              v-for="rf in filteredRecentFiles"
               :key="rf.path"
               class="nav-item"
               :title="rf.path"
