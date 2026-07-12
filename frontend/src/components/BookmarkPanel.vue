@@ -40,10 +40,10 @@ function handleClick(bm: Bookmark): void {
 <template>
   <div class="bm-section">
     <div class="section-header" @click="collapsed = !collapsed">
+      <span class="section-title">{{ t('bookmark.title') }} ({{ bookmarks.length }})</span>
       <div class="section-chevron" :class="{ collapsed }">
         <ChevronDown :size="14" :stroke-width="2.5" />
       </div>
-      <span class="section-title">{{ t('bookmark.title') }} ({{ bookmarks.length }})</span>
     </div>
     <div v-show="!collapsed" class="bm-body">
       <div v-if="bookmarks.length === 0" class="bm-empty">{{ t('bookmark.empty') }}</div>
@@ -68,21 +68,18 @@ function handleClick(bm: Bookmark): void {
   flex-shrink: 0;
   border-top: 1px solid var(--border);
   background: var(--bg-2);
+  padding: 0 8px;
 }
 
 .section-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 12px;
+  padding: 6px 8px;
   cursor: pointer;
   user-select: none;
   transition: background .1s;
   height: 35px;
-}
-
-.section-header:hover {
-  background: var(--bg-2);
 }
 
 .section-chevron {
@@ -93,6 +90,7 @@ function handleClick(bm: Bookmark): void {
   justify-content: center;
   color: var(--text-3);
   flex-shrink: 0;
+  margin-left: auto;
   transition: transform .15s;
 }
 
@@ -101,10 +99,7 @@ function handleClick(bm: Bookmark): void {
 }
 
 .section-title {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 14px;
   color: var(--text-3);
 }
 
@@ -125,7 +120,7 @@ function handleClick(bm: Bookmark): void {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 7px 8px;
   border-radius: var(--radius);
   cursor: pointer;
   transition: background .1s;
@@ -133,7 +128,7 @@ function handleClick(bm: Bookmark): void {
 }
 
 .bm-item:hover {
-  background: var(--bg-2);
+  background: var(--bg-3);
 }
 
 .bm-item.bm-invalid {
