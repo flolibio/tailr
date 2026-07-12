@@ -17,6 +17,9 @@ interface WSMessage {
   lastSeq?: number
   lineNum?: number
   message?: string
+  // Subscribed 消息携带的精确总行数（LineIndex::build），用于修正 file_tail
+  // 的估算行号坐标系。
+  totalLines?: number
 }
 
 export class WSClient {
@@ -102,6 +105,11 @@ export class WSClient {
           if (catchupSeq !== undefined) {
             this.subscriptions.set(msg.path, catchupSeq)
           }
+        }
+        break
+      case 'subscribed':
+        if (msg.path) {
+          this.emit('subscribed', msg.path, msg.totalLines)
         }
         break
       case 'truncate':

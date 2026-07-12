@@ -16,6 +16,10 @@ export interface TabState {
   filterKeywords: string[]
   selectedLevels: string[]
   hasUnread: boolean
+  // file_tail returns estimated lineNums (tail_start); the precise count arrives
+  // later via the WS Subscribed message. While set, entries[0..count) still carry
+  // estimated lineNums and must be shifted by `delta` once the exact total lands.
+  pendingCorrection: { count: number; estimatedTotal: number } | null
 }
 
 function createTab(path: string): TabState {
@@ -29,6 +33,7 @@ function createTab(path: string): TabState {
     filterKeywords: [],
     selectedLevels: [],
     hasUnread: false,
+    pendingCorrection: null,
   })
 }
 
@@ -81,7 +86,26 @@ function ensureWs(): void {
   })
 
   wsClient.on('delete', (p: unknown) => {
-    if (typeof p === 'string') closeTab(p)
+    if (typeof p !== 'string') closeTab(p)
+  })
+
+  // Subscribed carries the exact total line count (LineIndex::build), which
+  // arrives after file_tail's estimate. Shift the initially-loaded entries'
+  // lineNums into the precise coordinate system so bookmarks stay valid.
+  wsClient.on('subscribed', (p: unknown, total: unknown) => {
+    if (typeof p !== 'string' || typeof total !== 'number') return
+    const tab = tabs.value.find((t) => t.path === p)
+    if (!tab || !tab.pendingCorrection) return
+
+    const delta = total - tab.pendingCorrection.estimatedTotal
+    if (delta !== 0 && tab.entries.length > 0) {
+      const count = Math.min(tab.pendingCorrection.count, tab.entries.length)
+      tab.entries = tab.entries.map((e, i) =>
+        i < count ? { ...e, lineNum: e.lineNum + delta } : e,
+      )
+    }
+    tab.totalLines = total
+    tab.pendingCorrection = null
   })
 }
 
@@ -145,6 +169,10 @@ async function loadInitial(tab: TabState): Promise<void> {
     if (!tabs.value.find((t) => t.path === tab.path)) return
     tab.entries = data.entries
     tab.totalLines = data.totalLines
+    // file_tail's totalLines is estimated (tail_start). Record the estimate so
+    // the Subscribed handler can shift these entries' lineNums to the exact
+    // coordinate once LineIndex::build finishes on the backend.
+    tab.pendingCorrection = { count: data.entries.length, estimatedTotal: data.totalLines }
     tab.isTailMode = true
     wsClient.subscribe(tab.path)
   } catch (e) {
@@ -199,6 +227,10 @@ async function reloadActiveTab(): Promise<void> {
     const data = await getFileTail(tab.path, count)
     tab.entries = data.entries
     tab.totalLines = data.totalLines
+    // No WS resubscribe happens here, so no Subscribed message will arrive to
+    // correct the estimate. Clear any stale pendingCorrection rather than leave
+    // a shift pending that never resolves.
+    tab.pendingCorrection = null
   } catch (e) {
     console.error('Failed to reload after config change:', e)
   }
