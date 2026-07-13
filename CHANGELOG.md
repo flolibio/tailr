@@ -1,5 +1,52 @@
 # Changelog
 
+## [v0.7.0] - 2026-07-13
+
+### Features
+
+- **Multi-file tab interface:** open multiple log files side by side in a Chrome-style tab bar, each with independent filter state. Tab bar merges into the global bar; up to 10 tabs.
+- **Bookmarks:** bookmark panel with line marking in the log viewer. Stale bookmarks (lines that shifted due to log rotation / buffer eviction) are detected and removed on click.
+- **Recent files:** quick-access section listing recently opened files (capped at 10), persisted to localStorage.
+- **Historical log filter:** toggle to show/hide logrotate-produced historical files (numbered rotation, date-named, `.bak`/`.old` markers). Hidden by default to reduce clutter.
+- **Configurable log timezone:** new `log_timezone` config option (`local` | `utc` | `z` | `+HH:MM` | `+HHMM` | `+HH`) for interpreting timezone-less (naive) log timestamps. Defaults to `local` for backward compatibility.
+- **JSON log timestamp parsing:** recognizes `time`/`@timestamp`/`timestamp` fields and epoch seconds/millis in JSON log lines.
+- **Bracketed & two-digit-offset timestamps:** `[YYYY-MM-DD HH:MM:SS]` and ctime `+08` offset forms now parse.
+- **Global bar redesign:** replaces topbar with a unified global bar — path copy, sidebar toggle, and tab strip in one place.
+- **Icon system migration:** all inline SVGs replaced with `lucide-vue-next` for consistency.
+
+### UI
+
+- Unified color system with level-derived transparency layering.
+- Chrome-style tab bar with rounded "ear" corners; inset hover pill on inactive tabs; padding prevents first/last tab ear clipping.
+- Hover-reveal patterns for nav-time, file-size, and sidebar toggle.
+- Bookmark panel styling; file/folder icons in FileBrowser.
+- Horizontal action buttons in compact mode; increased initial tail lines.
+- Default sidebar width increased to 300px; unified font sizes to even pixel values.
+- Compact-mode timestamp/badge overlap resolved.
+
+### Fixes
+
+- **WS reconnect no longer clears the log area:** catchup now merges by lineNum (dedup) instead of overwriting the buffer on reconnect.
+- **Tab lifecycle race guarded:** opening/closing tabs during async `file_tail` load can no longer create phantom WS subscriptions.
+- **Bookmark line coordinates:** `file_tail` estimates line numbers; the WS `Subscribed` message now corrects them to exact `LineIndex::build` counts so bookmarks stay valid.
+- **Sidebar search filter** now applies to both FILES and RECENT sections.
+- **Statusbar** shows buffer cap (`entries.length / maxLines`) instead of drift-prone totalLines.
+- **Hot-reload of active tab entries** after log-level config save.
+- **Clipboard** extracted to `useClipboard` composable; removed HMR-breaking `destroy()` call.
+- First/last tab ear clipping prevented via tabbar padding.
+- Recent list no longer reorders/jumps on file click; tabbar hidden when no tabs; fixed bookmark panel height.
+- File browser: removed file-dot, added empty-dir placeholder, restructured into sections.
+
+### Refactor
+
+- Merged `TabBar` into globalbar; unified height to `--tabbar-h`.
+- Extracted `useTabs`, `useBookmarks`, `useRecentFiles`, `useHistoricalFilter`, `useClipboard` composables.
+- Removed dead favorites feature code and dead `useLogStream.ts`.
+
+### Protocol
+
+- **`Subscribe`/`Unsubscribe` now use camelCase** (`afterSeq` instead of `after_seq`), matching the rest of the WS protocol and the documented convention.
+
 ## [v0.6.2] - 2026-06-30
 
 ### UI
