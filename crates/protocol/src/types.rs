@@ -483,10 +483,12 @@ pub fn try_parse_json_fields(line: &str) -> Option<serde_json::Value> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum WSMessage {
+    #[serde(rename_all = "camelCase")]
     Subscribe {
         path: String,
         after_seq: Option<u64>,
     },
+    #[serde(rename_all = "camelCase")]
     Unsubscribe {
         path: String,
     },
@@ -669,5 +671,51 @@ mod tests {
         );
         let utc = ts.expect("ctime with offset should parse");
         assert_eq!(utc.format("%H:%M:%S").to_string(), "14:43:21");
+    }
+
+    // ── LogTimezone::parse / Fixed-offset conversion ───────────────────────
+
+    #[test]
+    fn test_log_timezone_named_variants() {
+        assert!(matches!(LogTimezone::parse("local"), Ok(LogTimezone::Local)));
+        assert!(matches!(LogTimezone::parse(""), Ok(LogTimezone::Local)));
+        assert!(matches!(LogTimezone::parse("UTC"), Ok(LogTimezone::Utc)));
+        assert!(matches!(LogTimezone::parse("z"), Ok(LogTimezone::Utc)));
+    }
+
+    #[test]
+    fn test_log_timezone_offset_formats() {
+        // `+HH:MM`, `+HHMM`, `+HH`, and the negative side all parse to Fixed.
+        assert!(matches!(LogTimezone::parse("+08:00"), Ok(LogTimezone::Fixed(_))));
+        assert!(matches!(LogTimezone::parse("+0800"), Ok(LogTimezone::Fixed(_))));
+        assert!(matches!(LogTimezone::parse("+08"), Ok(LogTimezone::Fixed(_))));
+        assert!(matches!(LogTimezone::parse("-05:00"), Ok(LogTimezone::Fixed(_))));
+    }
+
+    #[test]
+    fn test_log_timezone_rejects_invalid() {
+        assert!(LogTimezone::parse("gmt").is_err());
+        assert!(LogTimezone::parse("+15:00").is_err(), "hour out of clamp range");
+        assert!(LogTimezone::parse("+08:60").is_err(), "minutes out of range");
+        assert!(LogTimezone::parse("abc").is_err());
+    }
+
+    #[test]
+    fn test_fixed_offset_naive_to_utc_round_trip() {
+        // A naive timestamp interpreted under +08:00 should yield a UTC value
+        // 8 hours earlier. This covers the LogTimezone::Fixed branch of
+        // naive_to_utc, which has no dedicated test elsewhere.
+        let tz = LogTimezone::parse("+08:00").unwrap();
+        let (ts, _) = try_parse_timestamp("[2026-07-05 22:43:21] log line", &tz);
+        let utc = ts.expect("naive timestamp should parse under Fixed offset");
+        assert_eq!(utc.format("%Y-%m-%d %H:%M:%S").to_string(), "2026-07-05 14:43:21");
+    }
+
+    #[test]
+    fn test_fixed_offset_negative() {
+        let tz = LogTimezone::parse("-05:00").unwrap();
+        let (ts, _) = try_parse_timestamp("[2026-07-05 10:30:00] log line", &tz);
+        let utc = ts.expect("naive timestamp should parse under negative offset");
+        assert_eq!(utc.format("%H:%M:%S").to_string(), "15:30:00");
     }
 }
