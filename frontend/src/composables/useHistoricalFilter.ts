@@ -7,7 +7,7 @@
  * 默认隐藏（仅看实时日志），用户可 toggle 打开。
  * 持久化到 localStorage，记住用户选择。
  *
- * 影响范围：仅 file-list，不影响 Recent / Favorites。
+ * 影响范围：仅 file-list，不影响 Recent。
  */
 import { ref } from 'vue'
 

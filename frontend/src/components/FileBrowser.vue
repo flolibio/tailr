@@ -513,10 +513,6 @@ onMounted(() => {
   padding: 4px 0;
 }
 
-.quick-access .nav-section + .nav-section {
-  border-top: 1px solid var(--border);
-}
-
 /* Files: the primary browse surface — no card, takes all remaining height */
 .files-section {
   flex: 1;

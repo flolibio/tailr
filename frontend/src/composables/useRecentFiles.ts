@@ -26,13 +26,19 @@ const recentFiles = ref<RecentFile[]>(loadFromStorage())
 
 export function useRecentFiles() {
   function recordOpen(path: string): void {
+    const now = Date.now()
     const existing = recentFiles.value.find((f) => f.path === path)
     if (existing) {
-      existing.openedAt = Date.now()
+      // Rebuild the array rather than mutating the element in place — `ref`
+      // tracks the `.value` reference, so a full replacement guarantees
+      // subscribers re-render (e.g. the relative-time label).
+      recentFiles.value = recentFiles.value.map((f) =>
+        f.path === path ? { ...f, openedAt: now } : f,
+      )
       saveToStorage(recentFiles.value)
       return
     }
-    recentFiles.value = [{ path, openedAt: Date.now() }, ...recentFiles.value]
+    recentFiles.value = [{ path, openedAt: now }, ...recentFiles.value]
     if (recentFiles.value.length > MAX_RECENT) {
       recentFiles.value = recentFiles.value.slice(0, MAX_RECENT)
     }

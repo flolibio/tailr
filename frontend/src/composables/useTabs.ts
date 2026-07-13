@@ -115,7 +115,10 @@ function appendToEntries(tab: TabState, newEntries: LogEntry[]): void {
     arr.splice(0, arr.length - maxLines.value)
   }
   tab.entries = arr
-  tab.totalLines = arr.length
+  // NOTE: do NOT overwrite totalLines here. It tracks the file's real line
+  // count (set by file_tail / the WS Subscribed message); arr.length is only
+  // the in-memory buffer length. See loadInitial/subscribed for the source of
+  // truth. The statusbar deliberately renders entries.length / maxLines.
 }
 
 function mergeCatchup(tab: TabState, catchupEntries: LogEntry[]): void {

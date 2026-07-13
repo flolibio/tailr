@@ -136,7 +136,7 @@ export class WSClient {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const msg: Record<string, unknown> = { type: 'subscribe', path }
       if (afterSeq !== undefined) {
-        msg.after_seq = afterSeq
+        msg.afterSeq = afterSeq
       }
       this.ws.send(JSON.stringify(msg))
     }
@@ -153,7 +153,7 @@ export class WSClient {
     for (const [path, seq] of this.subscriptions) {
       const msg: Record<string, unknown> = { type: 'subscribe', path }
       if (seq > 0) {
-        msg.after_seq = seq
+        msg.afterSeq = seq
       }
       this.ws?.send(JSON.stringify(msg))
     }
@@ -238,12 +238,8 @@ export class WSClient {
     }
   }
 
-  destroy(): void {
-    this.disconnect()
-    this.listeners.clear()
-    this.subscriptions.clear()
-    if (typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', this.handleVisibilityChange)
-    }
-  }
+  // Note: there is intentionally no destroy() method. The WSClient is an
+  // app-scoped singleton (instantiated once by useTabs); it owns a
+  // visibilitychange listener on `document` for the entire page lifetime and
+  // is never torn down. If you need short-lived clients, add teardown here.
 }

@@ -424,7 +424,7 @@ mark.kw-mark-5 { --kw-cur: var(--kw-5); }
   border-color: var(--accent);
 }
 
-/* ── Sidebar body: quick-access card (Recent/Favorites/Bookmarks) on top, ──
+/* ── Sidebar body: quick-access card (Recent) on top, ──
    ── full Files tree below. Two visually distinct layers, not four equal sections. ── */
 .sidebar-body {
   flex: 1;
@@ -436,7 +436,7 @@ mark.kw-mark-5 { --kw-cur: var(--kw-5); }
   gap: var(--space-2);
 }
 
-/* Quick-access card: recessed surface groups Recent/Favorites/Bookmarks so they
+/* Quick-access card: recessed surface groups Recent/Bookmarks so they
    read as one secondary cluster, capped in height so they can never outgrow Files. */
 .sidebar-quick {
   flex-shrink: 0;
@@ -502,7 +502,7 @@ mark.kw-mark-5 { --kw-cur: var(--kw-5); }
   display: none;
 }
 
-/* Flat rows used inside Recent / Favorites */
+/* Flat rows used inside Recent / Bookmarks */
 .sidebar-item {
   display: flex;
   align-items: center;
