@@ -269,7 +269,7 @@ async fn handle_unsubscribe(state: &AppState, client_id: &str, path: &str) {
 
 async fn cleanup_client(state: &AppState, client_id: &str) {
     let mut subs = state.file_subscribers.lock().await;
-    for (_, file_sub) in subs.iter_mut() {
+    for file_sub in subs.values_mut() {
         file_sub.unsubscribe(client_id);
     }
 }
