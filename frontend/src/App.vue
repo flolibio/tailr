@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FileBrowser from './components/FileBrowser.vue'
 import LogViewer from './components/LogViewer.vue'
@@ -14,7 +14,8 @@ import { useTabs } from './composables/useTabs'
 import { useLogLevels } from './composables/useLogLevels'
 import { useAuth } from './composables/useAuth'
 import { useRecentFiles } from './composables/useRecentFiles'
-import { PanelLeft, Settings as SettingsIcon, Play, Pause } from 'lucide-vue-next'
+import { useCopyFeedback } from './composables/useClipboard'
+import { PanelLeft, Settings as SettingsIcon, Play, Pause, Share2, Check } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -27,6 +28,7 @@ const {
   openTab,
   setTailMode,
   reloadActiveTab,
+  restoreTabs,
 } = useTabs()
 
 const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
@@ -39,6 +41,60 @@ const refreshKey = ref(0)
 
 const { token, showTokenDialog } = useAuth()
 const { recordOpen } = useRecentFiles()
+
+// v0.8: URL state restore (share link). Returns true if a share link was applied.
+function restoreFromUrl(): boolean {
+  const params = new URLSearchParams(location.search)
+  const file = params.get('file')
+  if (!file) return false
+  const kw = params.get('kw')?.split(',').filter(Boolean) ?? []
+  const levels = params.get('levels')?.split(',').filter(Boolean) ?? []
+  openTab(file)
+  // Record recent-file open + reveal in tree, mirroring handleSelectFile
+  // which we bypass by opening the tab directly from the URL.
+  recordOpen(file)
+  if (sidebarCollapsed.value) sidebarCollapsed.value = false
+  fileBrowserRef.value?.ensureVisible(file)
+  // URL filter applies for this session only (not persisted to localStorage).
+  nextTick(() => {
+    const tab = tabs.value.find((t) => t.path === file)
+    if (tab) {
+      if (kw.length) tab.filterKeywords = kw
+      if (levels.length) tab.selectedLevels = levels
+    }
+  })
+  return true
+}
+
+// v0.8: URL state sync (replaceState, not push — avoid polluting history).
+function syncToUrl(): void {
+  const tab = activeTab.value
+  if (!tab) return
+  const params = new URLSearchParams()
+  params.set('file', tab.path)
+  if (tab.filterKeywords.length) params.set('kw', tab.filterKeywords.join(','))
+  if (tab.selectedLevels.length) params.set('levels', tab.selectedLevels.join(','))
+  history.replaceState({}, '', `${location.pathname}?${params}`)
+}
+
+// v0.8: build a share link URL from current tab state (always carries params).
+function buildShareUrl(): string {
+  const tab = activeTab.value
+  const params = new URLSearchParams()
+  if (tab) {
+    params.set('file', tab.path)
+    if (tab.filterKeywords.length) params.set('kw', tab.filterKeywords.join(','))
+    if (tab.selectedLevels.length) params.set('levels', tab.selectedLevels.join(','))
+  }
+  return `${location.origin}${location.pathname}?${params}`
+}
+
+// v0.8: copy share link to clipboard.
+const { copied: linkCopied, copy: copyShareLink } = useCopyFeedback()
+
+async function handleShareLink(): Promise<void> {
+  await copyShareLink(buildShareUrl())
+}
 
 const activeLineRange = computed(() => {
   const tab = activeTab.value
@@ -255,6 +311,22 @@ onMounted(() => {
       filterBarRef.value?.focus()
     }
   })
+
+  // v0.8: restore the tab list from persistence first (active loads, rest lazy),
+  // then apply URL share-link override if present. URL sync only activates when
+  // the page was opened via a share link — a normal page load stays a clean URL.
+  restoreTabs()
+  const hadShareLink = restoreFromUrl()
+  if (hadShareLink) {
+    watch(
+      [
+        () => activeTabPath.value,
+        () => activeTab.value?.filterKeywords,
+        () => activeTab.value?.selectedLevels,
+      ],
+      syncToUrl,
+    )
+  }
 })
 
 function handleSettingsUpdate(s: Settings): void {
@@ -305,6 +377,16 @@ function handleSettingsUpdate(s: Settings): void {
         <PanelLeft :size="14" :stroke-width="2" />
       </button>
       <TabBar class="globalbar-tabs" />
+      <button
+        class="icon-btn share-btn"
+        :class="{ copied: linkCopied }"
+        :disabled="!activeTabPath"
+        @click="handleShareLink"
+        :title="linkCopied ? t('app.copied') : t('app.shareLink')"
+      >
+        <Check v-if="linkCopied" :size="16" :stroke-width="2.5" />
+        <Share2 v-else :size="16" :stroke-width="2" />
+      </button>
       <button class="settings-btn" @click="showSettings = true" :title="t('app.openSettings')">
         <SettingsIcon :size="16" :stroke-width="2" />
       </button>
@@ -344,7 +426,7 @@ function handleSettingsUpdate(s: Settings): void {
       <div v-if="!activeTabPath" class="empty-state">
         <div class="empty-text">{{ t('app.selectFile') }}</div>
       </div>
-      <div v-else-if="activeTab?.isLoading" class="empty-state">
+      <div v-else-if="activeTab?.isLoading || activeTab?.isLazy" class="empty-state">
         <div class="loading-spinner"></div>
         <div class="empty-text">{{ t('app.loading') }}</div>
       </div>

@@ -424,6 +424,17 @@ mark.kw-mark-5 { --kw-cur: var(--kw-5); }
   border-color: var(--accent);
 }
 
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.icon-btn:disabled:hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+}
+
 /* ── Sidebar body: quick-access card (Recent) on top, ──
    ── full Files tree below. Two visually distinct layers, not four equal sections. ── */
 .sidebar-body {
@@ -884,6 +895,12 @@ select {
   padding: 0;
   transition: background .12s ease, color .12s ease, border-color .12s ease;
   flex-shrink: 0;
+}
+
+/* ── Share button (link copied feedback) ── */
+.share-btn.copied,
+.share-btn:hover {
+  color: var(--accent);
 }
 
 .settings-btn:hover {
