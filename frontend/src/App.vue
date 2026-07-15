@@ -59,11 +59,11 @@ const refreshKey = ref(0)
 const { token, showTokenDialog } = useAuth()
 const { recordOpen } = useRecentFiles()
 
-// v0.8: URL state restore (share link). Returns true if a share link was applied.
-function restoreFromUrl(): boolean {
+// v0.8: URL state restore (share link). Consumed once on load.
+function restoreFromUrl(): void {
   const params = new URLSearchParams(location.search)
   const file = params.get('file')
-  if (!file) return false
+  if (!file) return
   const kw = params.get('kw')?.split(',').filter(Boolean) ?? []
   const levels = params.get('levels')?.split(',').filter(Boolean) ?? []
   openTab(file)
@@ -80,18 +80,6 @@ function restoreFromUrl(): boolean {
       if (levels.length) tab.selectedLevels = levels
     }
   })
-  return true
-}
-
-// v0.8: URL state sync (replaceState, not push — avoid polluting history).
-function syncToUrl(): void {
-  const tab = activeTab.value
-  if (!tab) return
-  const params = new URLSearchParams()
-  params.set('file', tab.path)
-  if (tab.filterKeywords.length) params.set('kw', tab.filterKeywords.join(','))
-  if (tab.selectedLevels.length) params.set('levels', tab.selectedLevels.join(','))
-  history.replaceState({}, '', `${location.pathname}?${params}`)
 }
 
 // v0.8: build a share link URL from current tab state (always carries params).
@@ -312,20 +300,11 @@ onMounted(() => {
   })
 
   // v0.8: restore the tab list from persistence first (active loads, rest lazy),
-  // then apply URL share-link override if present. URL sync only activates when
-  // the page was opened via a share link — a normal page load stays a clean URL.
+  // then apply URL share-link override if present. Share links are consumed once
+  // on load; subsequent user actions (switch tab, filter) do NOT pollute the URL
+  // — sharing is always via the explicit Share button (buildShareUrl).
   restoreTabs()
-  const hadShareLink = restoreFromUrl()
-  if (hadShareLink) {
-    watch(
-      [
-        () => activeTabPath.value,
-        () => activeTab.value?.filterKeywords,
-        () => activeTab.value?.selectedLevels,
-      ],
-      syncToUrl,
-    )
-  }
+  restoreFromUrl()
 })
 
 function handleSettingsUpdate(s: Settings): void {
