@@ -1,5 +1,24 @@
 # Changelog
 
+## [v0.8.0] - 2026-07-15
+
+### Features
+
+- **Share link:** generate a shareable URL encoding file path + filter keywords + log levels via the Share2 button in the global bar. Opening a share link restores the exact viewing state, then cleans the URL to the root path. Subsequent tab switches and filter changes never pollute the URL.
+- **Tab persistence:** open tabs and the active tab are persisted to localStorage and restored on page reload. The active tab loads immediately; others start lazy and load on first switch, avoiding unnecessary WS subscriptions and network requests.
+- **Per-tab viewer state preservation:** refactored from a single `:key`-destroyed LogViewer to multi-instance `LogPanel` components kept alive with `v-show`. Switching tabs now preserves scroll position, measured row heights, expanded JSON rows, and marked lines — no save/restore machinery needed.
+
+### Architecture
+
+- **Multi-instance LogPanel:** each tab owns a `LogPanel` wrapping empty/loading/LogViewer states with its own `filteredEntries` computed, achieving state isolation (filtering one tab never re-renders another).
+- **Shared filter logic:** extracted `filterEntries()` to `utils/filter.ts`, used by both App.vue statusbar and LogPanel viewer to prevent count/render desync.
+
+### Fixes
+
+- Background tab `pendingEntries` now capped at `maxLines` to prevent unbounded memory growth on high-volume logs.
+- `restoreTabs` enforces `MAX_TABS` slice for defensive consistency.
+- Share link URL params consumed once on load; address bar stays clean during normal use.
+
 ## [v0.7.0] - 2026-07-13
 
 ### Features
