@@ -15,6 +15,7 @@ import { useLogLevels } from './composables/useLogLevels'
 import { useAuth } from './composables/useAuth'
 import { useRecentFiles } from './composables/useRecentFiles'
 import { useCopyFeedback } from './composables/useClipboard'
+import { filterEntries } from './utils/filter'
 import { PanelLeft, Settings as SettingsIcon, Play, Pause, Share2, Check } from 'lucide-vue-next'
 
 const { t } = useI18n()
@@ -151,28 +152,12 @@ watch(activeTabPath, (p) => {
   document.title = p ? `Tailr - ${p}` : 'Tailr'
 }, { immediate: true })
 
+// Used by the statusbar counts. Shares the same filterEntries as LogPanel
+// so counts never desync from the rendered rows.
 const filteredEntries = computed(() => {
   const tab = activeTab.value
   if (!tab) return []
-
-  let result = tab.entries
-
-  const levels = tab.selectedLevels
-  if (levels.length > 0 && levels.length < allLevels.value.length) {
-    const levelSet = new Set(levels)
-    result = result.filter((e) => levelSet.has(e.level))
-  }
-
-  const kws = tab.filterKeywords
-  if (kws.length > 0) {
-    const lowerKws = kws.map((k) => k.toLowerCase())
-    result = result.filter((e) => {
-      const lower = e.raw.toLowerCase()
-      return lowerKws.every((kw) => lower.includes(kw))
-    })
-  }
-
-  return result
+  return filterEntries(tab.entries, tab.selectedLevels, tab.filterKeywords, allLevels.value)
 })
 
 const matchCount = computed(() => {

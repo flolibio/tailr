@@ -89,7 +89,12 @@ function ensureWs(): void {
     if (p === activeTabPath.value && tab.isTailMode) {
       appendToEntries(tab, newEntries as LogEntry[])
     } else {
+      // Cap pendingEntries so background tabs with high log volume don't grow
+      // unbounded while the user is viewing another tab.
       tab.pendingEntries.push(...(newEntries as LogEntry[]))
+      if (tab.pendingEntries.length > maxLines.value) {
+        tab.pendingEntries.splice(0, tab.pendingEntries.length - maxLines.value)
+      }
       tab.hasUnread = true
     }
   })
@@ -286,10 +291,12 @@ async function reloadActiveTab(): Promise<void> {
 function restoreTabs(): void {
   const state = loadOpenTabs()
   if (!state || state.paths.length === 0) return
-  const active = state.activeTabPath && state.paths.includes(state.activeTabPath)
+  // Enforce MAX_TABS in case localStorage was hand-edited or grew stale.
+  const paths = state.paths.slice(0, MAX_TABS)
+  const active = state.activeTabPath && paths.includes(state.activeTabPath)
     ? state.activeTabPath
-    : state.paths[0]
-  tabs.value = state.paths.map((p) => {
+    : paths[0]
+  tabs.value = paths.map((p) => {
     const tab = createTab(p)
     if (p !== active) tab.isLazy = true
     return tab

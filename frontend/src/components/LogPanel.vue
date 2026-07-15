@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LogViewer from './LogViewer.vue'
 import type { TabState } from '../composables/useTabs'
-import type { LogEntry } from '../services/api'
+import { filterEntries } from '../utils/filter'
 
 const { t } = useI18n()
 
@@ -22,26 +22,9 @@ const emit = defineEmits<{
 
 // Per-tab filtering — computed is scoped to this panel instance, so filtering
 // one tab never re-renders another tab's LogViewer (state isolation).
-const filteredEntries = computed(() => {
-  let result: LogEntry[] = props.tab.entries
-
-  const levels = props.tab.selectedLevels
-  if (levels.length > 0 && levels.length < props.allLevels.length) {
-    const levelSet = new Set(levels)
-    result = result.filter((e) => levelSet.has(e.level))
-  }
-
-  const kws = props.tab.filterKeywords
-  if (kws.length > 0) {
-    const lowerKws = kws.map((k) => k.toLowerCase())
-    result = result.filter((e) => {
-      const lower = e.raw.toLowerCase()
-      return lowerKws.every((kw) => lower.includes(kw))
-    })
-  }
-
-  return result
-})
+const filteredEntries = computed(() =>
+  filterEntries(props.tab.entries, props.tab.selectedLevels, props.tab.filterKeywords, props.allLevels),
+)
 
 // Expose the inner LogViewer instance so the parent can call
 // scrollToLine (bookmarks) / scrollToBottom (tail) on the active panel.
