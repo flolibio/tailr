@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FileBrowser from './components/FileBrowser.vue'
-import LogViewer from './components/LogViewer.vue'
+import LogPanel from './components/LogPanel.vue'
 import FilterBar from './components/FilterBar.vue'
 import TabBar from './components/TabBar.vue'
 import BookmarkPanel from './components/BookmarkPanel.vue'
@@ -31,7 +31,23 @@ const {
   restoreTabs,
 } = useTabs()
 
-const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
+// v0.8: multi-instance — one LogPanel per tab, kept alive with v-show so each
+// tab preserves its own scrollTop / measuredHeights / expandedLines / markedLine.
+// logPanelRefs maps tab path → panel instance for bookmark scroll / tail calls.
+const logPanelRefs = ref<Map<string, InstanceType<typeof LogPanel>>>(new Map())
+
+function setPanelRef(path: string, el: any): void {
+  if (el) {
+    logPanelRefs.value.set(path, el as InstanceType<typeof LogPanel>)
+  } else {
+    logPanelRefs.value.delete(path)
+  }
+}
+
+function getActivePanel(): InstanceType<typeof LogPanel> | undefined {
+  return activeTabPath.value ? logPanelRefs.value.get(activeTabPath.value) : undefined
+}
+
 const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
 const fileBrowserRef = ref<InstanceType<typeof FileBrowser> | null>(null)
 const showSettings = ref(false)
@@ -121,7 +137,7 @@ function handleSelectFile(path: string): void {
 }
 
 function handleBookmarkScroll(lineNum: number): void {
-  logViewerRef.value?.scrollToLine(lineNum)
+  getActivePanel()?.scrollToLine(lineNum)
 }
 
 watch(token, () => {
@@ -134,8 +150,6 @@ watch(token, () => {
 watch(activeTabPath, (p) => {
   document.title = p ? `Tailr - ${p}` : 'Tailr'
 }, { immediate: true })
-
-const highlightKeywords = computed(() => activeTab.value?.filterKeywords ?? [])
 
 const filteredEntries = computed(() => {
   const tab = activeTab.value
@@ -267,7 +281,7 @@ function clearAllKeywords(): void {
 function handleStickToBottom(): void {
   setTailMode(true)
   settings.autoScroll = true
-  logViewerRef.value?.scrollToBottom()
+  getActivePanel()?.scrollToBottom()
 }
 
 function toggleFollowTail(): void {
@@ -279,7 +293,7 @@ function toggleFollowTail(): void {
   } else {
     setTailMode(true)
     settings.autoScroll = true
-    logViewerRef.value?.scrollToBottom()
+    getActivePanel()?.scrollToBottom()
   }
 }
 
@@ -287,7 +301,7 @@ function handleAutoScrollChange(enabled: boolean): void {
   settings.autoScroll = enabled
   if (enabled) {
     setTailMode(true)
-    logViewerRef.value?.scrollToBottom()
+    getActivePanel()?.scrollToBottom()
   } else {
     setTailMode(false)
   }
@@ -421,28 +435,21 @@ function handleSettingsUpdate(s: Settings): void {
       </div>
     </div>
 
-    <!-- Log body -->
+    <!-- Log body: one LogPanel per tab, kept alive with v-show so switching
+         tabs preserves scroll position, measuredHeights, expandedLines, etc. -->
     <main class="log-body" :style="{ fontSize: settings.fontSize + 'px', fontFamily: settings.fontFamily === 'monospace' ? 'monospace' : `'${settings.fontFamily}'` }">
-      <div v-if="!activeTabPath" class="empty-state">
+      <div v-if="tabs.length === 0" class="empty-state">
         <div class="empty-text">{{ t('app.selectFile') }}</div>
       </div>
-      <div v-else-if="activeTab?.isLoading || activeTab?.isLazy" class="empty-state">
-        <div class="loading-spinner"></div>
-        <div class="empty-text">{{ t('app.loading') }}</div>
-      </div>
-      <div v-else-if="filteredEntries.length === 0" class="empty-state">
-        <div class="empty-text">{{ (activeTab?.filterKeywords.length ?? 0) ? t('app.noMatchingLogs') : t('app.waitingForData') }}</div>
-      </div>
-      <LogViewer
-        v-else
-        ref="logViewerRef"
-        :key="activeTabPath ?? ''"
-        :entries="filteredEntries"
-        :file-path="activeTabPath ?? undefined"
+      <LogPanel
+        v-for="tab in tabs"
+        :key="tab.path"
+        v-show="tab.path === activeTabPath"
+        :ref="(el) => setPanelRef(tab.path, el)"
+        :tab="tab"
+        :all-levels="allLevels"
         :line-height="26"
-        :is-tail-mode="activeTab?.isTailMode ?? true"
         :max-visible-lines="settings.maxVisibleLines"
-        :highlight-keywords="highlightKeywords"
         :level-colors="levelDotColors"
         :display-mode="settings.displayMode"
         @stick-to-bottom="handleStickToBottom"
