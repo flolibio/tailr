@@ -13,7 +13,8 @@
     "startTail": "Start following tail",
     "openFiles": "Open files",
     "openSettings": "Open settings",
-    "copied": "Copied"
+    "copied": "Copied",
+    "shareLink": "Copy share link"
   },
   "settings": {
     "title": "Settings",

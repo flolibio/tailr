@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FileBrowser from './components/FileBrowser.vue'
-import LogViewer from './components/LogViewer.vue'
+import LogPanel from './components/LogPanel.vue'
 import FilterBar from './components/FilterBar.vue'
 import TabBar from './components/TabBar.vue'
 import BookmarkPanel from './components/BookmarkPanel.vue'
@@ -14,7 +14,9 @@ import { useTabs } from './composables/useTabs'
 import { useLogLevels } from './composables/useLogLevels'
 import { useAuth } from './composables/useAuth'
 import { useRecentFiles } from './composables/useRecentFiles'
-import { PanelLeft, Settings as SettingsIcon, Play, Pause } from 'lucide-vue-next'
+import { useCopyFeedback } from './composables/useClipboard'
+import { filterEntries } from './utils/filter'
+import { PanelLeft, Settings as SettingsIcon, Play, Pause, Share2, Check } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -27,9 +29,26 @@ const {
   openTab,
   setTailMode,
   reloadActiveTab,
+  restoreTabs,
 } = useTabs()
 
-const logViewerRef = ref<InstanceType<typeof LogViewer> | null>(null)
+// v0.8: multi-instance — one LogPanel per tab, kept alive with v-show so each
+// tab preserves its own scrollTop / measuredHeights / expandedLines / markedLine.
+// logPanelRefs maps tab path → panel instance for bookmark scroll / tail calls.
+const logPanelRefs = ref<Map<string, InstanceType<typeof LogPanel>>>(new Map())
+
+function setPanelRef(path: string, el: any): void {
+  if (el) {
+    logPanelRefs.value.set(path, el as InstanceType<typeof LogPanel>)
+  } else {
+    logPanelRefs.value.delete(path)
+  }
+}
+
+function getActivePanel(): InstanceType<typeof LogPanel> | undefined {
+  return activeTabPath.value ? logPanelRefs.value.get(activeTabPath.value) : undefined
+}
+
 const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
 const fileBrowserRef = ref<InstanceType<typeof FileBrowser> | null>(null)
 const showSettings = ref(false)
@@ -39,6 +58,52 @@ const refreshKey = ref(0)
 
 const { token, showTokenDialog } = useAuth()
 const { recordOpen } = useRecentFiles()
+
+// v0.8: URL state restore (share link). Consumed once on load.
+function restoreFromUrl(): void {
+  const params = new URLSearchParams(location.search)
+  const file = params.get('file')
+  if (!file) return
+  const kw = params.get('kw')?.split(',').filter(Boolean) ?? []
+  const levels = params.get('levels')?.split(',').filter(Boolean) ?? []
+  openTab(file)
+  // Record recent-file open + reveal in tree, mirroring handleSelectFile
+  // which we bypass by opening the tab directly from the URL.
+  recordOpen(file)
+  if (sidebarCollapsed.value) sidebarCollapsed.value = false
+  fileBrowserRef.value?.ensureVisible(file)
+  // URL filter applies for this session only (not persisted to localStorage).
+  nextTick(() => {
+    const tab = tabs.value.find((t) => t.path === file)
+    if (tab) {
+      if (kw.length) tab.filterKeywords = kw
+      if (levels.length) tab.selectedLevels = levels
+    }
+  })
+  // Clean the URL — share params are consumed, leave a clean root URL.
+  // Sharing is always via the explicit Share button (buildShareUrl), never
+  // by keeping the URL in sync with the active tab.
+  history.replaceState({}, '', location.pathname)
+}
+
+// v0.8: build a share link URL from current tab state (always carries params).
+function buildShareUrl(): string {
+  const tab = activeTab.value
+  const params = new URLSearchParams()
+  if (tab) {
+    params.set('file', tab.path)
+    if (tab.filterKeywords.length) params.set('kw', tab.filterKeywords.join(','))
+    if (tab.selectedLevels.length) params.set('levels', tab.selectedLevels.join(','))
+  }
+  return `${location.origin}${location.pathname}?${params}`
+}
+
+// v0.8: copy share link to clipboard.
+const { copied: linkCopied, copy: copyShareLink } = useCopyFeedback()
+
+async function handleShareLink(): Promise<void> {
+  await copyShareLink(buildShareUrl())
+}
 
 const activeLineRange = computed(() => {
   const tab = activeTab.value
@@ -65,7 +130,7 @@ function handleSelectFile(path: string): void {
 }
 
 function handleBookmarkScroll(lineNum: number): void {
-  logViewerRef.value?.scrollToLine(lineNum)
+  getActivePanel()?.scrollToLine(lineNum)
 }
 
 watch(token, () => {
@@ -79,30 +144,12 @@ watch(activeTabPath, (p) => {
   document.title = p ? `Tailr - ${p}` : 'Tailr'
 }, { immediate: true })
 
-const highlightKeywords = computed(() => activeTab.value?.filterKeywords ?? [])
-
+// Used by the statusbar counts. Shares the same filterEntries as LogPanel
+// so counts never desync from the rendered rows.
 const filteredEntries = computed(() => {
   const tab = activeTab.value
   if (!tab) return []
-
-  let result = tab.entries
-
-  const levels = tab.selectedLevels
-  if (levels.length > 0 && levels.length < allLevels.value.length) {
-    const levelSet = new Set(levels)
-    result = result.filter((e) => levelSet.has(e.level))
-  }
-
-  const kws = tab.filterKeywords
-  if (kws.length > 0) {
-    const lowerKws = kws.map((k) => k.toLowerCase())
-    result = result.filter((e) => {
-      const lower = e.raw.toLowerCase()
-      return lowerKws.every((kw) => lower.includes(kw))
-    })
-  }
-
-  return result
+  return filterEntries(tab.entries, tab.selectedLevels, tab.filterKeywords, allLevels.value)
 })
 
 const matchCount = computed(() => {
@@ -211,7 +258,7 @@ function clearAllKeywords(): void {
 function handleStickToBottom(): void {
   setTailMode(true)
   settings.autoScroll = true
-  logViewerRef.value?.scrollToBottom()
+  getActivePanel()?.scrollToBottom()
 }
 
 function toggleFollowTail(): void {
@@ -223,7 +270,7 @@ function toggleFollowTail(): void {
   } else {
     setTailMode(true)
     settings.autoScroll = true
-    logViewerRef.value?.scrollToBottom()
+    getActivePanel()?.scrollToBottom()
   }
 }
 
@@ -231,7 +278,7 @@ function handleAutoScrollChange(enabled: boolean): void {
   settings.autoScroll = enabled
   if (enabled) {
     setTailMode(true)
-    logViewerRef.value?.scrollToBottom()
+    getActivePanel()?.scrollToBottom()
   } else {
     setTailMode(false)
   }
@@ -255,6 +302,13 @@ onMounted(() => {
       filterBarRef.value?.focus()
     }
   })
+
+  // v0.8: restore the tab list from persistence first (active loads, rest lazy),
+  // then apply URL share-link override if present. Share links are consumed once
+  // on load; subsequent user actions (switch tab, filter) do NOT pollute the URL
+  // — sharing is always via the explicit Share button (buildShareUrl).
+  restoreTabs()
+  restoreFromUrl()
 })
 
 function handleSettingsUpdate(s: Settings): void {
@@ -305,6 +359,16 @@ function handleSettingsUpdate(s: Settings): void {
         <PanelLeft :size="14" :stroke-width="2" />
       </button>
       <TabBar class="globalbar-tabs" />
+      <button
+        class="icon-btn share-btn"
+        :class="{ copied: linkCopied }"
+        :disabled="!activeTabPath"
+        @click="handleShareLink"
+        :title="linkCopied ? t('app.copied') : t('app.shareLink')"
+      >
+        <Check v-if="linkCopied" :size="16" :stroke-width="2.5" />
+        <Share2 v-else :size="16" :stroke-width="2" />
+      </button>
       <button class="settings-btn" @click="showSettings = true" :title="t('app.openSettings')">
         <SettingsIcon :size="16" :stroke-width="2" />
       </button>
@@ -339,28 +403,21 @@ function handleSettingsUpdate(s: Settings): void {
       </div>
     </div>
 
-    <!-- Log body -->
+    <!-- Log body: one LogPanel per tab, kept alive with v-show so switching
+         tabs preserves scroll position, measuredHeights, expandedLines, etc. -->
     <main class="log-body" :style="{ fontSize: settings.fontSize + 'px', fontFamily: settings.fontFamily === 'monospace' ? 'monospace' : `'${settings.fontFamily}'` }">
-      <div v-if="!activeTabPath" class="empty-state">
+      <div v-if="tabs.length === 0" class="empty-state">
         <div class="empty-text">{{ t('app.selectFile') }}</div>
       </div>
-      <div v-else-if="activeTab?.isLoading" class="empty-state">
-        <div class="loading-spinner"></div>
-        <div class="empty-text">{{ t('app.loading') }}</div>
-      </div>
-      <div v-else-if="filteredEntries.length === 0" class="empty-state">
-        <div class="empty-text">{{ (activeTab?.filterKeywords.length ?? 0) ? t('app.noMatchingLogs') : t('app.waitingForData') }}</div>
-      </div>
-      <LogViewer
-        v-else
-        ref="logViewerRef"
-        :key="activeTabPath ?? ''"
-        :entries="filteredEntries"
-        :file-path="activeTabPath ?? undefined"
+      <LogPanel
+        v-for="tab in tabs"
+        :key="tab.path"
+        v-show="tab.path === activeTabPath"
+        :ref="(el) => setPanelRef(tab.path, el)"
+        :tab="tab"
+        :all-levels="allLevels"
         :line-height="26"
-        :is-tail-mode="activeTab?.isTailMode ?? true"
         :max-visible-lines="settings.maxVisibleLines"
-        :highlight-keywords="highlightKeywords"
         :level-colors="levelDotColors"
         :display-mode="settings.displayMode"
         @stick-to-bottom="handleStickToBottom"

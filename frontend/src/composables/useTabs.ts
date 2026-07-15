@@ -20,6 +20,9 @@ export interface TabState {
   // later via the WS Subscribed message. While set, entries[0..count) still carry
   // estimated lineNums and must be shifted by `delta` once the exact total lands.
   pendingCorrection: { count: number; estimatedTotal: number } | null
+  // v0.8: lazy-load marker. Tabs restored from persistence start as lazy
+  // (no entries, no WS subscription); loadInitial+subscribe fire on first switchTo.
+  isLazy: boolean
 }
 
 function createTab(path: string): TabState {
@@ -34,6 +37,7 @@ function createTab(path: string): TabState {
     selectedLevels: [],
     hasUnread: false,
     pendingCorrection: null,
+    isLazy: false,
   })
 }
 
@@ -43,6 +47,34 @@ const maxLines = ref(50000)
 
 const wsClient = new WSClient()
 let wsInitialized = false
+
+// ── v0.8: tab persistence (lazy-load) ──
+// Only the tab list (paths + active) is persisted; entries are ephemeral.
+// On reload, the active tab loads immediately; others load on first switchTo.
+const OPEN_TABS_KEY = 'tailr-open-tabs'
+
+interface OpenTabsState {
+  paths: string[]
+  activeTabPath: string | null
+}
+
+function persistOpenTabs(): void {
+  try {
+    const state: OpenTabsState = {
+      paths: tabs.value.map((t) => t.path),
+      activeTabPath: activeTabPath.value,
+    }
+    localStorage.setItem(OPEN_TABS_KEY, JSON.stringify(state))
+  } catch { /* ignore quota / private mode */ }
+}
+
+function loadOpenTabs(): OpenTabsState | null {
+  try {
+    const raw = localStorage.getItem(OPEN_TABS_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return null
+}
 
 function ensureWs(): void {
   if (wsInitialized) return
@@ -57,7 +89,12 @@ function ensureWs(): void {
     if (p === activeTabPath.value && tab.isTailMode) {
       appendToEntries(tab, newEntries as LogEntry[])
     } else {
+      // Cap pendingEntries so background tabs with high log volume don't grow
+      // unbounded while the user is viewing another tab.
       tab.pendingEntries.push(...(newEntries as LogEntry[]))
+      if (tab.pendingEntries.length > maxLines.value) {
+        tab.pendingEntries.splice(0, tab.pendingEntries.length - maxLines.value)
+      }
       tab.hasUnread = true
     }
   })
@@ -161,6 +198,7 @@ function openTab(path: string): void {
   const tab = createTab(path)
   tabs.value = [...tabs.value, tab]
   activeTabPath.value = path
+  persistOpenTabs()
   loadInitial(tab)
 }
 
@@ -203,6 +241,7 @@ function closeTab(path: string): void {
       activeTabPath.value = null
     }
   }
+  persistOpenTabs()
 }
 
 function switchTo(path: string): void {
@@ -210,7 +249,15 @@ function switchTo(path: string): void {
   if (!tab) return
   activeTabPath.value = path
   tab.hasUnread = false
-  drainPending(tab)
+  // v0.8: lazy-loaded tabs load on first activation (restored from persistence).
+  if (tab.isLazy) {
+    tab.isLazy = false
+    ensureWs()
+    loadInitial(tab)
+  } else {
+    drainPending(tab)
+  }
+  persistOpenTabs()
 }
 
 function setTailMode(val: boolean): void {
@@ -239,6 +286,27 @@ async function reloadActiveTab(): Promise<void> {
   }
 }
 
+// v0.8: restore the tab list from persistence on app startup.
+// The active tab loads immediately; others start lazy (load on first switchTo).
+function restoreTabs(): void {
+  const state = loadOpenTabs()
+  if (!state || state.paths.length === 0) return
+  // Enforce MAX_TABS in case localStorage was hand-edited or grew stale.
+  const paths = state.paths.slice(0, MAX_TABS)
+  const active = state.activeTabPath && paths.includes(state.activeTabPath)
+    ? state.activeTabPath
+    : paths[0]
+  tabs.value = paths.map((p) => {
+    const tab = createTab(p)
+    if (p !== active) tab.isLazy = true
+    return tab
+  })
+  activeTabPath.value = active
+  ensureWs()
+  const activeTabObj = tabs.value.find((t) => t.path === active)
+  if (activeTabObj) loadInitial(activeTabObj)
+}
+
 export function useTabs() {
   return {
     tabs,
@@ -251,5 +319,6 @@ export function useTabs() {
     switchTo,
     setTailMode,
     reloadActiveTab,
+    restoreTabs,
   }
 }
