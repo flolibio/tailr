@@ -80,6 +80,10 @@ function restoreFromUrl(): void {
       if (levels.length) tab.selectedLevels = levels
     }
   })
+  // Clean the URL — share params are consumed, leave a clean root URL.
+  // Sharing is always via the explicit Share button (buildShareUrl), never
+  // by keeping the URL in sync with the active tab.
+  history.replaceState({}, '', location.pathname)
 }
 
 // v0.8: build a share link URL from current tab state (always carries params).
