@@ -1,5 +1,22 @@
 # Changelog
 
+## [v0.9.0] - 2026-07-16
+
+### Features
+
+- **Restart command:** `tailr restart` stops the running daemon and re-launches it with the original CLI args. Supervisor-aware: under systemd/launchd it relies on the unit/plist restart policy and waits for a new PID; in manual/daemonize mode it re-execs the current binary. Synchronous implementation matching `stop_daemon`'s style (no temporary runtime).
+- **Web UI upgrade:** Settings → About now has a "Check for updates" / "Upgrade" flow. Upgrade delegates to the new `UpgradeService` which, on success, spawns `tailr restart` and the frontend polls `/api/health` until the server returns, then reloads.
+- **Platform gating:** macOS shows the version delta and a manual download link but disables the upgrade button (automatic upgrade is Linux x86_64/aarch64 only, matching the existing CLI constraint).
+
+### Architecture
+
+- **Shared upgrade engine:** all `self_update` configuration now lives in `crates/server/src/upgrade.rs::UpgradeEngine` — the single source of truth used by both the CLI (`tailr upgrade`) and the Web UI (`POST /api/upgrade`). Platform judgment (`supported()`) is centralized here so the two entry points can never disagree. `self_update` moved from the root binary crate to `crates/server`; the root crate now accesses it indirectly via `tailr_server::upgrade`.
+- **`UpgradeService` (Web-only):** wraps `UpgradeEngine` to add restart semantics (spawn `tailr restart` after a 1s delay). The CLI entry point bypasses this and lets the user restart manually, keeping "restart" an explicit decision outside the shared engine.
+
+### Security
+
+- **Forced auth on upgrade:** `POST /api/upgrade` requires a non-empty token even when global auth is disabled. Replacing the running binary is an RCE-class operation; it must never be reachable when auth is off. When the token is empty the endpoint refuses with an actionable error pointing the user to configure a token. `X-Requested-With` CSRF check applies once a token is set (same pattern as `/api/config/log-levels`).
+
 ## [v0.8.0] - 2026-07-15
 
 ### Features

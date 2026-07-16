@@ -1,5 +1,6 @@
 pub mod api;
 pub mod static_files;
+pub mod upgrade;
 pub mod ws;
 
 use arc_swap::ArcSwap;
@@ -33,6 +34,7 @@ pub struct AppState {
     pub token: String,
     pub allowed_dirs: Vec<PathBuf>,
     pub log_timezone: Arc<LogTimezone>,
+    pub upgrade_service: Arc<upgrade::UpgradeService>,
 }
 
 async fn auth_middleware(
@@ -119,6 +121,7 @@ pub fn app(
         token,
         allowed_dirs,
         log_timezone: log_timezone_arc,
+        upgrade_service: upgrade::shared_service(),
     });
 
     ws::spawn_watcher_loop(state.clone());

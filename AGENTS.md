@@ -15,6 +15,7 @@ crates/
   tail-engine/        # File watching (notify), incremental LineIndex (memmap2), TailSession
   search-engine/      # grep-based search (grep-regex/grep-searcher), LogFilter (precompiled regex)
   server/             # Axum app: REST API, WebSocket handler, static file serving
+                      # Also owns upgrade.rs: UpgradeEngine (shared by CLI + Web) + UpgradeService (Web-only)
 frontend/             # Vue 3 + TypeScript + Vite SPA
   composables/        # useLogLevels, useLogStream, useAuth
   components/         # Settings UI (SettingsDialog, LogLevelSettings, TokenDialog)
@@ -34,10 +35,11 @@ tailr -l /var/log/app -b :8080
 tailr init          # Initialize config file (prompt to confirm if file exists)
 tailr config        # Print config file contents
 tailr stop          # Stop daemon
+tailr restart       # Restart daemon (stop + re-exec with same args; supervisor-aware)
 tailr status        # Show daemon status
 tailr systemd -l /var/log/app
 tailr launchd -l /var/log/app
-tailr upgrade       # Self-upgrade
+tailr upgrade       # Self-upgrade (delegates to UpgradeEngine)
 ```
 
 Priority: CLI args > Config file (`~/.config/tailr/config.toml`) > Env vars > Defaults.
@@ -143,6 +145,8 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 | `/api/search` | GET | Grep search with context, level/time filters |
 | `/api/config/log-levels` | GET | Get current log level configuration |
 | `/api/config/log-levels` | POST | Save log level configuration (requires CSRF header when token set) |
+| `/api/upgrade/check` | GET | Check for newer release (read-only; returns `supported` platform flag) |
+| `/api/upgrade` | POST | Download + replace binary + delegate restart. **Forced auth**: requires non-empty token even when global auth is disabled (binary replacement is RCE-class), plus `X-Requested-With` CSRF header |
 | `/api/health` | GET | Status + uptime + version |
 | `/ws` | WS | Subscribe/unsubscribe to live file tail (batched entries) |
 

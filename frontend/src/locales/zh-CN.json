@@ -53,7 +53,22 @@
     "resetDefault": "重置为默认",
     "token": "Token",
     "tokenDescription": "认证令牌。留空则禁用认证。",
-    "tokenPlaceholder": "输入 Token..."
+    "tokenPlaceholder": "输入 Token...",
+    "checkUpdate": "检查更新",
+    "checking": "检查中...",
+    "latestVersion": "已是最新版本",
+    "newVersionAvailable": "新版本可用",
+    "upgradeTo": "升级到",
+    "upgrade": "升级",
+    "upgrading": "正在升级...",
+    "restarting": "升级成功，正在重启...",
+    "upgradeSuccess": "升级成功",
+    "upgradeFailed": "升级失败",
+    "restartTimeout": "服务重启超时，请手动检查状态",
+    "upgradeUnsupported": "当前平台不支持自动升级，请手动下载",
+    "manualDownload": "手动下载",
+    "upgradeConfirm": "将升级到 v{version}，服务将重启。继续？",
+    "upgradeRequiresToken": "升级未启用：替换二进制需要鉴权，请先在通用设置中配置 Token"
   },
   "filter": {
     "filterLogs": "过滤日志（按回车添加）…",

@@ -53,7 +53,22 @@
     "resetDefault": "Reset to default",
     "token": "Token",
     "tokenDescription": "Authentication token. Leave empty to disable auth.",
-    "tokenPlaceholder": "Enter token..."
+    "tokenPlaceholder": "Enter token...",
+    "checkUpdate": "Check for updates",
+    "checking": "Checking...",
+    "latestVersion": "Up to date",
+    "newVersionAvailable": "New version available",
+    "upgradeTo": "Upgrade to",
+    "upgrade": "Upgrade",
+    "upgrading": "Upgrading...",
+    "restarting": "Upgrade done, restarting...",
+    "upgradeSuccess": "Upgrade successful",
+    "upgradeFailed": "Upgrade failed",
+    "restartTimeout": "Service restart timed out, please check status manually",
+    "upgradeUnsupported": "Automatic upgrade is not supported on this platform, please download manually",
+    "manualDownload": "Download manually",
+    "upgradeConfirm": "Upgrade to v{version}? The service will restart. Continue?",
+    "upgradeRequiresToken": "Upgrade disabled: replacing the binary requires authentication, please configure a Token in General settings first"
   },
   "filter": {
     "filterLogs": "Filter logs (Enter to add)…",

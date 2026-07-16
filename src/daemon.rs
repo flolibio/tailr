@@ -167,6 +167,81 @@ pub fn daemon_status(pid_path: Option<&PathBuf>) -> String {
     }
 }
 
+/// Restart a running tailr daemon.
+///
+/// Stops the current daemon (via `stop_daemon`), then re-launches it according to
+/// the detected runtime environment:
+/// - **systemd / launchd**: relies on the unit/plist `Restart=` policy to bring
+///   the process back; this function only waits for a new PID to appear.
+/// - **manual / daemonize mode**: re-execs the current binary with the original
+///   CLI args (`std::env::args`), preserving `-l`/`-b`/`--daemon` etc.
+///
+/// Synchronous by design: `restart` is a one-shot CLI command with no concurrent
+/// work to yield to, matching the `stop_daemon` polling style (`std::thread::sleep`).
+pub fn restart_daemon(pid_path: Option<&PathBuf>) -> Result<(), String> {
+    let resolved = pid_path.cloned().unwrap_or_else(pid_file);
+    let old_pid = read_pid(&resolved).ok();
+
+    // 1. Stop the running daemon (5s timeout, cleans PID file on success).
+    stop_daemon(pid_path, 5)?;
+
+    // 2. Re-launch per runtime environment.
+    if is_systemd_service() || is_launchd_service() {
+        // systemd (Type=forking + Restart=on-failure) / launchd (KeepAlive) auto-restart.
+        wait_for_new_pid(&resolved, old_pid, 10)?;
+    } else {
+        // Manual / daemonize mode: re-exec self with original args.
+        let exe = std::env::current_exe()
+            .map_err(|e| format!("failed to resolve current exe: {}", e))?;
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        std::process::Command::new(exe)
+            .args(&args)
+            .spawn()
+            .map_err(|e| format!("failed to re-exec: {}", e))?;
+        wait_for_new_pid(&resolved, old_pid, 10)?;
+    }
+    Ok(())
+}
+
+/// Detect whether this process was launched by systemd.
+///
+/// systemd sets `INVOCATION_ID` per service invocation — a reliable signal that
+/// *this* process is managed by systemd (unlike `/run/systemd/system` which only
+/// indicates systemd is installed on the host).
+pub fn is_systemd_service() -> bool {
+    std::env::var_os("INVOCATION_ID").is_some()
+}
+
+/// Detect whether this process was launched by launchd (macOS).
+///
+/// launchd sets `LaunchInstanceID` for managed services.
+pub fn is_launchd_service() -> bool {
+    std::env::var_os("LaunchInstanceID").is_some()
+}
+
+/// Poll the PID file until a new (different from `old_pid`) running PID appears.
+fn wait_for_new_pid(
+    pid_path: &PathBuf,
+    old_pid: Option<u32>,
+    timeout_secs: u64,
+) -> Result<(), String> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
+    loop {
+        if let Ok(pid) = read_pid(pid_path) {
+            if Some(pid) != old_pid && is_process_running(pid) {
+                return Ok(());
+            }
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(format!(
+                "daemon did not come back within {} seconds",
+                timeout_secs
+            ));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(300));
+    }
+}
+
 /// Generate a systemd service unit file for tailr.
 ///
 /// Uses `Type=forking` with `PIDFile` to work with the daemonize-based

@@ -2,7 +2,6 @@ mod config;
 mod daemon;
 
 use clap::{Args, Parser, Subcommand};
-use self_update::cargo_crate_version;
 use std::path::PathBuf;
 use tailr_server::app;
 use tracing_subscriber::EnvFilter;
@@ -62,6 +61,13 @@ enum Commands {
 
     /// Stop running daemon
     Stop {
+        /// Custom PID file path
+        #[arg(long)]
+        pid_file: Option<PathBuf>,
+    },
+
+    /// Restart running daemon (stops then re-execs with the same args)
+    Restart {
         /// Custom PID file path
         #[arg(long)]
         pid_file: Option<PathBuf>,
@@ -145,6 +151,15 @@ fn main() {
         Some(Commands::Stop { pid_file }) => {
             match daemon::stop_daemon(pid_file.as_ref(), 5) {
                 Ok(()) => println!("tailr stopped"),
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Some(Commands::Restart { pid_file }) => {
+            match daemon::restart_daemon(pid_file.as_ref()) {
+                Ok(()) => println!("tailr restarted"),
                 Err(e) => {
                     eprintln!("Error: {}", e);
                     std::process::exit(1);
@@ -265,8 +280,15 @@ async fn run_serve(cfg: config::Config, config_path: PathBuf) {
     daemon::cleanup_pid_file(cfg.daemon.pid_file.as_ref());
 }
 
+/// CLI entry for `tailr upgrade` / `tailr upgrade --check`.
+///
+/// Delegates all `self_update` logic to [`tailr_server::upgrade::UpgradeEngine`]
+/// (the single source of truth shared with the Web UI). This function only handles
+/// CLI ergonomics: platform error message, printing, and the post-upgrade hint.
 fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
-    if std::env::consts::OS != "linux" {
+    let engine = tailr_server::upgrade::UpgradeEngine::new();
+
+    if !engine.supported() {
         return Err(
             "Self-upgrade is only supported on Linux.\n\
              Please download the latest release manually from:\n\
@@ -275,33 +297,12 @@ fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    let target = match std::env::consts::ARCH {
-        "x86_64" => "x86_64-linux-musl",
-        "aarch64" => "aarch64-linux-musl",
-        arch => {
-            return Err(format!(
-                "Unsupported architecture: {}.\nSupported architectures: x86_64, aarch64",
-                arch
-            )
-            .into())
-        }
-    };
+    let info = engine.check_update().map_err(|e| -> Box<dyn std::error::Error> {
+        e.into()
+    })?;
 
-    let current = cargo_crate_version!();
-
-    let updater = self_update::backends::github::Update::configure()
-        .repo_owner("flolibio")
-        .repo_name("tailr")
-        .bin_name("tailr")
-        .target(target)
-        .current_version(current)
-        .no_confirm(true)
-        .show_download_progress(true)
-        .build()?;
-
-    let latest = updater.get_latest_release()?;
-    if !self_update::version::bump_is_greater(current, &latest.version)? {
-        println!("Already up to date (v{})", current);
+    if !info.has_update {
+        println!("Already up to date (v{})", info.current_version);
         return Ok(());
     }
 
@@ -309,34 +310,18 @@ fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
         println!(
             "New version available: v{} (current: v{})\n\
              Run `tailr upgrade` to install the update.",
-            latest.version, current
+            info.latest_version, info.current_version
         );
         return Ok(());
     }
 
-    let status = self_update::backends::github::Update::configure()
-        .repo_owner("flolibio")
-        .repo_name("tailr")
-        .bin_name("tailr")
-        .target(target)
-        .current_version(current)
-        .target_version_tag(&format!("v{}", latest.version))
-        .no_confirm(true)
-        .show_download_progress(true)
-        .build()?
-        .update()?;
-
-    match status {
-        self_update::Status::UpToDate(version) => {
-            println!("Already up to date (v{})", version);
-        }
-        self_update::Status::Updated(version) => {
-            println!(
-                "Updated to v{}! Please restart the service to use the new version.",
-                version
-            );
-        }
-    }
+    let version = engine.perform_upgrade().map_err(|e| -> Box<dyn std::error::Error> {
+        e.into()
+    })?;
+    println!(
+        "Updated to v{}! Run `tailr restart` to apply the new version.",
+        version
+    );
 
     Ok(())
 }
