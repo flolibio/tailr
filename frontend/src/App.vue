@@ -9,16 +9,21 @@ import BookmarkPanel from './components/BookmarkPanel.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import SelectionToolbar from './components/SelectionToolbar.vue'
 import TokenDialog from './components/TokenDialog.vue'
+import ToastContainer from './components/ToastContainer.vue'
 import type { Settings } from './components/SettingsPanel.vue'
 import { useTabs } from './composables/useTabs'
 import { useLogLevels } from './composables/useLogLevels'
 import { useAuth } from './composables/useAuth'
 import { useRecentFiles } from './composables/useRecentFiles'
 import { useCopyFeedback } from './composables/useClipboard'
+import { useToast } from './composables/useToast'
+import { useUpdateNotifier } from './composables/useUpdateNotifier'
 import { filterEntries } from './utils/filter'
 import { PanelLeft, Settings as SettingsIcon, Play, Pause, Share2, Check } from 'lucide-vue-next'
 
 const { t } = useI18n()
+const { info: toastInfo } = useToast()
+const { shouldShowToast, markNotified, dismiss, hasUpdateBadge } = useUpdateNotifier()
 
 const {
   tabs,
@@ -52,6 +57,8 @@ function getActivePanel(): InstanceType<typeof LogPanel> | undefined {
 const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
 const fileBrowserRef = ref<InstanceType<typeof FileBrowser> | null>(null)
 const showSettings = ref(false)
+// v0.9: latest update notice received via WS (for badge dismiss on open).
+const pendingUpdate = ref<{ latestVersion: string; currentVersion: string; releaseUrl: string } | null>(null)
 const sidebarCollapsed = ref(false)
 const sidebarWidth = ref(300)
 const refreshKey = ref(0)
@@ -309,7 +316,64 @@ onMounted(() => {
   // — sharing is always via the explicit Share button (buildShareUrl).
   restoreTabs()
   restoreFromUrl()
+
+  // v0.9: listen for server-pushed update notifications. On first sight of a new
+  // version, show a toast (deduped via localStorage) and light the Settings badge.
+  wsClient.on(
+    'updateAvailable',
+    (latest: unknown, current: unknown, releaseUrl: unknown) => {
+      if (typeof latest !== 'string') return
+      if (shouldShowToast(latest)) {
+        toastInfo(t('settings.newVersionAvailable'), {
+          title: t('settings.updateToastTitle', { version: latest }),
+          action: {
+            label: t('settings.view'),
+            onClick: () => { showSettings.value = true },
+          },
+          duration: 8000,
+          closeButton: true,
+        })
+        markNotified(latest)
+      } else {
+        // Already notified for this version — just ensure the badge is lit.
+        markNotified(latest)
+      }
+      // Stash for the dismiss-on-open logic below.
+      pendingUpdate.value = {
+        latestVersion: latest,
+        currentVersion: typeof current === 'string' ? current : '',
+        releaseUrl: typeof releaseUrl === 'string' ? releaseUrl : '',
+      }
+    },
+  )
+
+  // Dev-only: expose toast API on window for manual visual testing without
+  // triggering the full upgrade-detection pipeline. No-op in production builds.
+  if (import.meta.env.DEV) {
+    const { info, success, warning, error } = useToast()
+    Object.assign(window, {
+      __tailr: {
+        ...(window as any).__tailr,
+        toast: { info, success, warning, error },
+        showUpdateToast: (v: string) =>
+          info(`新版本 v${v} 可用`, {
+            title: '更新提醒',
+            action: { label: '查看', onClick: () => { showSettings.value = true } },
+            duration: 8000,
+            closeButton: true,
+          }),
+      },
+    })
+  }
 })
+
+function openSettings(): void {
+  showSettings.value = true
+  // Dismiss the badge once the user opens settings (they've seen the update notice).
+  if (pendingUpdate.value) {
+    dismiss(pendingUpdate.value.latestVersion)
+  }
+}
 
 function handleSettingsUpdate(s: Settings): void {
   if (s.autoScroll !== settings.autoScroll) {
@@ -369,8 +433,9 @@ function handleSettingsUpdate(s: Settings): void {
         <Check v-if="linkCopied" :size="16" :stroke-width="2.5" />
         <Share2 v-else :size="16" :stroke-width="2" />
       </button>
-      <button class="settings-btn" @click="showSettings = true" :title="t('app.openSettings')">
+      <button class="settings-btn" @click="openSettings" :title="t('app.openSettings')">
         <SettingsIcon :size="16" :stroke-width="2" />
+        <span v-if="hasUpdateBadge" class="settings-badge"></span>
       </button>
     </header>
 
@@ -455,5 +520,6 @@ function handleSettingsUpdate(s: Settings): void {
       </button>
     </div>
     <SelectionToolbar @follow="addKeyword" />
+    <ToastContainer />
   </div>
 </template>

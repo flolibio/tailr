@@ -9,10 +9,12 @@
 //!   `tailr restart` subcommand. The CLI entry point does not go through this.
 
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use self_update::backends::github;
 use self_update::update::ReleaseUpdate;
 use serde::Serialize;
+use tokio::sync::RwLock;
 
 /// Result of a version check.
 #[derive(Debug, Clone, Serialize)]
@@ -168,20 +170,43 @@ impl Default for UpgradeEngine {
 /// `spawn_blocking` runs the call on the blocking pool, outside the async runtime.
 pub struct UpgradeService {
     engine: Arc<UpgradeEngine>,
+    /// Cached result of the last GitHub check, with its fetch timestamp.
+    /// Background polling refreshes this; `check_update` serves from cache when fresh.
+    cache: Arc<RwLock<Option<(UpdateInfo, Instant)>>>,
 }
+
+/// Cache lifetime + poll interval. GitHub unauthenticated API allows 60 req/hour
+/// per IP; one check per 6h is ~4/day — far under the limit, yet timely enough for
+/// release cadence (days/weeks).
+const CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
+/// Delay the first check after startup so it never blocks initial responsiveness.
+const INITIAL_DELAY: Duration = Duration::from_secs(30);
 
 impl UpgradeService {
     pub fn new() -> Self {
         Self {
             engine: Arc::new(UpgradeEngine::new()),
+            cache: Arc::new(RwLock::new(None)),
         }
     }
 
-    pub async fn check_update(&self) -> Result<UpdateInfo, String> {
+    /// Serve from cache if fresh; otherwise fetch from GitHub (spawn_blocking).
+    /// `force` bypasses the cache for an explicit user-triggered refresh.
+    pub async fn check_update(&self, force: bool) -> Result<UpdateInfo, String> {
+        if !force {
+            let cache = self.cache.read().await;
+            if let Some((info, fetched_at)) = cache.as_ref() {
+                if fetched_at.elapsed() < CHECK_INTERVAL {
+                    return Ok(info.clone());
+                }
+            }
+        }
         let engine = self.engine.clone();
-        tokio::task::spawn_blocking(move || engine.check_update())
+        let info = tokio::task::spawn_blocking(move || engine.check_update())
             .await
-            .map_err(|e| format!("upgrade check task failed: {e}"))?
+            .map_err(|e| format!("upgrade check task failed: {e}"))??;
+        *self.cache.write().await = Some((info.clone(), Instant::now()));
+        Ok(info)
     }
 
     /// Web upgrade: pure upgrade → spawn `tailr restart` after a 1s delay (lets the
@@ -205,6 +230,53 @@ impl UpgradeService {
             status: "success".to_string(),
             message: format!("升级成功，服务即将重启 (v{version})"),
         })
+    }
+
+    /// Spawn the background update-check loop. Checks GitHub every 6h; on detecting
+    /// a *new* version (transition from none/old → newer), broadcasts
+    /// `UpdateAvailable` to all WS clients. Network errors are logged and swallowed
+    /// — a failed check never disturbs the user.
+    pub fn start_background_check(self: &Arc<Self>, state: Arc<crate::AppState>) {
+        let service = self.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(INITIAL_DELAY).await;
+            let mut last_seen_version: Option<String> = None;
+            loop {
+                match service.check_update(false).await {
+                    Ok(info) => {
+                        if info.has_update {
+                            // Only broadcast when the latest version changed since
+                            // our last check (avoids re-notifying on every poll).
+                            if last_seen_version.as_deref() != Some(&info.latest_version)
+                            {
+                                tracing::info!(
+                                    latest = %info.latest_version,
+                                    "new version detected, broadcasting UpdateAvailable"
+                                );
+                                crate::ws::broadcast(
+                                    &state,
+                                    tailr_protocol::WSMessage::UpdateAvailable {
+                                        latest_version: info.latest_version.clone(),
+                                        current_version: info.current_version.clone(),
+                                        release_url: info.release_url.clone(),
+                                    },
+                                )
+                                .await;
+                            }
+                            last_seen_version = Some(info.latest_version);
+                        } else {
+                            last_seen_version = None;
+                        }
+                    }
+                    Err(e) => {
+                        // Silent failure: update-check is best-effort. Never surface
+                        // network errors to the user as toasts.
+                        tracing::warn!("background update check failed: {e}");
+                    }
+                }
+                tokio::time::sleep(CHECK_INTERVAL).await;
+            }
+        });
     }
 }
 

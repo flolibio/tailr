@@ -20,6 +20,10 @@ interface WSMessage {
   // Subscribed 消息携带的精确总行数（LineIndex::build），用于修正 file_tail
   // 的估算行号坐标系。
   totalLines?: number
+  // UpdateAvailable: server-pushed notification of a newer release.
+  latestVersion?: string
+  currentVersion?: string
+  releaseUrl?: string
 }
 
 export class WSClient {
@@ -127,6 +131,14 @@ export class WSClient {
         break
       case 'pong':
         this.lastPongTime = Date.now()
+        break
+      case 'updateAvailable':
+        this.emit(
+          'updateAvailable',
+          msg.latestVersion,
+          msg.currentVersion,
+          msg.releaseUrl,
+        )
         break
     }
   }

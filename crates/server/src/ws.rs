@@ -109,6 +109,13 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 
     info!(client_id = %client_id, "WebSocket client connected");
 
+    // Register in the global client registry for server-wide broadcasts
+    // (e.g. UpdateAvailable). Independent of per-file subscriptions.
+    {
+        let mut clients = state.ws_clients.lock().await;
+        clients.insert(client_id.clone(), tx.clone());
+    }
+
     loop {
         let result = match tokio::time::timeout(WS_IDLE_TIMEOUT, ws_rx.next()).await {
             Ok(Some(result)) => result,
@@ -271,6 +278,25 @@ async fn cleanup_client(state: &AppState, client_id: &str) {
     let mut subs = state.file_subscribers.lock().await;
     for file_sub in subs.values_mut() {
         file_sub.unsubscribe(client_id);
+    }
+    drop(subs);
+    // Remove from the global broadcast registry too.
+    let mut clients = state.ws_clients.lock().await;
+    clients.remove(client_id);
+}
+
+/// Broadcast a server-wide message to every connected WS client.
+/// Dead senders (dropped receivers) are pruned as a side effect.
+pub async fn broadcast(state: &AppState, msg: WSMessage) {
+    let mut clients = state.ws_clients.lock().await;
+    let mut dead = Vec::new();
+    for (id, tx) in clients.iter() {
+        if tx.try_send(msg.clone()).is_err() {
+            dead.push(id.clone());
+        }
+    }
+    for id in dead {
+        clients.remove(&id);
     }
 }
 

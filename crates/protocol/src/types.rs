@@ -521,6 +521,14 @@ pub enum WSMessage {
         path: String,
     },
     Pong,
+    /// Server-pushed notification that a newer release is available.
+    /// Broadcast to all connected WS clients by the background update-check task.
+    #[serde(rename_all = "camelCase")]
+    UpdateAvailable {
+        latest_version: String,
+        current_version: String,
+        release_url: String,
+    },
     #[serde(rename_all = "camelCase")]
     Error {
         code: String,

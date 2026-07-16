@@ -152,6 +152,13 @@ struct HealthData {
     uptime_seconds: u64,
 }
 
+#[derive(Deserialize)]
+struct UpgradeCheckParams {
+    /// Bypass cache and force a fresh GitHub query.
+    #[serde(default)]
+    force: Option<bool>,
+}
+
 pub fn routes() -> Router {
     Router::new()
         .route("/api/files", get(list_files))
@@ -644,11 +651,12 @@ async fn health(
 
 /// Check for a newer release. Read-only — no CSRF/auth gating beyond the global
 /// middleware (token still required if set, but the endpoint carries no sensitive
-/// data and never mutates).
+/// data and never mutates). Serves from cache unless `?force=true`.
 async fn check_upgrade(
+    Query(params): Query<UpgradeCheckParams>,
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<crate::upgrade::UpdateInfo>> {
-    match state.upgrade_service.check_update().await {
+    match state.upgrade_service.check_update(params.force.unwrap_or(false)).await {
         Ok(info) => Json(ApiResponse::ok(info)),
         Err(e) => {
             tracing::error!("failed to check update: {}", e);

@@ -909,6 +909,23 @@ select {
   border-color: var(--border);
 }
 
+/* v0.9: update-available badge dot on the settings gear */
+.settings-btn {
+  position: relative;
+}
+
+.settings-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1.5px solid var(--bg);
+  pointer-events: none;
+}
+
 /* ── Status Bar ── */
 .statusbar {
   grid-column: 1 / 3;
