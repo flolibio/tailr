@@ -160,19 +160,28 @@ impl Default for UpgradeEngine {
 /// The CLI entry point (`run_upgrade`) does **not** use this — it only needs pure
 /// upgrade and lets the user restart manually. Restart semantics live here so they
 /// don't pollute the shared [`UpgradeEngine`].
+///
+/// Both methods offload the synchronous `self_update` (reqwest blocking) work to
+/// `spawn_blocking`. reqwest's blocking client spins up its own tokio runtime on a
+/// helper thread; dropping it from within an async context panics
+/// ("Cannot drop a runtime in a context where blocking is not allowed").
+/// `spawn_blocking` runs the call on the blocking pool, outside the async runtime.
 pub struct UpgradeService {
-    engine: UpgradeEngine,
+    engine: Arc<UpgradeEngine>,
 }
 
 impl UpgradeService {
     pub fn new() -> Self {
         Self {
-            engine: UpgradeEngine::new(),
+            engine: Arc::new(UpgradeEngine::new()),
         }
     }
 
-    pub fn check_update(&self) -> Result<UpdateInfo, String> {
-        self.engine.check_update()
+    pub async fn check_update(&self) -> Result<UpdateInfo, String> {
+        let engine = self.engine.clone();
+        tokio::task::spawn_blocking(move || engine.check_update())
+            .await
+            .map_err(|e| format!("upgrade check task failed: {e}"))?
     }
 
     /// Web upgrade: pure upgrade → spawn `tailr restart` after a 1s delay (lets the
@@ -180,7 +189,11 @@ impl UpgradeService {
     /// uses `stop_daemon` (graceful shutdown, PID cleanup) + re-exec — not a raw
     /// `exit(0)` that would skip cleanup.
     pub async fn perform_upgrade(&self) -> Result<UpgradeResult, String> {
-        let version = self.engine.perform_upgrade()?;
+        let engine = self.engine.clone();
+        let version =
+            tokio::task::spawn_blocking(move || engine.perform_upgrade())
+                .await
+                .map_err(|e| format!("upgrade task failed: {e}"))??;
         // Defer restart so the HTTP response is sent before the server shuts down.
         tokio::spawn(async {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;

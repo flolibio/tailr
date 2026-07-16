@@ -648,7 +648,7 @@ async fn health(
 async fn check_upgrade(
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<crate::upgrade::UpdateInfo>> {
-    match state.upgrade_service.check_update() {
+    match state.upgrade_service.check_update().await {
         Ok(info) => Json(ApiResponse::ok(info)),
         Err(e) => {
             tracing::error!("failed to check update: {}", e);
