@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useToast, type Toast, type ToastPosition } from '../composables/useToast'
 import {
   CheckCircle2,
@@ -9,6 +10,8 @@ import {
   Loader2,
   X,
 } from 'lucide-vue-next'
+
+const { t: tt } = useI18n()
 
 const { toasts, dismiss } = useToast()
 
@@ -87,7 +90,7 @@ function stopTimer(_t: Toast) {
           <button
             v-if="t.closeButton"
             class="toast-close"
-            :title="'Close'"
+            :title="tt('toast.close')"
             @click="dismiss(t.id)"
           >
             <X :size="14" :stroke-width="2" />

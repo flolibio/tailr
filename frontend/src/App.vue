@@ -349,6 +349,8 @@ onMounted(() => {
 
   // Dev-only: expose toast API on window for manual visual testing without
   // triggering the full upgrade-detection pipeline. No-op in production builds.
+  // Mirrors the exact i18n keys used by the real updateAvailable handler so the
+  // tested visuals match production behavior across locales.
   if (import.meta.env.DEV) {
     const { info, success, warning, error } = useToast()
     Object.assign(window, {
@@ -356,9 +358,9 @@ onMounted(() => {
         ...(window as any).__tailr,
         toast: { info, success, warning, error },
         showUpdateToast: (v: string) =>
-          info(`新版本 v${v} 可用`, {
-            title: '更新提醒',
-            action: { label: '查看', onClick: () => { showSettings.value = true } },
+          info(t('settings.newVersionAvailable'), {
+            title: t('settings.updateToastTitle', { version: v }),
+            action: { label: t('settings.view'), onClick: () => { showSettings.value = true } },
             duration: 8000,
             closeButton: true,
           }),

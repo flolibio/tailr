@@ -72,6 +72,9 @@
     "upgradeConfirm": "Upgrade to v{version}? The service will restart. Continue?",
     "upgradeRequiresToken": "Upgrade disabled: replacing the binary requires authentication, please configure a Token in General settings first"
   },
+  "toast": {
+    "close": "Close"
+  },
   "filter": {
     "filterLogs": "Filter logs (Enter to add)…",
     "addKeyword": "Add keyword…",

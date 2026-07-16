@@ -72,6 +72,9 @@
     "upgradeConfirm": "将升级到 v{version}，服务将重启。继续？",
     "upgradeRequiresToken": "升级未启用：替换二进制需要鉴权，请先在通用设置中配置 Token"
   },
+  "toast": {
+    "close": "关闭"
+  },
   "filter": {
     "filterLogs": "过滤日志（按回车添加）…",
     "addKeyword": "添加关键词…",
