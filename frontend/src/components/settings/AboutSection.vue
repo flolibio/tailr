@@ -95,49 +95,56 @@ onUnmounted(() => {
       <img src="/logo-192x192.png" alt="tailr" width="48" height="48" />
     </div>
     <div class="about-name">tailr</div>
-    <div class="about-version">v{{ version }}</div>
-    <div class="about-desc">{{ t('settings.description') }}</div>
-    <a class="about-link" href="https://github.com/flolibio/tailr" target="_blank" rel="noopener">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-      GitHub
-    </a>
 
-    <!-- ── Update check / upgrade ── -->
-    <div class="update-section">
+    <!-- Version + inline check-update control -->
+    <div class="version-row">
+      <span class="about-version">v{{ version }}</span>
+
       <!-- Initial: check button -->
       <button
         v-if="!updateInfo && !checking"
         class="btn-check"
         @click="handleCheck"
       >
-        <RefreshCw :size="14" :stroke-width="2" />
+        <RefreshCw :size="12" :stroke-width="2" />
         {{ t('settings.checkUpdate') }}
       </button>
 
       <!-- Checking -->
-      <div v-else-if="checking" class="update-status">
+      <span v-else-if="checking" class="version-inline-status">
         <span class="spinner" />
-        <span>{{ t('settings.checking') }}</span>
-      </div>
+        {{ t('settings.checking') }}
+      </span>
+
+      <!-- Up to date -->
+      <span v-else-if="updateInfo && !updateInfo.hasUpdate" class="version-inline-status ok">
+        <CheckCircle2 :size="12" :stroke-width="2" />
+        {{ t('settings.latestVersion') }}
+      </span>
+
+      <!-- Has update: show new version inline -->
+      <span v-else-if="updateInfo && updateInfo.hasUpdate" class="version-inline-status new">
+        <span class="version-arrow">→</span>
+        v{{ updateInfo.latestVersion }}
+      </span>
 
       <!-- Check error -->
-      <div v-else-if="checkError" class="update-status error">
-        <AlertCircle :size="14" :stroke-width="2" />
-        <span>{{ checkError }}</span>
-        <button class="btn-retry" @click="handleCheck">{{ t('settings.checkUpdate') }}</button>
-      </div>
+      <span v-else-if="checkError" class="version-inline-status error">
+        <AlertCircle :size="12" :stroke-width="2" />
+        <button class="btn-retry-inline" @click="handleCheck">{{ t('settings.checkUpdate') }}</button>
+      </span>
+    </div>
 
-<!-- Up to date -->
-      <div v-else-if="updateInfo && !updateInfo.hasUpdate" class="update-status ok">
-        <CheckCircle2 :size="14" :stroke-width="2" />
-        <span>{{ t('settings.latestVersion') }}</span>
-      </div>
+    <div class="about-desc">{{ t('settings.description') }}</div>
+    <a class="about-link" href="https://github.com/flolibio/tailr" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+      GitHub
+    </a>
 
+    <!-- ── Upgrade action panel (only when an update is available) ── -->
+    <div v-if="updateInfo && updateInfo.hasUpdate" class="update-section">
       <!-- Has update, platform supported: upgrade -->
-      <div
-        v-else-if="updateInfo && updateInfo.hasUpdate && updateInfo.supported"
-        class="update-available"
-      >
+      <div v-if="updateInfo.supported" class="update-available">
         <div class="update-info">
           <span class="update-label">{{ t('settings.newVersionAvailable') }}</span>
           <span class="version-pair">
@@ -157,10 +164,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Has update, platform unsupported: download link only -->
-      <div
-        v-else-if="updateInfo && updateInfo.hasUpdate && !updateInfo.supported"
-        class="update-available unsupported"
-      >
+      <div v-else class="update-available unsupported">
         <div class="update-info">
           <span class="update-label">{{ t('settings.newVersionAvailable') }}</span>
           <span class="version-pair">
@@ -216,9 +220,73 @@ onUnmounted(() => {
   color: var(--text);
 }
 
+/* ── Version row: version + inline check-update control ── */
+.version-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .about-version {
   font-size: 14px;
   color: var(--text-3);
+}
+
+.version-inline-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.version-inline-status.ok {
+  color: #22c55e;
+}
+
+.version-inline-status.new {
+  color: var(--accent);
+  font-weight: 500;
+  font-family: var(--font-mono);
+}
+
+.version-inline-status.error {
+  color: var(--c-error-text);
+}
+
+.version-arrow {
+  color: var(--text-3);
+}
+
+.btn-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.btn-check:hover {
+  background: var(--bg-3);
+  border-color: var(--border-2);
+  color: var(--text);
+}
+
+.btn-retry-inline {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
 }
 
 .about-desc {
@@ -247,7 +315,7 @@ onUnmounted(() => {
   color: var(--text);
 }
 
-/* ── Update / upgrade ── */
+/* ── Upgrade action panel (only when an update is available) ── */
 .update-section {
   margin-top: 16px;
   display: flex;
@@ -256,27 +324,6 @@ onUnmounted(() => {
   gap: 10px;
   width: 100%;
   max-width: 360px;
-}
-
-.btn-check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 16px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-2);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.12s;
-}
-
-.btn-check:hover {
-  background: var(--bg-3);
-  border-color: var(--border-2);
-  color: var(--text);
 }
 
 .update-status {
@@ -289,27 +336,8 @@ onUnmounted(() => {
   justify-content: center;
 }
 
-.update-status.ok {
-  color: #22c55e;
-}
-
 .update-status.error {
   color: var(--c-error-text);
-}
-
-.btn-retry {
-  height: 24px;
-  padding: 0 10px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-3);
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.btn-retry:hover {
-  color: var(--text);
 }
 
 .update-available {
