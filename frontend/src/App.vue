@@ -57,6 +57,8 @@ function getActivePanel(): InstanceType<typeof LogPanel> | undefined {
 const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
 const fileBrowserRef = ref<InstanceType<typeof FileBrowser> | null>(null)
 const showSettings = ref(false)
+// v0.9: which nav section SettingsDialog opens on (toast "View" → 'about').
+const settingsInitialSection = ref<'general' | 'logLevels' | 'about'>('general')
 // v0.9: latest update notice received via WS (for badge dismiss on open).
 const pendingUpdate = ref<{ latestVersion: string; currentVersion: string; releaseUrl: string } | null>(null)
 const sidebarCollapsed = ref(false)
@@ -328,7 +330,7 @@ onMounted(() => {
           title: t('settings.updateToastTitle', { version: latest }),
           action: {
             label: t('settings.view'),
-            onClick: () => { showSettings.value = true },
+            onClick: () => { openSettings('about') },
           },
           duration: 8000,
           closeButton: true,
@@ -360,7 +362,7 @@ onMounted(() => {
         showUpdateToast: (v: string) =>
           info(t('settings.newVersionAvailable'), {
             title: t('settings.updateToastTitle', { version: v }),
-            action: { label: t('settings.view'), onClick: () => { showSettings.value = true } },
+            action: { label: t('settings.view'), onClick: () => { openSettings('about') } },
             duration: 8000,
             closeButton: true,
           }),
@@ -369,7 +371,8 @@ onMounted(() => {
   }
 })
 
-function openSettings(): void {
+function openSettings(section: 'general' | 'logLevels' | 'about' = 'general'): void {
+  settingsInitialSection.value = section
   showSettings.value = true
   // Dismiss the badge once the user opens settings (they've seen the update notice).
   if (pendingUpdate.value) {
@@ -435,7 +438,7 @@ function handleSettingsUpdate(s: Settings): void {
         <Check v-if="linkCopied" :size="16" :stroke-width="2.5" />
         <Share2 v-else :size="16" :stroke-width="2" />
       </button>
-      <button class="settings-btn" @click="openSettings" :title="t('app.openSettings')">
+      <button class="settings-btn" @click="() => openSettings()" :title="t('app.openSettings')">
         <SettingsIcon :size="16" :stroke-width="2" />
         <span v-if="hasUpdateBadge" class="settings-badge"></span>
       </button>
@@ -495,6 +498,7 @@ function handleSettingsUpdate(s: Settings): void {
     <SettingsDialog
       v-if="showSettings"
       :settings="settings"
+      :initial-section="settingsInitialSection"
       @update="handleSettingsUpdate"
       @log-levels-saved="reloadActiveTab"
       @close="showSettings = false"

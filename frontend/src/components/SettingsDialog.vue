@@ -11,6 +11,8 @@ import { X, Settings as SettingsIcon, Info, Check, ChartNoAxesGantt } from 'luci
 
 const props = defineProps<{
   settings: Settings
+  /** Initial nav section to show when the dialog opens. Defaults to 'general'. */
+  initialSection?: NavSection
 }>()
 
 const emit = defineEmits<{
@@ -23,7 +25,7 @@ const { t, locale } = useI18n()
 
 // ── Navigation ──
 type NavSection = 'general' | 'logLevels' | 'about'
-const activeNav = ref<NavSection>('general')
+const activeNav = ref<NavSection>(props.initialSection ?? 'general')
 
 const navItems = computed<{ key: NavSection; label: string; icon: string; section: string }[]>(() => [
   {
