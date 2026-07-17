@@ -136,9 +136,11 @@ function entriesToTree(entries: FileEntry[]): TreeNode[] {
 }
 
 /// Convert a backend FileEntry to a TreeNode. Directories that already carry
-/// children (from a recursive `?depth=N` listing) are marked loaded and
-/// expanded so the pre-fetched subtree is visible; their children recurse.
-/// Empty-child directories stay collapsed + unloaded for lazy expansion.
+/// children (from a recursive `?depth=N` listing) are marked loaded so the
+/// pre-fetched subtree is available instantly on expand — but they start
+/// collapsed. Preload is about speed, not flooding the view: 3 levels of data
+/// are fetched, yet the user still expands directories on demand.
+/// Empty-child directories stay unloaded for lazy expansion.
 function entryToNode(e: FileEntry): TreeNode {
   const hasChildren = !!e.isDir && !!e.children && e.children.length > 0
   return {
@@ -149,9 +151,8 @@ function entryToNode(e: FileEntry): TreeNode {
     modified: e.modified,
     // Pre-fetched children → already loaded; otherwise lazy (load on expand).
     children: hasChildren ? e.children!.map(entryToNode) : [],
-    // Auto-expand dirs that have pre-fetched children so the depth-N preload
-    // is actually visible without requiring a click per level.
-    expanded: hasChildren,
+    // Collapsed by default — preload gives instant expand, not auto-expansion.
+    expanded: false,
     loaded: hasChildren,
     loading: false,
   }
