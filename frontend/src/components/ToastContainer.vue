@@ -44,11 +44,6 @@ const TYPE_ICON = {
 function iconFor(t: Toast) {
   return TYPE_ICON[t.type]
 }
-
-function stopTimer(_t: Toast) {
-  // Pause-on-hover is handled per-item via CSS; timer pausing would require
-  // composable support. Kept out of scope: auto-dismiss continues.
-}
 </script>
 
 <template>
@@ -67,7 +62,6 @@ function stopTimer(_t: Toast) {
           :key="t.id"
           class="toast"
           :class="[t.type]"
-          @mouseenter="stopTimer(t)"
         >
           <component
             :is="iconFor(t)"

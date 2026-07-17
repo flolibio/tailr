@@ -18,6 +18,7 @@ import { useRecentFiles } from './composables/useRecentFiles'
 import { useCopyFeedback } from './composables/useClipboard'
 import { useToast } from './composables/useToast'
 import { useUpdateNotifier } from './composables/useUpdateNotifier'
+import { checkUpgrade } from './services/api'
 import { filterEntries } from './utils/filter'
 import { PanelLeft, Settings as SettingsIcon, Play, Pause, Share2, Check } from 'lucide-vue-next'
 
@@ -348,6 +349,34 @@ onMounted(() => {
       }
     },
   )
+
+  // v0.9: on load, check the cached update status to restore the badge after a
+  // page reload (the WS broadcast only fires on version *change*, not on every
+  // connect). Serves from the backend cache — cheap. No toast here: reload is
+  // not a "newly detected" event; the badge alone is the persistent reminder.
+  checkUpgrade()
+    .then((info) => {
+      if (info.hasUpdate) {
+        pendingUpdate.value = {
+          latestVersion: info.latestVersion,
+          currentVersion: info.currentVersion,
+          releaseUrl: info.releaseUrl,
+        }
+        if (shouldShowToast(info.latestVersion)) {
+          // First time seeing this version (no WS fired yet) — notify + toast.
+          toastInfo(t('settings.newVersionAvailable'), {
+            title: t('settings.updateToastTitle', { version: info.latestVersion }),
+            action: { label: t('settings.view'), onClick: () => { openSettings('about') } },
+            duration: 8000,
+            closeButton: true,
+          })
+        }
+        markNotified(info.latestVersion)
+      }
+    })
+    .catch(() => {
+      // Best-effort: a failed check on load is non-fatal (network offline, etc.).
+    })
 
   // Dev-only: expose toast API on window for manual visual testing without
   // triggering the full upgrade-detection pipeline. No-op in production builds.

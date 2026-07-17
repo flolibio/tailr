@@ -29,6 +29,63 @@ pub fn log_file() -> PathBuf {
     data_dir().join("tailr.log")
 }
 
+/// Returns the path to the persisted restart-command file.
+///
+/// At server startup the original argv is written here so that `tailr restart`
+/// can re-launch the server with the same args. Without this, a `restart`
+/// subprocess only sees its own argv (`["tailr", "restart"]`) and cannot
+/// reconstruct how the server was originally invoked.
+fn cmd_file() -> PathBuf {
+    data_dir().join("tailr.cmd")
+}
+
+/// Persist the original server argv so `restart` can re-invoke it.
+///
+/// Call once at server startup (after config resolution, before serving).
+/// Each arg is stored on its own line; the first line is the binary path.
+///
+/// Only a server invocation is persisted — never a subcommand like `restart`
+/// or `stop`, which don't start the server and would loop if re-run. A bare
+/// `tailr` (no subcommand) starts the server, so its args are the serve flags.
+pub fn save_restart_cmd() {
+    let exe = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    // Bail if this looks like a subcommand invocation rather than a server start.
+    if args.first().is_some_and(|a| {
+        matches!(
+            a.as_str(),
+            "restart" | "stop" | "status" | "init" | "config" | "systemd" | "launchd" | "upgrade"
+        )
+    }) {
+        return;
+    }
+    let exe_str = exe.display().to_string();
+    let mut content = exe_str;
+    content.push('\n');
+    content.push_str(&args.join("\n"));
+    if let Some(parent) = cmd_file().parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Err(e) = fs::write(cmd_file(), content) {
+        tracing::warn!(path = %cmd_file().display(), error = %e, "failed to persist restart cmd");
+    }
+}
+
+/// Read the persisted restart command (argv[0] + args), if present.
+///
+/// Returns `None` if no server was ever started (e.g. fresh install) or the
+/// file is unreadable. Callers fall back to an error in that case.
+fn read_restart_cmd() -> Option<(PathBuf, Vec<String>)> {
+    let content = fs::read_to_string(cmd_file()).ok()?;
+    let mut lines = content.lines();
+    let exe = lines.next()?.to_string();
+    let args: Vec<String> = lines.map(String::from).collect();
+    Some((PathBuf::from(exe), args))
+}
+
 /// Configuration for daemon mode.
 #[derive(Debug, Clone)]
 pub struct DaemonConfig {
@@ -190,14 +247,17 @@ pub fn restart_daemon(pid_path: Option<&PathBuf>) -> Result<(), String> {
         // systemd (Type=forking + Restart=on-failure) / launchd (KeepAlive) auto-restart.
         wait_for_new_pid(&resolved, old_pid, 10)?;
     } else {
-        // Manual / daemonize mode: re-exec self with original args.
-        let exe = std::env::current_exe()
-            .map_err(|e| format!("failed to resolve current exe: {}", e))?;
-        let args: Vec<String> = std::env::args().skip(1).collect();
+        // Manual / daemonize mode: re-launch using the persisted server command.
+        // We CANNOT use std::env::args() here — this process is `tailr restart`,
+        // whose argv is ["tailr", "restart"], not the server's original args.
+        // The server persisted its argv at startup via save_restart_cmd().
+        let (exe, args) = read_restart_cmd().ok_or_else(|| {
+            "no restart command on record: start the server via `tailr` first".to_string()
+        })?;
         std::process::Command::new(exe)
             .args(&args)
             .spawn()
-            .map_err(|e| format!("failed to re-exec: {}", e))?;
+            .map_err(|e| format!("failed to re-exec server: {}", e))?;
         wait_for_new_pid(&resolved, old_pid, 10)?;
     }
     Ok(())

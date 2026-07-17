@@ -12,10 +12,6 @@ const dismissedVersion = ref<string | null>(localStorage.getItem(DISMISSED_KEY))
 /** Whether the Settings gear should show the update badge dot. */
 const hasUpdateBadge = ref(false)
 
-function readStored(key: string): string | null {
-  return localStorage.getItem(key)
-}
-
 function setNotified(v: string): void {
   notifiedVersion.value = v
   localStorage.setItem(NOTIFIED_KEY, v)
@@ -62,15 +58,6 @@ export function useUpdateNotifier() {
       hasUpdateBadge.value = false
       localStorage.removeItem(NOTIFIED_KEY)
       localStorage.removeItem(DISMISSED_KEY)
-    },
-    /** Re-hydrate from localStorage (e.g. on mount). */
-    hydrate(latestKnownUpdate: string | null): void {
-      notifiedVersion.value = readStored(NOTIFIED_KEY)
-      dismissedVersion.value = readStored(DISMISSED_KEY)
-      // Show badge if there's a known update we haven't dismissed.
-      if (latestKnownUpdate && dismissedVersion.value !== latestKnownUpdate) {
-        hasUpdateBadge.value = true
-      }
     },
   }
 }

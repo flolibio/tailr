@@ -114,7 +114,7 @@ impl UpgradeEngine {
     /// to `tailr restart` via [`UpgradeService`]).
     pub fn perform_upgrade(&self) -> Result<String, String> {
         if !self.supported() {
-            return Err("当前平台不支持自动升级，请手动下载".into());
+            return Err("UNSUPPORTED_PLATFORM".into());
         }
         self.check_write_permission()?;
 
@@ -143,7 +143,7 @@ impl UpgradeEngine {
         let exe = std::env::current_exe().map_err(|e| e.to_string())?;
         let tmp = exe.with_extension("tmp.writecheck");
         if std::fs::write(&tmp, b"").is_err() {
-            return Err("权限不足，请使用 sudo 运行或检查二进制可写性".into());
+            return Err("PERMISSION_DENIED".into());
         }
         let _ = std::fs::remove_file(&tmp);
         Ok(())
@@ -173,6 +173,10 @@ pub struct UpgradeService {
     /// Cached result of the last GitHub check, with its fetch timestamp.
     /// Background polling refreshes this; `check_update` serves from cache when fresh.
     cache: Arc<RwLock<Option<(UpdateInfo, Instant)>>>,
+    /// Serializes concurrent upgrade attempts. Held for the duration of
+    /// `perform_upgrade` (download + replace) so two simultaneous callers can't
+    /// race on the atomic binary replacement. `try_lock` returns busy immediately.
+    upgrade_lock: tokio::sync::Mutex<()>,
 }
 
 /// Cache lifetime + poll interval. GitHub unauthenticated API allows 60 req/hour
@@ -187,6 +191,7 @@ impl UpgradeService {
         Self {
             engine: Arc::new(UpgradeEngine::new()),
             cache: Arc::new(RwLock::new(None)),
+            upgrade_lock: tokio::sync::Mutex::new(()),
         }
     }
 
@@ -214,6 +219,13 @@ impl UpgradeService {
     /// uses `stop_daemon` (graceful shutdown, PID cleanup) + re-exec — not a raw
     /// `exit(0)` that would skip cleanup.
     pub async fn perform_upgrade(&self) -> Result<UpgradeResult, String> {
+        // Reject concurrent upgrade attempts immediately — two simultaneous
+        // binary replacements would race on the atomic rename.
+        let _guard = self
+            .upgrade_lock
+            .try_lock()
+            .map_err(|_| "UPGRADE_IN_PROGRESS".to_string())?;
+
         let engine = self.engine.clone();
         let version =
             tokio::task::spawn_blocking(move || engine.perform_upgrade())
@@ -228,7 +240,7 @@ impl UpgradeService {
         });
         Ok(UpgradeResult {
             status: "success".to_string(),
-            message: format!("升级成功，服务即将重启 (v{version})"),
+            message: format!("UPGRADE_SUCCESS:{version}"),
         })
     }
 

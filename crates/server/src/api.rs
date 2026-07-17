@@ -678,9 +678,7 @@ async fn perform_upgrade(
 ) -> Result<Json<ApiResponse<crate::upgrade::UpgradeResult>>, StatusCode> {
     // Forced auth: binary replacement is RCE-class, must require explicit token.
     if state.token.is_empty() {
-        return Ok(Json(ApiResponse::err(
-            "升级未启用：替换二进制需要鉴权，请先在 config.toml 设置 token",
-        )));
+        return Ok(Json(ApiResponse::err("TOKEN_REQUIRED")));
     }
     // CSRF double-check (same pattern as save_log_levels).
     if headers.get("X-Requested-With").is_none() {

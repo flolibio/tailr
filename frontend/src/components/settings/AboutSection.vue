@@ -63,10 +63,25 @@ async function handleUpgrade() {
     // Reload to pick up the new frontend bundle baked into the new binary.
     window.location.reload()
   } catch (e) {
-    upgradeError.value = e instanceof Error ? e.message : String(e)
+    const raw = e instanceof Error ? e.message : String(e)
+    upgradeError.value = mapUpgradeError(raw)
     upgradeMessage.value = ''
     upgrading.value = false
   }
+}
+
+/// Map backend error codes (see upgrade.rs / api.rs) to localized messages.
+/// Unknown codes (e.g. network failures) fall back to the raw string.
+const ERROR_CODE_MAP: Record<string, string> = {
+  UNSUPPORTED_PLATFORM: 'settings.upgradeUnsupported',
+  PERMISSION_DENIED: 'settings.permissionDenied',
+  TOKEN_REQUIRED: 'settings.upgradeRequiresToken',
+  UPGRADE_IN_PROGRESS: 'settings.upgradeInProgress',
+}
+
+function mapUpgradeError(raw: string): string {
+  const key = ERROR_CODE_MAP[raw]
+  return key ? t(key) : raw
 }
 
 /// Poll health every 1s for up to 30s. The server is unreachable during restart,

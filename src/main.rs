@@ -225,6 +225,10 @@ fn run_server(args: ServeArgs) {
     }
 
     // Now start tokio runtime (in the daemon child process if daemonized)
+    // Persist the server's invocation so `tailr restart` can re-launch it with
+    // the same args. Done after daemonize so the daemon child's args are recorded.
+    daemon::save_restart_cmd();
+
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         tracing_subscriber::fmt()

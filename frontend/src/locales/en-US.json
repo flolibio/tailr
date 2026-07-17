@@ -64,6 +64,8 @@
     "restarting": "Upgrade done, restarting...",
     "upgradeSuccess": "Upgrade successful",
     "upgradeFailed": "Upgrade failed",
+    "permissionDenied": "Permission denied: ensure the binary is writable (try sudo, or grant write access to the systemd/launchd service)",
+    "upgradeInProgress": "An upgrade is already in progress, please wait for it to finish",
     "restartTimeout": "Service restart timed out, please check status manually",
     "upgradeUnsupported": "Automatic upgrade is not supported on this platform, please download manually",
     "manualDownload": "Download manually",
