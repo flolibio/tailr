@@ -70,10 +70,16 @@ const { token, showTokenDialog } = useAuth()
 const { recordOpen } = useRecentFiles()
 
 // v0.8: URL state restore (share link). Consumed once on load.
-function restoreFromUrl(): void {
+// Returns true if a share link was applied. Does NOT clear the URL itself —
+// the URL is cleared only once the file actually loads (see watch on
+// pendingShareFile below), so a wrong/missing token (401) doesn't lose the
+// params before the user can retry.
+const pendingShareFile = ref<string | null>(null)
+
+function restoreFromUrl(): boolean {
   const params = new URLSearchParams(location.search)
   const file = params.get('file')
-  if (!file) return
+  if (!file) return false
   const kw = params.get('kw')?.split(',').filter(Boolean) ?? []
   const levels = params.get('levels')?.split(',').filter(Boolean) ?? []
   openTab(file)
@@ -90,11 +96,26 @@ function restoreFromUrl(): void {
       if (levels.length) tab.selectedLevels = levels
     }
   })
-  // Clean the URL — share params are consumed, leave a clean root URL.
-  // Sharing is always via the explicit Share button (buildShareUrl), never
-  // by keeping the URL in sync with the active tab.
-  history.replaceState({}, '', location.pathname)
+  // Remember the file so the watcher below clears the URL once it loads.
+  pendingShareFile.value = file
+  return true
 }
+
+// Clear the share-link URL only after the shared file actually loads (entries
+// arrive). This guarantees the params survive a wrong token (401 → retry) or a
+// page reload with a stale token — without it, restoring would clear the URL
+// before the load succeeds, losing the share state on any auth failure.
+watch(
+  () => tabs.value.find((t) => t.path === pendingShareFile.value)?.entries.length ?? 0,
+  (len) => {
+    if (len > 0 && pendingShareFile.value) {
+      pendingShareFile.value = null
+      if (new URLSearchParams(location.search).has('file')) {
+        history.replaceState({}, '', location.pathname)
+      }
+    }
+  },
+)
 
 // v0.8: build a share link URL from current tab state (always carries params).
 function buildShareUrl(): string {
@@ -143,11 +164,18 @@ function handleBookmarkScroll(lineNum: number): void {
   getActivePanel()?.scrollToLine(lineNum)
 }
 
-watch(token, () => {
+watch(token, (newToken) => {
   refreshKey.value++
   loadLogLevels()
   wsClient.disconnect()
   wsClient.connect()
+  // If a share link is pending in the URL (auth was required on first load and
+  // just succeeded), replay the restore so the file loads with the new token.
+  // The URL is cleared by the pendingShareFile watcher once the load succeeds;
+  // a wrong token leaves the URL intact for retry.
+  if (newToken && new URLSearchParams(location.search).has('file')) {
+    restoreFromUrl()
+  }
 })
 
 watch(activeTabPath, (p) => {
@@ -318,6 +346,9 @@ onMounted(() => {
   // on load; subsequent user actions (switch tab, filter) do NOT pollute the URL
   // — sharing is always via the explicit Share button (buildShareUrl).
   restoreTabs()
+  // Share-link restore: attempt now, and the token watcher (below) replays it
+  // once auth succeeds. The URL is cleared by the pendingShareFile watcher only
+  // after the file actually loads — so a wrong/missing token keeps the params.
   restoreFromUrl()
 
   // v0.9: listen for server-pushed update notifications. On first sight of a new
