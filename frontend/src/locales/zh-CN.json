@@ -124,6 +124,9 @@
     "message": "此服务器需要 Token 才能访问。请输入您的认证令牌以继续。",
     "placeholder": "输入 Token...",
     "cancel": "取消",
-    "save": "保存"
+    "save": "保存",
+    "verifying": "验证中...",
+    "invalidToken": "Token 无效，请检查后重试",
+    "verifyFailed": "验证失败，请检查网络后重试"
   }
 }

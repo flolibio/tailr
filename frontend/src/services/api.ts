@@ -129,6 +129,20 @@ export async function healthCheck(): Promise<{ status: string; version: string; 
   return request<{ status: string; version: string; uptimeSeconds: number }>('/api/health')
 }
 
+/// Verify a candidate token WITHOUT persisting it. Used by the token dialog to
+/// validate before saving: sends the token to /api/health and returns true only
+/// on 200. A 401 returns false; other errors throw.
+export async function verifyToken(candidate: string): Promise<boolean> {
+  const headers: HeadersInit = {}
+  if (candidate) {
+    headers['Authorization'] = `Bearer ${candidate}`
+  }
+  const res = await fetch(`${BASE}/api/health`, { headers })
+  if (res.status === 401) return false
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+  return true
+}
+
 // ── 升级 API ──────────────────────────────────────────────
 
 export interface UpdateInfo {
