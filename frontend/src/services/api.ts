@@ -15,6 +15,8 @@ export interface FileEntry {
   size: number
   modified: string
   isDir: boolean
+  /** Nested children when listed with ?depth=N (absent/empty = flat). */
+  children?: FileEntry[]
 }
 
 export interface FileContent {
@@ -82,9 +84,12 @@ async function request<T>(url: string): Promise<T> {
   return (json.data ?? json) as T
 }
 
-export async function listFiles(path?: string): Promise<FileEntry[]> {
-  const qs = path ? `?path=${encodeURIComponent(path)}` : ''
-  const data = await request<{ entries: FileEntry[] }>(`/api/files${qs}`)
+export async function listFiles(path?: string, depth?: number): Promise<FileEntry[]> {
+  const params = new URLSearchParams()
+  if (path) params.set('path', path)
+  if (depth && depth > 1) params.set('depth', String(depth))
+  const qs = params.toString()
+  const data = await request<{ entries: FileEntry[] }>(`/api/files${qs ? `?${qs}` : ''}`)
   return data.entries ?? []
 }
 

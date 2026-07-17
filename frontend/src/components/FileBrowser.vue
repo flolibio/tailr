@@ -1,3 +1,21 @@
+<script lang="ts">
+/// Shared tree node type used by FileBrowser and the recursive FileTreeNode.
+/// Declared in a plain <script> block so it can be `export`ed (a <script setup>
+/// block cannot export named types).
+export interface TreeNode {
+  name: string
+  path: string
+  isDir: boolean
+  size?: number
+  modified?: string
+  children: TreeNode[]
+  expanded: boolean
+  loaded: boolean
+  /** True while this directory's children are being fetched (inline spinner). */
+  loading: boolean
+}
+</script>
+
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -5,8 +23,8 @@ import { listFiles } from '../services/api'
 import type { FileEntry } from '../services/api'
 import { useHistoricalFilter } from '../composables/useHistoricalFilter'
 import { useRecentFiles } from '../composables/useRecentFiles'
-import { useCopyFeedbackId } from '../composables/useClipboard'
-import { Search, ChevronDown, RefreshCw, File as FileIcon, FolderOpen, Folder, Check, Copy, Eye, EyeOff } from 'lucide-vue-next'
+import { Search, ChevronDown, RefreshCw, Eye, EyeOff } from 'lucide-vue-next'
+import FileTreeNode from './FileTreeNode.vue'
 
 const { t } = useI18n()
 const { showHistorical, isHistoricalFile, toggle: toggleHistorical } = useHistoricalFilter()
@@ -52,62 +70,52 @@ watch(() => props.refreshKey, (newVal, oldVal) => {
 const MIN_WIDTH = 180
 const MAX_WIDTH = 400
 
-interface TreeNode {
-  name: string
-  path: string
-  isDir: boolean
-  size?: number
-  modified?: string
-  children: TreeNode[]
-  expanded: boolean
-  loaded: boolean
-}
-
 const tree = ref<TreeNode[]>([])
 const loading = ref(false)
 const filterText = ref('')
-const { copiedId: copiedPath, copy: copyToText } = useCopyFeedbackId<string>()
 const isDragging = ref(false)
 const dragStartX = ref(0)
 const dragStartWidth = ref(0)
 
+/// Recursively drop historical (logrotate) files unless the toggle is on.
+/// Must walk the whole depth so a rotated file nested several levels down is
+/// still hidden — the old single-level filter missed those.
+function applyHistoricalFilter(node: TreeNode): TreeNode | null {
+  if (!showHistorical.value && !node.isDir && isHistoricalFile(node.name)) {
+    return null
+  }
+  if (!node.isDir) return node
+  const children = node.children
+    .map(applyHistoricalFilter)
+    .filter((n): n is TreeNode => n !== null)
+  return { ...node, children }
+}
+
+/// Recursively filter the tree by search query. A dir survives if it matches
+/// or any descendant matches; matching dirs are forced expanded.
+function applySearchFilter(node: TreeNode, q: string): TreeNode | null {
+  const selfMatch = node.name.toLowerCase().includes(q)
+  if (!node.isDir) return selfMatch ? node : null
+  const children = node.children
+    .map((c) => applySearchFilter(c, q))
+    .filter((n): n is TreeNode => n !== null)
+  if (selfMatch || children.length > 0) {
+    return { ...node, children, expanded: true }
+  }
+  return null
+}
+
 const filteredTree = computed(() => {
   const q = filterText.value.trim().toLowerCase()
-  const hideHist = !showHistorical.value
-
-  // Apply historical file filter (hide logrotate files unless toggle is on)
-  const baseTree = hideHist
-    ? tree.value
-        .map((node) => {
-          if (node.isDir) {
-            return {
-              ...node,
-              children: node.children.filter((c) => c.isDir || !isHistoricalFile(c.name)),
-            }
-          }
-          if (isHistoricalFile(node.name)) {
-            return null
-          }
-          return node
-        })
-        .filter(Boolean) as TreeNode[]
-    : tree.value
-
-  if (!q) return baseTree
-  return baseTree
-    .map((node) => {
-      if (node.isDir) {
-        const filteredChildren = node.children.filter((c) =>
-          c.name.toLowerCase().includes(q)
-        )
-        if (filteredChildren.length > 0 || node.name.toLowerCase().includes(q)) {
-          return { ...node, children: filteredChildren, expanded: true }
-        }
-        return null
-      }
-      return node.name.toLowerCase().includes(q) ? node : null
-    })
-    .filter(Boolean) as TreeNode[]
+  // Historical filter first (depth-aware), then search.
+  let base = tree.value
+  if (!showHistorical.value) {
+    base = base.map(applyHistoricalFilter).filter((n): n is TreeNode => n !== null)
+  }
+  if (!q) return base
+  return base
+    .map((n) => applySearchFilter(n, q))
+    .filter((n): n is TreeNode => n !== null)
 })
 
 const filteredRecentFiles = computed(() => {
@@ -118,29 +126,35 @@ const filteredRecentFiles = computed(() => {
   )
 })
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
-}
-
 function entriesToTree(entries: FileEntry[]): TreeNode[] {
   return entries
     .sort((a, b) => {
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
       return a.name.localeCompare(b.name)
     })
-    .map((e) => ({
-      name: e.name,
-      path: e.path,
-      isDir: e.isDir,
-      size: e.size,
-      modified: e.modified,
-      children: [],
-      expanded: false,
-      loaded: false,
-    }))
+    .map((e) => entryToNode(e))
+}
+
+/// Convert a backend FileEntry to a TreeNode. Directories that already carry
+/// children (from a recursive `?depth=N` listing) are marked loaded and
+/// expanded so the pre-fetched subtree is visible; their children recurse.
+/// Empty-child directories stay collapsed + unloaded for lazy expansion.
+function entryToNode(e: FileEntry): TreeNode {
+  const hasChildren = !!e.isDir && !!e.children && e.children.length > 0
+  return {
+    name: e.name,
+    path: e.path,
+    isDir: e.isDir,
+    size: e.size,
+    modified: e.modified,
+    // Pre-fetched children → already loaded; otherwise lazy (load on expand).
+    children: hasChildren ? e.children!.map(entryToNode) : [],
+    // Auto-expand dirs that have pre-fetched children so the depth-N preload
+    // is actually visible without requiring a click per level.
+    expanded: hasChildren,
+    loaded: hasChildren,
+    loading: false,
+  }
 }
 
 /**
@@ -165,17 +179,22 @@ function findOriginalNode(path: string): TreeNode | null {
   return search(tree.value)
 }
 
+/// Default recursive depth for listings. The root load and each lazy dir
+/// expansion fetch 3 levels so typical log trees are visible immediately,
+/// while deeper nesting still expands on demand.
+const LIST_DEPTH = 3
+
 async function loadChildren(node: TreeNode): Promise<void> {
   if (node.loaded) return
-  loading.value = true
+  node.loading = true
   try {
-    const entries = await listFiles(node.path)
+    const entries = await listFiles(node.path, LIST_DEPTH)
     node.children = entriesToTree(entries)
     node.loaded = true
   } catch (e) {
     console.error('Failed to load directory:', e)
   } finally {
-    loading.value = false
+    node.loading = false
   }
 }
 
@@ -187,24 +206,20 @@ async function toggleDir(node: TreeNode): Promise<void> {
   node.expanded = !node.expanded
 }
 
-function selectFile(node: TreeNode): void {
-  if (node.isDir) {
-    // Always operate on the original tree node — the `node` received from the
-    // template may be a shallow copy produced by `filteredTree`, and mutating
-    // it would bypass the historical-file filter (children set on the copy are
-    // unfiltered, and they leak into view on the next re-render).
-    const original = findOriginalNode(node.path)
-    if (original) {
-      toggleDir(original)
-    }
-  } else {
-    emit('select', node.path)
+/// Handle a directory toggle emitted from FileTreeNode. The emitted node may be
+/// a shallow copy from `filteredTree`; always operate on the original in `tree`
+/// so mutations (expand/loaded/children) persist and don't leak past the filter.
+function onNodeToggle(node: TreeNode): void {
+  if (!node.isDir) return
+  const original = findOriginalNode(node.path)
+  if (original) {
+    toggleDir(original)
   }
 }
 
 function refresh(): void {
   loading.value = true
-  listFiles()
+  listFiles(undefined, LIST_DEPTH)
     .then((entries) => {
       tree.value = entriesToTree(entries)
     })
@@ -245,11 +260,6 @@ onUnmounted(() => {
   document.removeEventListener('mousemove', onDragMove)
   document.removeEventListener('mouseup', onDragEnd)
 })
-
-async function copyPath(path: string, event: MouseEvent): Promise<void> {
-  event.stopPropagation()
-  await copyToText(path, path)
-}
 
 /** Ensure the given file path is visible in the tree: expand parent dirs as needed. */
 async function ensureVisible(filePath: string): Promise<void> {
@@ -336,65 +346,19 @@ onMounted(() => {
         </div>
         <div class="files-body">
           <div class="file-list" v-if="filteredTree.length > 0">
-        <template v-for="node in filteredTree" :key="node.path">
-          <div
-            class="file-item"
-            :class="{
-              'is-dir': node.isDir,
-              'is-selected': !node.isDir && props.selectedFile === node.path,
-            }"
-            @click="selectFile(node)"
-          >
-            <div v-if="!node.isDir" class="file-icon">
-              <FileIcon :size="14" :stroke-width="2" />
-            </div>
-            <div v-else class="file-dir-icon">
-              <FolderOpen v-if="node.expanded" :size="14" :stroke-width="2" />
-              <Folder v-else :size="14" :stroke-width="2" />
-            </div>
-            <div class="file-meta">
-              <div class="file-name">{{ node.name }}</div>
-              <span v-if="!node.isDir && node.size != null" class="file-size">{{ formatSize(node.size) }}</span>
-            </div>
-            <button class="copy-path-btn" @click="copyPath(node.path, $event)" :title="t('fileBrowser.copyPath')">
-              <Check v-if="copiedPath === node.path" :size="14" :stroke-width="2.5" />
-              <Copy v-else :size="14" :stroke-width="2" />
-            </button>
+            <FileTreeNode
+              v-for="node in filteredTree"
+              :key="node.path"
+              :node="node"
+              :selected-file="props.selectedFile"
+              :level="0"
+              @select="emit('select', $event)"
+              @toggle="onNodeToggle"
+            />
           </div>
-          <template v-if="node.isDir && node.expanded">
-            <div v-if="node.children.length === 0" class="file-empty-child">{{ t('fileBrowser.emptyDir') }}</div>
-            <div
-              v-for="child in node.children"
-              :key="child.path"
-              class="file-item child"
-              :class="{
-                'is-dir': child.isDir,
-                'is-selected': !child.isDir && props.selectedFile === child.path,
-              }"
-              @click="selectFile(child)"
-            >
-              <div v-if="!child.isDir" class="file-icon">
-                <FileIcon :size="14" :stroke-width="2" />
-              </div>
-              <div v-else class="file-dir-icon">
-                <FolderOpen v-if="child.expanded" :size="14" :stroke-width="2" />
-                <Folder v-else :size="14" :stroke-width="2" />
-              </div>
-              <div class="file-meta">
-                <div class="file-name">{{ child.name }}</div>
-                <span v-if="!child.isDir && child.size != null" class="file-size">{{ formatSize(child.size) }}</span>
-              </div>
-              <button class="copy-path-btn" @click="copyPath(child.path, $event)" :title="t('fileBrowser.copyPath')">
-                <Check v-if="copiedPath === child.path" :size="14" :stroke-width="2.5" />
-                <Copy v-else :size="14" :stroke-width="2" />
-              </button>
-            </div>
-          </template>
-        </template>
-      </div>
-      <div v-else-if="loading" class="file-empty">{{ t('fileBrowser.loading') }}</div>
-      <div v-else-if="filterText" class="file-empty">{{ t('fileBrowser.noMatchingFiles') }}</div>
-      <div v-else class="file-empty">{{ t('fileBrowser.noFilesFound') }}</div>
+          <div v-else-if="loading" class="file-empty">{{ t('fileBrowser.loading') }}</div>
+          <div v-else-if="filterText" class="file-empty">{{ t('fileBrowser.noMatchingFiles') }}</div>
+          <div v-else class="file-empty">{{ t('fileBrowser.noFilesFound') }}</div>
         </div>
       </div>
     </div>
@@ -692,162 +656,8 @@ onMounted(() => {
   color: var(--text);
 }
 
-.file-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border-radius: var(--radius, 8px);
-  cursor: pointer;
-  transition: background .1s ease, box-shadow .1s ease;
-  user-select: none;
-  position: relative;
-  height: 40px;
-}
-
-.file-item:hover {
-  background: var(--bg-3);
-}
-
-/* Selected must read differently from hover — same background as hover
-   made them indistinguishable before. Accent tint + a left rule fixes that. */
-.file-item.is-selected {
-  background: var(--accent-light, var(--bg-2));
-}
-
-.file-item.is-selected:hover {
-  background: var(--accent-light, var(--bg-2));
-}
-
-.file-item.is-selected .file-name {
-  color: var(--accent);
-  font-weight: 500;
-}
-
-.file-item.child {
-  padding-left: 24px;
-  position: relative;
-}
-
-/* Indent guide: a hairline that ties a child row back to its parent folder */
-.file-item.child::before {
-  content: '';
-  position: absolute;
-  left: 13px;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--border);
-}
-
-.file-item:hover .copy-path-btn {
-  opacity: 1;
-}
-
-.copy-path-btn {
-  width: 22px;
-  height: 22px;
-  border: none;
-  background: transparent;
-  color: var(--text-3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border-radius: var(--radius-sm, 6px);
-  opacity: 0;
-  transition: opacity .15s ease, color .12s ease, background .12s ease;
-  flex-shrink: 0;
-  /* 脱离文档流，让 file-meta(flex:1) 撑满，file-size 才能靠最右；
-     与 file-size 互斥切换（同 nav-remove） */
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.copy-path-btn:hover {
-  background: var(--border-2);
-  color: var(--text);
-}
-
-.file-icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-3);
-  align-self: center;
-}
-
-.file-item.is-selected .file-icon {
-  color: var(--accent);
-}
-
-.file-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  align-self: flex-start;
-  margin-top: 7px;
-}
-
-.file-dot.live {
-  background: #1D9E75;
-}
-
-.file-dot.off {
-  background: var(--border-2);
-}
-
-.file-dir-icon {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-2);
-  flex-shrink: 0;
-}
-
-.file-item.is-selected .file-dir-icon {
-  color: var(--accent);
-}
-
-.file-meta {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.file-name {
-  flex: 1;
-  min-width: 0;
-  font-size: 14px;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.4;
-}
-
-/* 同 nav-time/nav-remove 的互斥模式：默认 size 靠右显示，hover 时让位给 copy-path-btn */
-.file-size {
-  font-size: 12px;
-  color: var(--text-2);
-  flex-shrink: 0;
-  transition: opacity .15s ease;
-}
-
-.file-item:hover .file-size {
-  opacity: 0;
-}
+/* File rows / copy buttons / dir icons now live in FileTreeNode.vue (rendered
+   recursively). Only the empty-state + container classes remain here. */
 
 .file-empty {
   padding: 16px 12px;
@@ -855,13 +665,6 @@ onMounted(() => {
   font-size: 12px;
   text-align: center;
   flex: 1;
-}
-
-.file-empty-child {
-  padding: 6px 10px 6px 52px;
-  color: var(--text-3);
-  font-size: 12px;
-  font-style: italic;
 }
 
 .resize-handle {
