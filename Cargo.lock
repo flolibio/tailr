@@ -2208,7 +2208,7 @@ dependencies = [
 
 [[package]]
 name = "tailr"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "arc-swap",
  "axum",
@@ -2216,7 +2216,6 @@ dependencies = [
  "daemonize",
  "dirs",
  "figment",
- "self_update",
  "serde",
  "tailr-protocol",
  "tailr-server",
@@ -2256,7 +2255,7 @@ dependencies = [
 
 [[package]]
 name = "tailr-server"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "arc-swap",
  "axum",
@@ -2265,6 +2264,7 @@ dependencies = [
  "futures",
  "include_dir",
  "mime_guess",
+ "self_update",
  "serde",
  "serde_json",
  "tailr-protocol",

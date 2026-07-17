@@ -152,6 +152,13 @@ struct HealthData {
     uptime_seconds: u64,
 }
 
+#[derive(Deserialize)]
+struct UpgradeCheckParams {
+    /// Bypass cache and force a fresh GitHub query.
+    #[serde(default)]
+    force: Option<bool>,
+}
+
 pub fn routes() -> Router {
     Router::new()
         .route("/api/files", get(list_files))
@@ -161,6 +168,8 @@ pub fn routes() -> Router {
         .route("/api/search", get(search))
         .route("/api/health", get(health))
         .route("/api/config/log-levels", get(get_log_levels).post(save_log_levels))
+        .route("/api/upgrade/check", get(check_upgrade))
+        .route("/api/upgrade", axum::routing::post(perform_upgrade))
 }
 
 pub(crate) fn validate_path(
@@ -638,6 +647,51 @@ async fn health(
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds: state.start_time.elapsed().as_secs(),
     }))
+}
+
+/// Check for a newer release. Read-only — no CSRF/auth gating beyond the global
+/// middleware (token still required if set, but the endpoint carries no sensitive
+/// data and never mutates). Serves from cache unless `?force=true`.
+async fn check_upgrade(
+    Query(params): Query<UpgradeCheckParams>,
+    Extension(state): Extension<Arc<AppState>>,
+) -> Json<ApiResponse<crate::upgrade::UpdateInfo>> {
+    match state.upgrade_service.check_update(params.force.unwrap_or(false)).await {
+        Ok(info) => Json(ApiResponse::ok(info)),
+        Err(e) => {
+            tracing::error!("failed to check update: {}", e);
+            Json(ApiResponse::err("Failed to check update"))
+        }
+    }
+}
+
+/// Perform the upgrade: download + replace binary + delegate restart.
+///
+/// **Forced auth**: unlike `save_log_levels` (which only checks CSRF when token is
+/// set), this endpoint *requires* a non-empty token. Replacing the running binary
+/// is an RCE-class operation — it must never be reachable when auth is disabled.
+/// When token is empty, the endpoint refuses with an actionable error rather than
+/// silently proceeding.
+async fn perform_upgrade(
+    Extension(state): Extension<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Result<Json<ApiResponse<crate::upgrade::UpgradeResult>>, StatusCode> {
+    // Forced auth: binary replacement is RCE-class, must require explicit token.
+    if state.token.is_empty() {
+        return Ok(Json(ApiResponse::err("TOKEN_REQUIRED")));
+    }
+    // CSRF double-check (same pattern as save_log_levels).
+    if headers.get("X-Requested-With").is_none() {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    match state.upgrade_service.perform_upgrade().await {
+        Ok(result) => Ok(Json(ApiResponse::ok(result))),
+        Err(e) => {
+            tracing::error!("upgrade failed: {}", e);
+            Ok(Json(ApiResponse::err(e)))
+        }
+    }
 }
 
 async fn get_log_levels(

@@ -29,6 +29,63 @@ pub fn log_file() -> PathBuf {
     data_dir().join("tailr.log")
 }
 
+/// Returns the path to the persisted restart-command file.
+///
+/// At server startup the original argv is written here so that `tailr restart`
+/// can re-launch the server with the same args. Without this, a `restart`
+/// subprocess only sees its own argv (`["tailr", "restart"]`) and cannot
+/// reconstruct how the server was originally invoked.
+fn cmd_file() -> PathBuf {
+    data_dir().join("tailr.cmd")
+}
+
+/// Persist the original server argv so `restart` can re-invoke it.
+///
+/// Call once at server startup (after config resolution, before serving).
+/// Each arg is stored on its own line; the first line is the binary path.
+///
+/// Only a server invocation is persisted — never a subcommand like `restart`
+/// or `stop`, which don't start the server and would loop if re-run. A bare
+/// `tailr` (no subcommand) starts the server, so its args are the serve flags.
+pub fn save_restart_cmd() {
+    let exe = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    // Bail if this looks like a subcommand invocation rather than a server start.
+    if args.first().is_some_and(|a| {
+        matches!(
+            a.as_str(),
+            "restart" | "stop" | "status" | "init" | "config" | "systemd" | "launchd" | "upgrade"
+        )
+    }) {
+        return;
+    }
+    let exe_str = exe.display().to_string();
+    let mut content = exe_str;
+    content.push('\n');
+    content.push_str(&args.join("\n"));
+    if let Some(parent) = cmd_file().parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Err(e) = fs::write(cmd_file(), content) {
+        tracing::warn!(path = %cmd_file().display(), error = %e, "failed to persist restart cmd");
+    }
+}
+
+/// Read the persisted restart command (argv[0] + args), if present.
+///
+/// Returns `None` if no server was ever started (e.g. fresh install) or the
+/// file is unreadable. Callers fall back to an error in that case.
+fn read_restart_cmd() -> Option<(PathBuf, Vec<String>)> {
+    let content = fs::read_to_string(cmd_file()).ok()?;
+    let mut lines = content.lines();
+    let exe = lines.next()?.to_string();
+    let args: Vec<String> = lines.map(String::from).collect();
+    Some((PathBuf::from(exe), args))
+}
+
 /// Configuration for daemon mode.
 #[derive(Debug, Clone)]
 pub struct DaemonConfig {
@@ -164,6 +221,84 @@ pub fn daemon_status(pid_path: Option<&PathBuf>) -> String {
             "tailr is not running (stale PID file for PID {})",
             pid
         )
+    }
+}
+
+/// Restart a running tailr daemon.
+///
+/// Stops the current daemon (via `stop_daemon`), then re-launches it according to
+/// the detected runtime environment:
+/// - **systemd / launchd**: relies on the unit/plist `Restart=` policy to bring
+///   the process back; this function only waits for a new PID to appear.
+/// - **manual / daemonize mode**: re-execs the current binary with the original
+///   CLI args (`std::env::args`), preserving `-l`/`-b`/`--daemon` etc.
+///
+/// Synchronous by design: `restart` is a one-shot CLI command with no concurrent
+/// work to yield to, matching the `stop_daemon` polling style (`std::thread::sleep`).
+pub fn restart_daemon(pid_path: Option<&PathBuf>) -> Result<(), String> {
+    let resolved = pid_path.cloned().unwrap_or_else(pid_file);
+    let old_pid = read_pid(&resolved).ok();
+
+    // 1. Stop the running daemon (5s timeout, cleans PID file on success).
+    stop_daemon(pid_path, 5)?;
+
+    // 2. Re-launch per runtime environment.
+    if is_systemd_service() || is_launchd_service() {
+        // systemd (Type=forking + Restart=on-failure) / launchd (KeepAlive) auto-restart.
+        wait_for_new_pid(&resolved, old_pid, 10)?;
+    } else {
+        // Manual / daemonize mode: re-launch using the persisted server command.
+        // We CANNOT use std::env::args() here — this process is `tailr restart`,
+        // whose argv is ["tailr", "restart"], not the server's original args.
+        // The server persisted its argv at startup via save_restart_cmd().
+        let (exe, args) = read_restart_cmd().ok_or_else(|| {
+            "no restart command on record: start the server via `tailr` first".to_string()
+        })?;
+        std::process::Command::new(exe)
+            .args(&args)
+            .spawn()
+            .map_err(|e| format!("failed to re-exec server: {}", e))?;
+        wait_for_new_pid(&resolved, old_pid, 10)?;
+    }
+    Ok(())
+}
+
+/// Detect whether this process was launched by systemd.
+///
+/// systemd sets `INVOCATION_ID` per service invocation — a reliable signal that
+/// *this* process is managed by systemd (unlike `/run/systemd/system` which only
+/// indicates systemd is installed on the host).
+pub fn is_systemd_service() -> bool {
+    std::env::var_os("INVOCATION_ID").is_some()
+}
+
+/// Detect whether this process was launched by launchd (macOS).
+///
+/// launchd sets `LaunchInstanceID` for managed services.
+pub fn is_launchd_service() -> bool {
+    std::env::var_os("LaunchInstanceID").is_some()
+}
+
+/// Poll the PID file until a new (different from `old_pid`) running PID appears.
+fn wait_for_new_pid(
+    pid_path: &PathBuf,
+    old_pid: Option<u32>,
+    timeout_secs: u64,
+) -> Result<(), String> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
+    loop {
+        if let Ok(pid) = read_pid(pid_path) {
+            if Some(pid) != old_pid && is_process_running(pid) {
+                return Ok(());
+            }
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(format!(
+                "daemon did not come back within {} seconds",
+                timeout_secs
+            ));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(300));
     }
 }
 

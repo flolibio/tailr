@@ -53,7 +53,29 @@
     "resetDefault": "Reset to default",
     "token": "Token",
     "tokenDescription": "Authentication token. Leave empty to disable auth.",
-    "tokenPlaceholder": "Enter token..."
+    "tokenPlaceholder": "Enter token...",
+    "checkUpdate": "Check for updates",
+    "checking": "Checking...",
+    "latestVersion": "Up to date",
+    "newVersionAvailable": "New version available",
+    "upgradeTo": "Upgrade to",
+    "upgrade": "Upgrade",
+    "upgrading": "Upgrading...",
+    "restarting": "Upgrade done, restarting...",
+    "upgradeSuccess": "Upgrade successful",
+    "upgradeFailed": "Upgrade failed",
+    "permissionDenied": "Permission denied: ensure the binary is writable (try sudo, or grant write access to the systemd/launchd service)",
+    "upgradeInProgress": "An upgrade is already in progress, please wait for it to finish",
+    "restartTimeout": "Service restart timed out, please check status manually",
+    "upgradeUnsupported": "Automatic upgrade is not supported on this platform, please download manually",
+    "manualDownload": "Download manually",
+    "updateToastTitle": "New version v{version} available",
+    "view": "View",
+    "upgradeConfirm": "Upgrade to v{version}? The service will restart. Continue?",
+    "upgradeRequiresToken": "Upgrade disabled: replacing the binary requires authentication, please configure a Token in General settings first"
+  },
+  "toast": {
+    "close": "Close"
   },
   "filter": {
     "filterLogs": "Filter logs (Enter to add)…",

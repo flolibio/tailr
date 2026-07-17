@@ -1,6 +1,6 @@
 [package]
 name = "tailr"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2021"
 
 [[bin]]
@@ -15,7 +15,6 @@ tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 axum = "0.7"
 clap = { version = "4", features = ["derive"] }
-self_update = { version = "0.42", default-features = false, features = ["archive-tar", "compression-flate2", "rustls"] }
 daemonize = "0.5"
 dirs = "5.0"
 figment = { version = "0.10", features = ["toml", "env"] }

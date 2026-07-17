@@ -1,5 +1,6 @@
 pub mod api;
 pub mod static_files;
+pub mod upgrade;
 pub mod ws;
 
 use arc_swap::ArcSwap;
@@ -24,6 +25,10 @@ pub struct AppState {
     pub search_engine: SearchEngine,
     pub line_indices: DashMap<PathBuf, LineIndex>,
     pub file_subscribers: Mutex<HashMap<String, ws::FileSubscribers>>,
+    /// Global WS client registry (client_id → sender), independent of file
+    /// subscriptions. Used to broadcast server-wide notifications like
+    /// `UpdateAvailable` to every connected client.
+    pub ws_clients: Mutex<HashMap<String, tokio::sync::mpsc::Sender<tailr_protocol::WSMessage>>>,
     pub log_dirs: Vec<PathBuf>,
     pub log_files: Vec<PathBuf>,
     pub start_time: Instant,
@@ -33,6 +38,7 @@ pub struct AppState {
     pub token: String,
     pub allowed_dirs: Vec<PathBuf>,
     pub log_timezone: Arc<LogTimezone>,
+    pub upgrade_service: Arc<upgrade::UpgradeService>,
 }
 
 async fn auth_middleware(
@@ -110,6 +116,7 @@ pub fn app(
         search_engine: SearchEngine::new(),
         line_indices: DashMap::new(),
         file_subscribers: Mutex::new(HashMap::new()),
+        ws_clients: Mutex::new(HashMap::new()),
         log_dirs,
         log_files,
         start_time: Instant::now(),
@@ -119,9 +126,13 @@ pub fn app(
         token,
         allowed_dirs,
         log_timezone: log_timezone_arc,
+        upgrade_service: upgrade::shared_service(),
     });
 
     ws::spawn_watcher_loop(state.clone());
+    state
+        .upgrade_service
+        .start_background_check(state.clone());
 
     let cors = CorsLayer::new()
         .allow_origin(Any)

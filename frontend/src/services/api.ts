@@ -129,6 +129,58 @@ export async function healthCheck(): Promise<{ status: string; version: string; 
   return request<{ status: string; version: string; uptimeSeconds: number }>('/api/health')
 }
 
+// ── 升级 API ──────────────────────────────────────────────
+
+export interface UpdateInfo {
+  currentVersion: string
+  latestVersion: string
+  hasUpdate: boolean
+  /** Whether the current platform supports automatic upgrade (Linux x86_64/aarch64). */
+  supported: boolean
+  releaseUrl: string
+}
+
+export interface UpgradeResult {
+  status: string
+  message: string
+}
+
+export async function checkUpgrade(): Promise<UpdateInfo> {
+  return request<UpdateInfo>('/api/upgrade/check')
+}
+
+export async function performUpgrade(): Promise<UpgradeResult> {
+  const token = getToken()
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const res = await fetch(`${BASE}/api/upgrade`, {
+    method: 'POST',
+    headers,
+  })
+  if (res.status === 401) {
+    const { handleAuthError } = useAuth()
+    handleAuthError()
+    throw new AuthError()
+  }
+  if (res.status === 403) {
+    throw new Error('CSRF check failed')
+  }
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+  }
+  const json = await res.json()
+  if (json.success === false) {
+    throw new Error(json.error || 'Upgrade failed')
+  }
+  return (json.data ?? json) as UpgradeResult
+}
+
 // ── 日志级别配置 API ──────────────────────────────────────
 
 export interface LevelDef {
