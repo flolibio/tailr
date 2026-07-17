@@ -410,18 +410,17 @@ onMounted(() => {
   height: 36px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm, 6px);
-  background: var(--bg-2);
+  background: var(--bg);
   font-family: var(--font-sans);
   font-size: 12px;
   color: var(--text);
   padding: 0 26px 0 28px;
   outline: none;
-  transition: border-color .15s ease, background .15s ease;
+  transition: border-color .15s ease;
 }
 
 .filter-input:focus {
   border-color: var(--accent, var(--border-2));
-  background: var(--bg);
 }
 
 .filter-input::placeholder {
