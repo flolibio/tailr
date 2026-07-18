@@ -1,5 +1,22 @@
 # Changelog
 
+## [v0.9.1] - 2026-07-18
+
+### Fixes
+
+- **Share link on token-protected server:** three failure modes fixed. (1) A wrong token was silently stored and the dialog closed as if it succeeded — the token is now verified against `/api/health` before saving; 401 stays in the dialog with an error. (2) After entering the correct token, the log area stayed empty because the failed tab was only `switchTo`'d, not reloaded — `openTab` now re-runs `loadInitial` for a non-lazy empty tab (restores both content and WS subscription). (3) The share-link URL params were cleared too eagerly (on token change, not on load success), losing the share state on any auth failure — the URL is now cleared only once the file actually loads.
+
+### Features
+
+- **File browser 3-level preload:** `list_files` accepts `?depth=N` (default 1, hard-capped at 4 with a 5000-entry cap) and recurses, populating `FileEntry.children`. The frontend renders a recursive `FileTreeNode` (replaces the fixed two-level template), requests `depth=3` on root load and lazy expansion so typical log trees are visible instantly; deeper dirs stay collapsed for on-demand lazy load. The historical-file and search filters now walk the full depth. Directories default to collapsed (preload gives instant expand, not auto-expansion).
+- **Font settings redesign:** the font dropdown is grouped into System / Nerd Font / Popular Monospace via `<optgroup>`, using exact registered family names (fixes silent fallback from wrong value names like `JetBrains Mono NF`). Added a live font preview showing sample log lines rendered in the selected font + size.
+
+### UI
+
+- Settings dialog height increased (580px → 680px) with a viewport cap.
+- File browser search input uses the primary background (`--bg`) instead of gray when idle.
+- Settings gear icon color `--text-3` → `--text-2` to match the adjacent share button.
+
 ## [v0.9.0] - 2026-07-16
 
 ### Features
