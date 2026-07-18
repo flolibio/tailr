@@ -282,7 +282,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Font family / size -->
-            <div class="setting-row">
+            <div class="setting-row font-setting-row">
               <div class="setting-info">
                 <div class="setting-name">{{ t('settings.fontSettings') }}</div>
               </div>
@@ -297,7 +297,13 @@ onUnmounted(() => {
                     <option value="Hack">Hack</option>
                     <option value="Cascadia Code">Cascadia Code</option>
                     <option value="Fira Code">Fira Code</option>
+                    <option value="Source Code Pro">Source Code Pro</option>
+                    <option value="Inconsolata">Inconsolata</option>
+                    <option value="Ubuntu Mono">Ubuntu Mono</option>
+                    <option value="JetBrains Mono NF">JetBrains Mono NF</option>
+                    <option value="SFMono-Regular">SF Mono</option>
                     <option value="Consolas">Consolas</option>
+                    <option value="Courier New">Courier New</option>
                     <option value="Monaco">Monaco</option>
                     <option value="Menlo">Menlo</option>
                     <option value="monospace">System Monospace</option>
@@ -315,6 +321,16 @@ onUnmounted(() => {
                     <span class="font-unit">px</span>
                   </div>
                 </div>
+              </div>
+              <!-- Font preview: live sample rendered in the selected font/size,
+                   so the user sees the actual log appearance before applying. -->
+              <div
+                class="font-preview"
+                :style="{ fontFamily: local.fontFamily === 'monospace' ? 'monospace' : `'${local.fontFamily}', monospace`, fontSize: local.fontSize + 'px' }"
+              >
+                <span class="font-preview-line"><span class="fp-ts">14:32:05.123</span> <span class="fp-lvl-info">INFO</span>  Server started on 0.0.0.0:7700</span>
+                <span class="font-preview-line"><span class="fp-ts">14:32:06.451</span> <span class="fp-lvl-warn">WARN</span>  Cache miss for key=user_42</span>
+                <span class="font-preview-line"><span class="fp-ts">14:32:07.802</span> <span class="fp-lvl-err">ERROR</span> Connection refused: db:5432</span>
               </div>
             </div>
 
@@ -631,6 +647,11 @@ onUnmounted(() => {
   border-bottom: none;
 }
 
+/* Font setting row wraps so the preview can take a full-width second row. */
+.font-setting-row {
+  flex-wrap: wrap;
+}
+
 .setting-info {
   flex: 1;
   min-width: 0;
@@ -743,6 +764,49 @@ onUnmounted(() => {
 .font-unit {
   font-size: 14px;
   color: var(--text-3);
+}
+
+/* ── Font preview ── */
+.font-preview {
+  /* Force onto its own row within the flex .setting-row */
+  flex-basis: 100%;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* font-family + font-size are set inline from the current selection */
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.font-preview-line {
+  display: block;
+}
+
+.fp-ts {
+  color: var(--text-3);
+}
+
+.fp-lvl-info {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.fp-lvl-warn {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.fp-lvl-err {
+  color: var(--c-error-text);
+  font-weight: 600;
 }
 
 /* ── Theme / Language opts ── */
