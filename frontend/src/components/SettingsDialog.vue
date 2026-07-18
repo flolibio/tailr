@@ -505,7 +505,8 @@ onUnmounted(() => {
 /* ── Dialog ── */
 .settings-dialog {
   width: 860px;
-  height: 580px;
+  height: 680px;
+  max-height: calc(100vh - 64px);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
