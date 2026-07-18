@@ -253,6 +253,8 @@ async fn run_serve(cfg: config::Config, config_path: PathBuf) {
 
     let listener = tokio::net::TcpListener::bind(&cfg.bind).await.unwrap();
     tracing::info!(
+        version = env!("CARGO_PKG_VERSION"),
+        pid = std::process::id(),
         "tailr listening on {} (paths: {:?})",
         listener.local_addr().unwrap(),
         log_paths

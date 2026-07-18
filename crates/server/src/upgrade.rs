@@ -226,16 +226,21 @@ impl UpgradeService {
             .try_lock()
             .map_err(|_| "UPGRADE_IN_PROGRESS".to_string())?;
 
+        tracing::info!("upgrade started");
         let engine = self.engine.clone();
         let version =
             tokio::task::spawn_blocking(move || engine.perform_upgrade())
                 .await
                 .map_err(|e| format!("upgrade task failed: {e}"))??;
+        tracing::info!(version = %version, "binary replaced successfully, scheduling restart");
         // Defer restart so the HTTP response is sent before the server shuts down.
         tokio::spawn(async {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            tracing::info!("spawning restart subprocess");
             if let Err(e) = spawn_restart() {
                 tracing::error!("failed to spawn restart after upgrade: {e}");
+            } else {
+                tracing::info!("restart subprocess spawned successfully");
             }
         });
         Ok(UpgradeResult {
@@ -307,9 +312,33 @@ pub fn shared_service() -> Arc<UpgradeService> {
 /// Spawn `tailr restart` as a detached subprocess.
 fn spawn_restart() -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    std::process::Command::new(exe)
-        .arg("restart")
-        .spawn()
+    let mut cmd = std::process::Command::new(exe);
+    cmd.arg("restart");
+    // Detach the restart subprocess from this server's process group/session.
+    // Without this, when `tailr restart` kills the server (its parent), the
+    // restart subprocess can be torn down with it (orphaned/SIGHUP'd), leaving
+    // the server stopped and never brought back. Redirect stdio to devnull so
+    // the child isn't tied to the server's (about-to-close) file descriptors.
+    cmd.stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    // Start the child in its own session/process group so a signal sent to the
+    // server's group during stop_daemon doesn't reach it. We declare setsid
+    // directly (no libc crate dep) — it's a stable POSIX syscall.
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        extern "C" {
+            fn setsid() -> i32;
+        }
+        unsafe {
+            cmd.pre_exec(|| {
+                setsid();
+                Ok(())
+            });
+        }
+    }
+    cmd.spawn()
         .map_err(|e| format!("failed to spawn restart: {e}"))?;
     Ok(())
 }

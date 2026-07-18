@@ -71,6 +71,8 @@ pub fn save_restart_cmd() {
     }
     if let Err(e) = fs::write(cmd_file(), content) {
         tracing::warn!(path = %cmd_file().display(), error = %e, "failed to persist restart cmd");
+    } else {
+        tracing::info!(exe = %exe.display(), args = ?args, "restart command persisted");
     }
 }
 
@@ -238,13 +240,19 @@ pub fn daemon_status(pid_path: Option<&PathBuf>) -> String {
 pub fn restart_daemon(pid_path: Option<&PathBuf>) -> Result<(), String> {
     let resolved = pid_path.cloned().unwrap_or_else(pid_file);
     let old_pid = read_pid(&resolved).ok();
+    tracing::info!(pid = ?old_pid, "restart: beginning daemon restart");
 
     // 1. Stop the running daemon (5s timeout, cleans PID file on success).
+    tracing::info!("restart: stopping current daemon");
     stop_daemon(pid_path, 5)?;
+    tracing::info!("restart: daemon stopped");
 
     // 2. Re-launch per runtime environment.
-    if is_systemd_service() || is_launchd_service() {
-        // systemd (Type=forking + Restart=on-failure) / launchd (KeepAlive) auto-restart.
+    if is_systemd_service() {
+        tracing::info!("restart: systemd environment, waiting for supervisor to relaunch");
+        wait_for_new_pid(&resolved, old_pid, 10)?;
+    } else if is_launchd_service() {
+        tracing::info!("restart: launchd environment, waiting for supervisor to relaunch");
         wait_for_new_pid(&resolved, old_pid, 10)?;
     } else {
         // Manual / daemonize mode: re-launch using the persisted server command.
@@ -254,12 +262,15 @@ pub fn restart_daemon(pid_path: Option<&PathBuf>) -> Result<(), String> {
         let (exe, args) = read_restart_cmd().ok_or_else(|| {
             "no restart command on record: start the server via `tailr` first".to_string()
         })?;
+        tracing::info!(exe = %exe.display(), args = ?args, "restart: re-executing server");
         std::process::Command::new(exe)
             .args(&args)
             .spawn()
             .map_err(|e| format!("failed to re-exec server: {}", e))?;
+        tracing::info!("restart: server re-exec spawned, waiting for new PID");
         wait_for_new_pid(&resolved, old_pid, 10)?;
     }
+    tracing::info!("restart: completed successfully");
     Ok(())
 }
 
@@ -289,10 +300,12 @@ fn wait_for_new_pid(
     loop {
         if let Ok(pid) = read_pid(pid_path) {
             if Some(pid) != old_pid && is_process_running(pid) {
+                tracing::info!(new_pid = pid, "new daemon process detected");
                 return Ok(());
             }
         }
         if std::time::Instant::now() >= deadline {
+            tracing::error!(timeout_secs, "daemon did not come back within timeout");
             return Err(format!(
                 "daemon did not come back within {} seconds",
                 timeout_secs

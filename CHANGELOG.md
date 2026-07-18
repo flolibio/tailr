@@ -1,5 +1,15 @@
 # Changelog
 
+## [v0.9.4] - 2026-07-18
+
+### Fixes
+
+- **Post-upgrade restart may not bring the server back (daemon mode):** the `tailr restart` subprocess spawned after a binary replacement inherited the server's process group/session, so when it killed the server (its parent) the subprocess could be torn down too, leaving the server stopped. `spawn_restart` now starts the restart subprocess in its own session (`setsid`) with redirected stdio, so it survives the parent being stopped.
+
+### Improvements
+
+- **Upgrade/restart observability:** the upgrade and restart paths were nearly silent in the logs, making it impossible to diagnose why a post-upgrade restart didn't happen. Added structured logging (`tracing`) at every key step: upgrade start, binary replaced, restart subprocess spawned (success/failure), restart phases (stop / wait-for-supervisor / re-exec / new-PID detected / timeout), persisted restart command, and server startup (now includes version + PID). Next time a restart misbehaves, the log tells you exactly which step failed.
+
 ## [v0.9.3] - 2026-07-18
 
 ### Fixes
