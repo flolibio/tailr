@@ -5,6 +5,7 @@
 ### Fixes
 
 - **Post-upgrade restart may not bring the server back (daemon mode):** the `tailr restart` subprocess spawned after a binary replacement inherited the server's process group/session, so when it killed the server (its parent) the subprocess could be torn down too, leaving the server stopped. `spawn_restart` now starts the restart subprocess in its own session (`setsid`) with redirected stdio, so it survives the parent being stopped.
+- **Post-upgrade restart target resolution (ENOENT):** in production, `spawn_restart` failed with "No such file or directory" because `current_exe()` returned a path that wasn't spawnable right after a binary replace. `spawn_restart` now tries multiple candidates — first `current_exe()`, then the exe path persisted in `tailr.cmd` at startup — and logs each attempt (path + exists flag) so failures are diagnosable.
 
 ### Improvements
 
