@@ -293,20 +293,28 @@ onUnmounted(() => {
                     :value="local.fontFamily"
                     @change="updateSetting('fontFamily', ($event.target as HTMLSelectElement).value)"
                   >
-                    <option value="JetBrains Mono">JetBrains Mono</option>
-                    <option value="Hack">Hack</option>
-                    <option value="Cascadia Code">Cascadia Code</option>
-                    <option value="Fira Code">Fira Code</option>
-                    <option value="Source Code Pro">Source Code Pro</option>
-                    <option value="Inconsolata">Inconsolata</option>
-                    <option value="Ubuntu Mono">Ubuntu Mono</option>
-                    <option value="JetBrains Mono NF">JetBrains Mono NF</option>
-                    <option value="SFMono-Regular">SF Mono</option>
-                    <option value="Consolas">Consolas</option>
-                    <option value="Courier New">Courier New</option>
-                    <option value="Monaco">Monaco</option>
-                    <option value="Menlo">Menlo</option>
-                    <option value="monospace">System Monospace</option>
+                    <optgroup :label="t('settings.fontGroupSystem')">
+                      <option value="Menlo">Menlo</option>
+                      <option value="Monaco">Monaco</option>
+                      <option value="Courier New">Courier New</option>
+                      <option value=".AppleSystemUIFontMonospaced">SF Mono</option>
+                      <option value="monospace">System Monospace</option>
+                    </optgroup>
+                    <optgroup :label="t('settings.fontGroupNerd')">
+                      <option value="JetBrainsMono Nerd Font">JetBrainsMono Nerd Font</option>
+                      <option value="JetBrainsMono Nerd Font Mono">JetBrainsMono Nerd Font Mono</option>
+                      <option value="JetBrainsMonoNL Nerd Font">JetBrainsMonoNL Nerd Font</option>
+                    </optgroup>
+                    <optgroup :label="t('settings.fontGroupPopular')">
+                      <option value="JetBrains Mono">JetBrains Mono</option>
+                      <option value="Fira Code">Fira Code</option>
+                      <option value="Source Code Pro">Source Code Pro</option>
+                      <option value="Hack">Hack</option>
+                      <option value="Cascadia Code">Cascadia Code</option>
+                      <option value="Inconsolata">Inconsolata</option>
+                      <option value="Ubuntu Mono">Ubuntu Mono</option>
+                      <option value="Consolas">Consolas</option>
+                    </optgroup>
                   </select>
                   <div class="font-input-group">
                     <input
