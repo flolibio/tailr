@@ -309,22 +309,79 @@ pub fn shared_service() -> Arc<UpgradeService> {
     Arc::new(UpgradeService::new())
 }
 
-/// Spawn `tailr restart` as a detached subprocess.
+/// Resolve the persisted restart command (exe path + args) from `tailr.cmd`.
+/// Mirrors daemon.rs::read_restart_cmd but lives here so the server crate can
+/// fall back to it when `current_exe()` based spawning fails (e.g. the path it
+/// returns is briefly invalid right after a binary replace).
+fn read_persisted_restart_cmd() -> Option<(std::path::PathBuf, Vec<String>)> {
+    let data_dir = dirs::data_dir()?;
+    let cmd_path = data_dir.join("tailr").join("tailr.cmd");
+    let content = std::fs::read_to_string(&cmd_path).ok()?;
+    let mut lines = content.lines();
+    let exe = std::path::PathBuf::from(lines.next()?);
+    let args: Vec<String> = lines.map(String::from).collect();
+    Some((exe, args))
+}
+
+/// Spawn `tailr restart` as a detached subprocess, with a fallback.
+///
+/// Primary path: `current_exe()` + "restart". If that spawn fails (observed in
+/// the wild as ENOENT right after a binary replace — a transient FS window or
+/// `/proc/self/exe` resolving oddly under daemon mode), fall back to the exe
+/// path persisted in `tailr.cmd` at startup. Both are tried detached (setsid).
 fn spawn_restart() -> Result<(), String> {
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    // Candidate exe paths to try, in order.
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        candidates.push(exe);
+    }
+    if let Some((exe, _args)) = read_persisted_restart_cmd() {
+        if !candidates.iter().any(|c| c == &exe) {
+            candidates.push(exe);
+        }
+    }
+
+    let mut last_err = "no restart exe candidate resolved".to_string();
+    for exe in &candidates {
+        tracing::info!(
+            exe = %exe.display(),
+            exists = exe.exists(),
+            "spawn_restart: trying candidate"
+        );
+        match build_restart_command(exe) {
+            Ok(mut c) => match c.spawn() {
+                Ok(_) => {
+                    tracing::info!(exe = %exe.display(), "restart subprocess spawned");
+                    return Ok(());
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        exe = %exe.display(),
+                        exists = exe.exists(),
+                        error = %e,
+                        "spawn_restart: candidate failed, trying next"
+                    );
+                    last_err = format!("failed to spawn restart (exe={}, exists={}): {e}", exe.display(), exe.exists());
+                }
+            },
+            Err(e) => {
+                tracing::warn!(error = %e, "spawn_restart: could not build command");
+                last_err = e;
+            }
+        }
+    }
+    Err(last_err)
+}
+
+/// Build the `tailr restart` command for a given exe, detached (setsid, null stdio).
+fn build_restart_command(
+    exe: &std::path::Path,
+) -> Result<std::process::Command, String> {
     let mut cmd = std::process::Command::new(exe);
     cmd.arg("restart");
-    // Detach the restart subprocess from this server's process group/session.
-    // Without this, when `tailr restart` kills the server (its parent), the
-    // restart subprocess can be torn down with it (orphaned/SIGHUP'd), leaving
-    // the server stopped and never brought back. Redirect stdio to devnull so
-    // the child isn't tied to the server's (about-to-close) file descriptors.
     cmd.stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
-    // Start the child in its own session/process group so a signal sent to the
-    // server's group during stop_daemon doesn't reach it. We declare setsid
-    // directly (no libc crate dep) — it's a stable POSIX syscall.
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
@@ -338,7 +395,5 @@ fn spawn_restart() -> Result<(), String> {
             });
         }
     }
-    cmd.spawn()
-        .map_err(|e| format!("failed to spawn restart: {e}"))?;
-    Ok(())
+    Ok(cmd)
 }
