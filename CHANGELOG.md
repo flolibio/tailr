@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.9.2] - 2026-07-18
+
+### Fixes
+
+- **Check for updates returned stale results:** the manual "Check for updates" button read from the backend cache, so after a new release was published it kept reporting "Up to date" until the 6h cache TTL expired. The manual check now sends `?force=true` to bypass the cache and query GitHub directly. The background poll still uses the cache (its purpose is to stay cheap).
+
 ## [v0.9.1] - 2026-07-18
 
 ### Fixes

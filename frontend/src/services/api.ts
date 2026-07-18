@@ -164,8 +164,9 @@ export interface UpgradeResult {
   message: string
 }
 
-export async function checkUpgrade(): Promise<UpdateInfo> {
-  return request<UpdateInfo>('/api/upgrade/check')
+export async function checkUpgrade(force = false): Promise<UpdateInfo> {
+  const qs = force ? '?force=true' : ''
+  return request<UpdateInfo>(`/api/upgrade/check${qs}`)
 }
 
 export async function performUpgrade(): Promise<UpgradeResult> {

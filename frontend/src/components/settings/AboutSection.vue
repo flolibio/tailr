@@ -34,7 +34,10 @@ async function handleCheck() {
   checkError.value = ''
   updateInfo.value = null
   try {
-    updateInfo.value = await checkUpgrade()
+    // Manual check must bypass the backend cache — otherwise a stale "up to
+    // date" result (cached before a new release was published) hides real
+    // updates for up to 6h. The background poll still uses the cache.
+    updateInfo.value = await checkUpgrade(true)
   } catch (e) {
     checkError.value = e instanceof Error ? e.message : String(e)
   } finally {
