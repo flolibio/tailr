@@ -15,6 +15,8 @@ export interface FileEntry {
   size: number
   modified: string
   isDir: boolean
+  /** Nested children when listed with ?depth=N (absent/empty = flat). */
+  children?: FileEntry[]
 }
 
 export interface FileContent {
@@ -82,9 +84,12 @@ async function request<T>(url: string): Promise<T> {
   return (json.data ?? json) as T
 }
 
-export async function listFiles(path?: string): Promise<FileEntry[]> {
-  const qs = path ? `?path=${encodeURIComponent(path)}` : ''
-  const data = await request<{ entries: FileEntry[] }>(`/api/files${qs}`)
+export async function listFiles(path?: string, depth?: number): Promise<FileEntry[]> {
+  const params = new URLSearchParams()
+  if (path) params.set('path', path)
+  if (depth && depth > 1) params.set('depth', String(depth))
+  const qs = params.toString()
+  const data = await request<{ entries: FileEntry[] }>(`/api/files${qs ? `?${qs}` : ''}`)
   return data.entries ?? []
 }
 
@@ -127,6 +132,20 @@ export async function searchLogs(
 
 export async function healthCheck(): Promise<{ status: string; version: string; uptimeSeconds: number }> {
   return request<{ status: string; version: string; uptimeSeconds: number }>('/api/health')
+}
+
+/// Verify a candidate token WITHOUT persisting it. Used by the token dialog to
+/// validate before saving: sends the token to /api/health and returns true only
+/// on 200. A 401 returns false; other errors throw.
+export async function verifyToken(candidate: string): Promise<boolean> {
+  const headers: HeadersInit = {}
+  if (candidate) {
+    headers['Authorization'] = `Bearer ${candidate}`
+  }
+  const res = await fetch(`${BASE}/api/health`, { headers })
+  if (res.status === 401) return false
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+  return true
 }
 
 // ── 升级 API ──────────────────────────────────────────────

@@ -188,6 +188,13 @@ function openTab(path: string): void {
   const existing = tabs.value.find((t) => t.path === path)
   if (existing) {
     switchTo(path)
+    // If the existing tab never loaded (entries empty + not lazy), its earlier
+    // loadInitial failed (e.g. 401 before auth). Re-load so the content + WS
+    // subscription are established once the token is valid. switchTo only
+    // handles lazy tabs; a non-lazy empty tab would otherwise stay blank.
+    if (!existing.isLazy && existing.entries.length === 0) {
+      loadInitial(existing)
+    }
     return
   }
 

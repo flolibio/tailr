@@ -27,6 +27,9 @@
     "autoScroll": "Auto-scroll",
     "basicSettings": "Basic",
     "fontSettings": "Font",
+    "fontGroupSystem": "System",
+    "fontGroupNerd": "Nerd Font",
+    "fontGroupPopular": "Popular Monospace",
     "theme": "Theme",
     "light": "Light",
     "dark": "Dark",
@@ -124,6 +127,9 @@
     "message": "This server requires a token to access. Please enter your authentication token to continue.",
     "placeholder": "Enter token...",
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "verifying": "Verifying...",
+    "invalidToken": "Invalid token, please check and retry",
+    "verifyFailed": "Verification failed, please check your network and retry"
   }
 }

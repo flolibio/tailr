@@ -2,15 +2,35 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuth } from '../composables/useAuth'
+import { verifyToken } from '../services/api'
 import { Lock } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const { token, saveToken, dismissDialog } = useAuth()
 
 const inputValue = ref(token.value)
+const errorMsg = ref('')
+const verifying = ref(false)
 
-function handleSave(): void {
-  saveToken(inputValue.value)
+async function handleSave(): Promise<void> {
+  // Verify the token BEFORE saving. Without this, a wrong token was silently
+  // stored and the dialog closed as if it succeeded — the user only learned it
+  // was wrong when the next API call 401'd and re-prompted.
+  errorMsg.value = ''
+  verifying.value = true
+  try {
+    const ok = await verifyToken(inputValue.value)
+    if (!ok) {
+      errorMsg.value = t('tokenDialog.invalidToken')
+      return
+    }
+    saveToken(inputValue.value) // saves + closes the dialog
+  } catch {
+    // Network error during verification — can't confirm; let the user retry.
+    errorMsg.value = t('tokenDialog.verifyFailed')
+  } finally {
+    verifying.value = false
+  }
 }
 
 function handleKeydown(e: KeyboardEvent): void {
@@ -35,14 +55,18 @@ function handleKeydown(e: KeyboardEvent): void {
           v-model="inputValue"
           type="password"
           class="token-input"
+          :class="{ error: errorMsg }"
           :placeholder="t('tokenDialog.placeholder')"
           autofocus
           @keydown="handleKeydown"
         />
+        <p v-if="errorMsg" class="token-error">{{ errorMsg }}</p>
       </div>
       <div class="token-footer">
-        <button class="btn-cancel" @click="dismissDialog">{{ t('tokenDialog.cancel') }}</button>
-        <button class="btn-save" @click="handleSave">{{ t('tokenDialog.save') }}</button>
+        <button class="btn-cancel" @click="dismissDialog" :disabled="verifying">{{ t('tokenDialog.cancel') }}</button>
+        <button class="btn-save" @click="handleSave" :disabled="verifying">
+          {{ verifying ? t('tokenDialog.verifying') : t('tokenDialog.save') }}
+        </button>
       </div>
     </div>
   </div>
@@ -107,6 +131,17 @@ function handleKeydown(e: KeyboardEvent): void {
 .token-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.token-input.error {
+  border-color: var(--c-error-text);
+}
+
+.token-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--c-error-text);
+  line-height: 1.4;
 }
 
 .token-footer {

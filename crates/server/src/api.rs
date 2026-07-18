@@ -49,6 +49,10 @@ struct FileEntry {
     size: u64,
     modified: Option<String>,
     is_dir: bool,
+    /// Nested children for directories, populated when a recursive depth was
+    /// requested (`?depth=N`). Empty for files or when not recursing.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    children: Vec<FileEntry>,
 }
 
 #[derive(Serialize)]
@@ -60,7 +64,18 @@ struct FileListData {
 #[derive(Deserialize)]
 struct FileListParams {
     path: Option<String>,
+    /// Recurse into subdirectories up to this many levels (default 1 = flat).
+    /// Hard-capped at `MAX_LIST_DEPTH` to protect against pathological trees.
+    #[serde(default)]
+    depth: Option<u32>,
 }
+
+/// Hard cap on recursive depth for file listing. Prevents a misconfigured
+/// `log_dir` (e.g. pointing at `/`) from enumerating the whole filesystem.
+const MAX_LIST_DEPTH: u32 = 4;
+/// Hard cap on total entries returned by a single recursive listing, to bound
+/// latency and payload size on huge directory trees.
+const MAX_LIST_ENTRIES: usize = 5000;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -195,6 +210,9 @@ async fn list_files(
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<FileListData>> {
     let mut entries: Vec<FileEntry> = Vec::new();
+    // Resolve requested depth, clamped to the hard cap. Default 1 (flat listing).
+    let depth = params.depth.unwrap_or(1).clamp(1, MAX_LIST_DEPTH);
+    let mut total: usize = 0;
 
     match params.path {
         Some(p) => {
@@ -203,7 +221,7 @@ async fn list_files(
                 Err(StatusCode::NOT_FOUND) => return Json(ApiResponse::err("directory not found")),
                 Err(_) => return Json(ApiResponse::err("access denied")),
             };
-            if let Err(e) = read_dir_entries(&dir, &mut entries).await {
+            if let Err(e) = read_dir_entries(&dir, &mut entries, depth, &mut total).await {
                 tracing::error!("failed to read directory {:?}: {}", dir, e);
                 return Json(ApiResponse::err("Internal server error"));
             }
@@ -228,6 +246,7 @@ async fn list_files(
                         size,
                         modified,
                         is_dir: false,
+                        children: Vec::new(),
                     });
                 }
             }
@@ -243,12 +262,15 @@ async fn list_files(
                         size: 0,
                         modified: None,
                         is_dir: true,
+                        children: Vec::new(),
                     });
                 }
             }
             if state.log_dirs.len() == 1 && state.log_files.is_empty() {
                 entries.clear();
-                if let Err(e) = read_dir_entries(&state.log_dirs[0], &mut entries).await {
+                if let Err(e) =
+                    read_dir_entries(&state.log_dirs[0], &mut entries, depth, &mut total).await
+                {
                     tracing::error!("failed to read directory {:?}: {}", state.log_dirs[0], e);
                     return Json(ApiResponse::err("Internal server error"));
                 }
@@ -265,41 +287,77 @@ async fn list_files(
     Json(ApiResponse::ok(FileListData { entries }))
 }
 
-async fn read_dir_entries(dir: &std::path::Path, entries: &mut Vec<FileEntry>) -> std::io::Result<()> {
-    let mut read_dir = tokio::fs::read_dir(dir).await?;
-    while let Some(entry) = read_dir.next_entry().await? {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') {
-            continue;
-        }
-        let metadata = entry.metadata().await.ok();
-        let is_dir = metadata.as_ref().map(|m| m.is_dir()).unwrap_or(false);
-        let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
+async fn read_dir_entries(
+    dir: &std::path::Path,
+    entries: &mut Vec<FileEntry>,
+    remaining_depth: u32,
+    total: &mut usize,
+) -> std::io::Result<()> {
+    read_dir_entries_inner(dir, entries, remaining_depth, total).await
+}
 
-        if is_dir {
-            if !dir_has_text_files(&entry.path()).await {
+/// Boxed-inner form so the async fn can recurse (a recursive async fn needs
+/// indirection to have a finite future size). Mirrors the dir_has_text_files_inner
+/// pattern already used in this file.
+fn read_dir_entries_inner<'a>(
+    dir: &'a std::path::Path,
+    entries: &'a mut Vec<FileEntry>,
+    remaining_depth: u32,
+    total: &'a mut usize,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::io::Result<()>> + Send + 'a>> {
+    Box::pin(async move {
+        let mut read_dir = tokio::fs::read_dir(dir).await?;
+        while let Some(entry) = read_dir.next_entry().await? {
+            // Stop if we've hit the global entry cap — protects against huge trees.
+            if *total >= MAX_LIST_ENTRIES {
+                break;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') {
                 continue;
             }
-        } else if !is_text_file(&entry.path(), &name).await {
-            continue;
-        }
+            let metadata = entry.metadata().await.ok();
+            let is_dir = metadata.as_ref().map(|m| m.is_dir()).unwrap_or(false);
+            let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
 
-        let modified = metadata
-            .and_then(|m| m.modified().ok())
-            .map(|t| {
-                let dt: DateTime<Utc> = t.into();
-                dt.to_rfc3339()
+            // Skip dirs with no text files anywhere (prunes barren branches),
+            // and skip non-text files at every level.
+            if is_dir {
+                if !dir_has_text_files(&entry.path()).await {
+                    continue;
+                }
+            } else if !is_text_file(&entry.path(), &name).await {
+                continue;
+            }
+
+            let modified = metadata
+                .and_then(|m| m.modified().ok())
+                .map(|t| {
+                    let dt: DateTime<Utc> = t.into();
+                    dt.to_rfc3339()
+                });
+
+            // Recurse into subdirectories while depth remains, collecting children.
+            let children = if is_dir && remaining_depth > 1 {
+                let mut child_entries = Vec::new();
+                read_dir_entries_inner(&entry.path(), &mut child_entries, remaining_depth - 1, total).await?;
+                child_entries
+            } else {
+                Vec::new()
+            };
+
+            *total += 1;
+            entries.push(FileEntry {
+                name,
+                path: entry.path().to_string_lossy().to_string(),
+                size,
+                modified,
+                is_dir,
+                children,
             });
-
-        entries.push(FileEntry {
-            name,
-            path: entry.path().to_string_lossy().to_string(),
-            size,
-            modified,
-            is_dir,
-        });
-    }
-    Ok(())
+        }
+        Ok(())
+    })
 }
 
 async fn dir_has_text_files(dir: &std::path::Path) -> bool {
