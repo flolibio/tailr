@@ -1,5 +1,15 @@
 # Changelog
 
+## [v0.9.3] - 2026-07-18
+
+### Fixes
+
+- **File browser preload broken for multiple log_dirs:** `?depth=N` only recursed in the single-log_dir case and the `?path=` case. When a server monitored multiple `log_dirs` (e.g. `-l /logs/service -l /logs/php -l /logs/nginxlogs`), each root was listed with empty children — so the frontend's 3-level preload, search, and instant-expand all failed for multi-dir deployments. Each configured `log_dir` now recurses to the requested depth. (Affects v0.9.0–v0.9.2.)
+
+### UI
+
+- About: version number and check-for-updates button color `--text-3` → `--text-2`.
+
 ## [v0.9.2] - 2026-07-18
 
 ### Fixes

@@ -253,6 +253,24 @@ async fn list_files(
 
             for dir in &state.log_dirs {
                 if dir.exists() && dir.is_dir() {
+                    // Recurse into each configured log_dir so its subtree is
+                    // pre-fetched (depth levels). Without this, multi-log_dir
+                    // roots only listed the dir name with empty children, so the
+                    // frontend's preload/search/expand-on-click all broke.
+                    let mut sub_entries = Vec::new();
+                    if let Err(e) = read_dir_entries(
+                        dir,
+                        &mut sub_entries,
+                        depth,
+                        &mut total,
+                    )
+                    .await
+                    {
+                        tracing::error!("failed to read directory {:?}: {}", dir, e);
+                        return Json(ApiResponse::err("Internal server error"));
+                    }
+                    // Preserve the log_dir's own name/path as the parent node,
+                    // attaching the recursed children.
                     entries.push(FileEntry {
                         name: dir
                             .file_name()
@@ -262,7 +280,7 @@ async fn list_files(
                         size: 0,
                         modified: None,
                         is_dir: true,
-                        children: Vec::new(),
+                        children: sub_entries,
                     });
                 }
             }
