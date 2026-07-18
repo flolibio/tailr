@@ -247,7 +247,7 @@ onUnmounted(() => {
 
 .about-version {
   font-size: 14px;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .version-inline-status {
@@ -285,7 +285,7 @@ onUnmounted(() => {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: transparent;
-  color: var(--text-3);
+  color: var(--text-2);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.12s;
