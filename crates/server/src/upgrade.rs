@@ -233,6 +233,11 @@ impl UpgradeService {
                 .await
                 .map_err(|e| format!("upgrade task failed: {e}"))??;
         tracing::info!(version = %version, "binary replaced successfully, scheduling restart");
+        // Invalidate the update cache: it holds the pre-upgrade result
+        // (hasUpdate=true for the version we just installed). Without this, any
+        // check between now and restart serves a stale "update available".
+        *self.cache.write().await = None;
+        tracing::info!("update cache invalidated after upgrade");
         // Defer restart so the HTTP response is sent before the server shuts down.
         tokio::spawn(async {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
