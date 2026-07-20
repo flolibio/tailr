@@ -42,10 +42,11 @@
 | **Single binary** | ✅ | ❌ | ❌ | ❌ |
 | **Web UI** | ✅ | ✅ | ✅ | ❌ |
 | **Real-time tail** | ✅ | ✅ | ❌ | ✅ |
+| **Multi-file tabs** | ✅ | ❌ | ❌ | ❌ |
 | **Regex search** | ✅ | ❌ | ❌ | ✅ |
 | **Log level detection** | ✅ | ❌ | ✅ | ✅ |
 | **Memory-mapped** | ✅ | ❌ | ❌ | ❌ |
-| **Self-upgrade** | ✅ | ❌ | ❌ | ❌ |
+| **Self-upgrade (Web + CLI)** | ✅ | ❌ | ❌ | ❌ |
 | **Token auth** | ✅ | ❌ | ❌ | ❌ |
 | **Config presets** | ✅ | ❌ | ❌ | ❌ |
 
@@ -54,11 +55,15 @@
 - **Real-time tail** — WebSocket-based live log streaming
 - **Multi-keyword filter** — AND logic, like `grep kw1 | grep kw2`
 - **Fast search** — mmap-based grep with regex support
+- **Multi-file tabs** — Open multiple log files side by side, each with independent filter state
+- **Bookmarks** — Mark lines for quick jump-back, persisted per file
+- **Share links** — Generate a URL encoding the current file + filters; opening it restores the exact view
 - **Configurable log levels** — User-defined levels, keywords, and colors with 7 presets (General, Java, Python, PHP, Go, Rust, syslog)
 - **Single binary** — No dependencies, no runtime, just run
 - **Web UI** — Built-in Vue 3 SPA, no separate frontend deployment
 - **Log rotation aware** — Detects inode changes, handles logrotate
-- **Self-upgrade** — One command to update to the latest version
+- **Self-upgrade** — One-click update from the Web UI or `tailr upgrade` CLI; auto-restarts after replacing the binary
+- **Update notifications** — Background check for new releases; badge + toast in the Web UI when an update is available
 - **Token authentication** — Optional Bearer token for secure access
 - **Path validation** — Prevents directory traversal attacks
 - **Multi-language UI** — English (default) and Chinese, with easy extensibility
@@ -134,6 +139,7 @@ Commands:
   init                    Initialize config file
   config                  Print config file contents
   stop                    Stop running daemon
+  restart                 Restart running daemon (stops + re-execs with the same args)
   status                  Show daemon status
   systemd                 Generate systemd service file
   launchd                 Generate launchd plist file (macOS)
@@ -275,9 +281,14 @@ tailr upgrade --check
 
 # Upgrade to latest version
 tailr upgrade
+
+# Restart the daemon to apply an upgrade
+tailr restart
 ```
 
-**Note:** The upgrade replaces the binary atomically. If tailr is running as a service, you'll need to restart it after upgrading.
+**From the Web UI:** Settings → About → "Check for updates". If a newer version is found, click "Upgrade" — tailr downloads the new binary, replaces itself atomically, and restarts automatically. The page polls `/api/health` and reloads once the server is back.
+
+**Note:** Automatic upgrade is supported on Linux x86_64/ARM64 only. On macOS, the Web UI shows the new version and a download link. The upgrade endpoint requires a token to be set (replacing the binary is an RCE-class operation); `tailr upgrade` from the CLI works without a token.
 
 ## Environment Variables
 
@@ -300,6 +311,8 @@ tailr upgrade
 | `/api/search` | GET | Grep search (`?path=&q=&regex=&levels=&context=&limit=`) |
 | `/api/config/log-levels` | GET | Get current log level configuration |
 | `/api/config/log-levels` | POST | Save log level configuration (hot-reload + persist to config.toml) |
+| `/api/upgrade/check` | GET | Check for a newer release (`?force=true` bypasses cache) |
+| `/api/upgrade` | POST | Download + replace binary + restart (requires token + CSRF header) |
 | `/api/health` | GET | Status + uptime + version |
 | `/ws` | WS | Real-time log streaming |
 
@@ -314,6 +327,9 @@ tailr upgrade
 
 // Catchup on reconnect
 {"type": "catchup", "path": "/var/log/app.log", "entries": [...], "lastSeq": 100}
+
+// Server-pushed update notification (broadcast to all clients)
+{"type": "updateAvailable", "latestVersion": "0.9.5", "currentVersion": "0.9.4", "releaseUrl": "..."}
 ```
 
 ## Development
@@ -346,7 +362,8 @@ The web UI supports multiple languages:
 1. Create a new locale file in `frontend/src/locales/` (e.g., `ja-JP.json`)
 2. Copy the structure from `en-US.json` and translate all strings
 3. Update `frontend/src/locales/index.ts` to include the new locale in the type definition
-4. Add the locale option to the language switcher in `SettingsPanel.vue`
+4. Add the locale option to the language switcher in `SettingsDialog.vue`
+5. Run `cd frontend && npm run check:i18n` to verify key completeness across locales
 
 The language preference is persisted in localStorage and auto-detected from the browser on first visit.
 
