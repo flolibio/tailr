@@ -325,19 +325,33 @@ fn read_persisted_restart_cmd() -> Option<(std::path::PathBuf, Vec<String>)> {
 
 /// Spawn `tailr restart` as a detached subprocess, with a fallback.
 ///
-/// Primary path: `current_exe()` + "restart". If that spawn fails (observed in
-/// the wild as ENOENT right after a binary replace — a transient FS window or
-/// `/proc/self/exe` resolving oddly under daemon mode), fall back to the exe
-/// path persisted in `tailr.cmd` at startup. Both are tried detached (setsid).
+/// Primary path: the exe persisted in `tailr.cmd` at server startup. This is
+/// the reliable source — `tailr.cmd` is written once at boot, before any binary
+/// replacement, so it holds the clean on-disk path.
+///
+/// `current_exe()` is used only as a fallback. Right after `self_replace`
+/// overwrites the running binary, Linux marks `/proc/self/exe` as
+/// `"/path/to/exe (deleted)"` (the running process's original file is gone).
+/// `current_exe()` returns that `(deleted)`-suffixed string verbatim, which
+/// can't be spawned — so we prefer `tailr.cmd` and strip any `(deleted)` marker
+/// from `current_exe()` before trying it. Both paths spawn detached (setsid).
 fn spawn_restart() -> Result<(), String> {
-    // Candidate exe paths to try, in order.
     let mut candidates: Vec<std::path::PathBuf> = Vec::new();
-    if let Ok(exe) = std::env::current_exe() {
-        candidates.push(exe);
-    }
+
+    // Primary: persisted cmd (clean path recorded at startup).
     if let Some((exe, _args)) = read_persisted_restart_cmd() {
-        if !candidates.iter().any(|c| c == &exe) {
+        if !candidates.contains(&exe) {
             candidates.push(exe);
+        }
+    }
+
+    // Fallback: current_exe(), with the "(deleted)" marker Linux appends after
+    // the binary is replaced. The kernel suffixes /proc/self/exe with " (deleted)"
+    // when the original file has been overwritten; that string isn't a real path.
+    if let Ok(exe) = std::env::current_exe() {
+        let cleaned = strip_deleted_marker(&exe);
+        if !candidates.contains(&cleaned) {
+            candidates.push(cleaned);
         }
     }
 
@@ -371,6 +385,18 @@ fn spawn_restart() -> Result<(), String> {
         }
     }
     Err(last_err)
+}
+
+/// Strip the " (deleted)" suffix Linux appends to `/proc/self/exe` when the
+/// running binary has been replaced on disk. The result is the real on-disk
+/// path of the new binary. If the path doesn't carry the marker, return as-is.
+fn strip_deleted_marker(path: &std::path::Path) -> std::path::PathBuf {
+    let s = path.to_string_lossy();
+    if let Some(stripped) = s.strip_suffix(" (deleted)") {
+        std::path::PathBuf::from(stripped)
+    } else {
+        path.to_path_buf()
+    }
 }
 
 /// Build the `tailr restart` command for a given exe, detached (setsid, null stdio).
