@@ -1,5 +1,25 @@
 # Changelog
 
+## [v0.9.5] - 2026-07-20
+
+### Fixes
+
+- **Post-upgrade restart target resolution:** `spawn_restart` used only `current_exe()`, which returns `/opt/tailr (deleted)` after `self_replace` overwrites the running binary (Linux marks `/proc/self/exe` with that suffix). Now `spawn_restart` prefers the exe path persisted in `tailr.cmd` at startup (clean, recorded before any replacement), and strips the `(deleted)` marker from `current_exe()` as a fallback. Eliminates the spurious first-attempt failure logged on every upgrade.
+- **Update cache stale after upgrade:** `perform_upgrade` now clears the `UpgradeService` cache right after the binary is replaced, so checks between upgrade completion and restart no longer serve the stale "update available" result.
+- **Check-for-updates served stale cache:** the manual "Check for updates" button read from the backend's 6h cache, hiding newly published releases. It now sends `?force=true` to bypass the cache (the background poll still uses it).
+- **File browser preload broken for multiple log_dirs:** `?depth=N` only recursed in the single-log_dir case and the `?path=` case; multi-log_dir servers listed each root with empty children. Each configured `log_dir` now recurses to the requested depth.
+
+### UI
+
+- About: after checking for updates, the version row shows a text hint ("Update available") instead of duplicating the version delta shown in the action panel below.
+- About: version number and check-for-updates button color `--text-3` → `--text-2`.
+- Settings dialog height increased (580px → 680px) with a viewport cap.
+- Font dropdown redesigned with `<optgroup>` categories (System / Nerd Font / Popular Monospace) using exact registered family names, plus a live font preview.
+
+### Improvements
+
+- **i18n key-completeness check:** `npm run check:i18n` (and a CI step) statically verify that every `t('...')` reference has a matching key in both locale files — guards against the `@intlify/unplugin-vue-i18n` HMR staleness that repeatedly caused raw keys to render (documented in AGENTS.md).
+
 ## [v0.9.4] - 2026-07-18
 
 ### Fixes
