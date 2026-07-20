@@ -61,6 +61,7 @@
     "checking": "检查中...",
     "latestVersion": "已是最新版本",
     "newVersionAvailable": "新版本可用",
+    "updateDetected": "检测到新版本",
     "upgradeTo": "升级到",
     "upgrade": "升级",
     "upgrading": "正在升级...",

@@ -140,10 +140,9 @@ onUnmounted(() => {
         {{ t('settings.latestVersion') }}
       </span>
 
-      <!-- Has update: show new version inline -->
+      <!-- Has update: text hint only (version details in the action panel below) -->
       <span v-else-if="updateInfo && updateInfo.hasUpdate" class="version-inline-status new">
-        <span class="version-arrow">→</span>
-        v{{ updateInfo.latestVersion }}
+        {{ t('settings.updateDetected') }}
       </span>
 
       <!-- Check error -->

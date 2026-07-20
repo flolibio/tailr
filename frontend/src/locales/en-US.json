@@ -61,6 +61,7 @@
     "checking": "Checking...",
     "latestVersion": "Up to date",
     "newVersionAvailable": "New version available",
+    "updateDetected": "Update available",
     "upgradeTo": "Upgrade to",
     "upgrade": "Upgrade",
     "upgrading": "Upgrading...",
