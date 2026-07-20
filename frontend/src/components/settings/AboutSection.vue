@@ -34,6 +34,21 @@ async function handleCheck() {
   checkError.value = ''
   updateInfo.value = null
   try {
+    // [DEV-ONLY MOCK] Force a fake "update available" so the inline text +
+    // action panel styling can be eyeballed without publishing a release.
+    // Replace the real call below with the mock, then revert before commit.
+    if (import.meta.env.DEV) {
+      await new Promise((r) => setTimeout(r, 300))
+      updateInfo.value = {
+        currentVersion: '0.9.5-beta',
+        latestVersion: '0.9.9',
+        hasUpdate: true,
+        supported: true,
+        releaseUrl: 'https://github.com/flolibio/tailr/releases/tag/v0.9.9',
+      }
+      checking.value = false
+      return
+    }
     // Manual check must bypass the backend cache — otherwise a stale "up to
     // date" result (cached before a new release was published) hides real
     // updates for up to 6h. The background poll still uses the cache.

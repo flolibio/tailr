@@ -60,6 +60,11 @@ jobs:
       - name: Install dependencies
         run: cd frontend && npm ci
 
+      - name: i18n key check
+        # 防止加 key 后 JSON 没同步 / 两语言不一致。dev server 的 HMR 对
+        # JSON 改动不可靠,运行时难以发现,所以静态检查兜底。
+        run: cd frontend && npm run check:i18n
+
       - name: Type check
         run: cd frontend && npx vue-tsc --noEmit
 

@@ -134,6 +134,18 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 - File browser filters non-text files by extension + null-byte detection; skips empty directories (recursion depth ≤ 2).
 - Frontend uses `useAuth` composable for token management (localStorage key: `tailr-token`).
 
+### i18n: 加 key 后必须做的事(踩坑记录)
+
+`@intlify/unplugin-vue-i18n` 的 Vite HMR 对 `src/locales/*.json` 的改动**不可靠**——新增 key 后,dev server 经常不刷新消息表,运行时 `t()` 返回 key 原文(如页面显示 `settings.updateDetected` 而非翻译)。此问题已反复出现(`invalidToken`、`systemFontLabel`、`updateDetected` 等)。
+
+**加 i18n key 的标准流程**:
+1. 同时改 `zh-CN.json` 和 `en-US.json`(两个文件 key 必须一致)
+2. 运行 `cd frontend && npm run check:i18n` 静态校验(代码引用 vs JSON key 完整性 + 两语言一致性)
+3. 如果 dev server 已在跑,**重启它**(`Ctrl+C` 后重新 `npm run dev`)才能加载新 key
+4. 生产构建(`npm run build`)不受影响——只有 dev HMR 有这个问题
+
+**CI 已集成** `check:i18n` 步骤,PR/push 时自动检查;缺失或不一致会 fail。
+
 ## API surface
 
 | Route | Method | Purpose |
