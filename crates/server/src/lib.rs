@@ -143,6 +143,9 @@ pub fn app(
         dirs
     };
 
+    // Capture rps before `limits` is moved into AppState.
+    let rps = limits.rate_limit_rps;
+
     let state = Arc::new(AppState {
         watcher: Arc::new(Mutex::new(watcher)),
         line_indices: DashMap::new(),
@@ -176,11 +179,41 @@ pub fn app(
             "X-Requested-With".parse().unwrap(),
         ]);
 
-    Router::new()
+    // Per-IP GCRA rate limit on the REST/static surface.
+    //
+    // burst_size = rate_limit_rps * 3 is a deliberately loose cap to absorb
+    // the burst that fires when a frontend tab restores: 1 × /api/files,
+    // N × /api/file/tail (one per lazy tab, typically 5+), 1 × log-levels,
+    // 1 × /api/upgrade/check — empirically 8-15 concurrent requests.
+    // ×3 keeps back-to-back reloads from tripping the limiter. Internal
+    // derived value, not exposed to the user.
+    //
+    // /ws is excluded: a long-lived connection that opens with a single
+    // upgrade can't meaningfully be "rate limited", and rejecting the
+    // upgrade on burst would hurt legitimate reconnects after a transient
+    // network blip. The WS connection cap (Phase 3) covers abuse there.
+    let governor_config = tower_governor::governor::GovernorConfigBuilder::default()
+        .per_second(rps as u64)
+        .burst_size(rps.saturating_mul(3))
+        .use_headers()
+        .finish()
+        .expect("governor config: per_second>0 and burst_size>0 guaranteed by LimitsConfig defaults");
+
+    // /ws on its own router, no GovernorLayer.
+    let ws_router = Router::new().merge(ws::routes());
+
+    // Everything else gets the auth middleware + governor.
+    let api_router = Router::new()
         .merge(api::routes())
-        .merge(ws::routes())
         .merge(static_files::routes())
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+        .layer(tower_governor::GovernorLayer {
+            config: std::sync::Arc::new(governor_config),
+        });
+
+    Router::new()
+        .merge(ws_router)
+        .merge(api_router)
         .layer(cors)
         .layer(axum::extract::Extension(state))
 }

@@ -282,7 +282,12 @@ async fn run_serve(cfg: config::Config, config_path: PathBuf) {
             log_timezone,
             cfg.token.clone(),
             cfg.limits.clone(),
-        ),
+        )
+        // Enable ConnectInfo<SocketAddr> in request extensions. Required by
+        // tower_governor's PeerIpKeyExtractor to obtain the TCP peer IP for
+        // per-IP rate limiting. Without this, every request falls into the
+        // same bucket (limiter effectively useless) or errors on extraction.
+        .into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
     .with_graceful_shutdown(daemon::shutdown_signal());
 
