@@ -536,15 +536,6 @@ pub enum WSMessage {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchMatch {
-    pub line_number: u64,
-    pub offset: u64,
-    pub content: String,
-    pub match_start: usize,
-    pub match_end: usize,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

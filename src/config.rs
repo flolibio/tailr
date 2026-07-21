@@ -381,7 +381,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("config.toml");
         let mut f = fs::File::create(&config_path).unwrap();
-        write!(f, "bind = \"127.0.0.1:8080\"\n").unwrap();
+        writeln!(f, "bind = \"127.0.0.1:8080\"").unwrap();
 
         let config = load_config(&config_path, None, None, false, None, None).unwrap();
         assert_eq!(config.limits.max_ws_connections, 50);

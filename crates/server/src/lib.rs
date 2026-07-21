@@ -11,7 +11,7 @@ use axum::response::{IntoResponse, Response};
 use axum::Router;
 use dashmap::DashMap;
 use tailr_protocol::{LogLevelConfig, LogTimezone};
-use tailr_search_engine::{LevelDetector, SearchEngine};
+use tailr_search_engine::LevelDetector;
 use tailr_tail_engine::{FileWatcher, LineIndex};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -22,7 +22,6 @@ use tower_http::cors::{Any, CorsLayer};
 
 pub struct AppState {
     pub watcher: Arc<Mutex<FileWatcher>>,
-    pub search_engine: SearchEngine,
     pub line_indices: DashMap<PathBuf, LineIndex>,
     pub file_subscribers: Mutex<HashMap<String, ws::FileSubscribers>>,
     /// Global WS client registry (client_id → sender), independent of file
@@ -113,7 +112,6 @@ pub fn app(
 
     let state = Arc::new(AppState {
         watcher: Arc::new(Mutex::new(watcher)),
-        search_engine: SearchEngine::new(),
         line_indices: DashMap::new(),
         file_subscribers: Mutex::new(HashMap::new()),
         ws_clients: Mutex::new(HashMap::new()),

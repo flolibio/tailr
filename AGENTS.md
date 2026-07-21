@@ -13,7 +13,7 @@ src/daemon.rs         # Daemonization, PID file, signal handling, service file g
 crates/
   protocol/           # Shared types: LogEntry, WSMessage, LogLevel, detect_level(), try_parse_timestamp()
   tail-engine/        # File watching (notify), incremental LineIndex (memmap2), TailSession
-  search-engine/      # grep-based search (grep-regex/grep-searcher), LogFilter (precompiled regex)
+  search-engine/      # LevelDetector (dynamic log-level detection from user-configured keywords)
   server/             # Axum app: REST API, WebSocket handler, static file serving
                       # Also owns upgrade.rs: UpgradeEngine (shared by CLI + Web) + UpgradeService (Web-only)
 frontend/             # Vue 3 + TypeScript + Vite SPA
@@ -25,7 +25,7 @@ frontend/             # Vue 3 + TypeScript + Vite SPA
 - `crates/server` is the hub — depends on all other crates, owns `AppState` and `app()` router factory.
 - `crates/protocol` has zero internal deps; all other crates depend on it. Contains shared utility functions (`detect_level`, `try_parse_timestamp`, `try_parse_json_fields`).
 - `crates/tail-engine` uses `notify` for inotify + polling fallback; `TailSession` tracks file offset/inode for log-rotate awareness.
-- `crates/search-engine` uses `memmap2` + `grep-regex` for fast file search. `LogFilter` compiles regex once via builder pattern.
+- `crates/search-engine` provides `LevelDetector` (zero-alloc ASCII keyword matching from user-configured levels). The grep/filter code was removed in v0.10.0 as dead code; multi-file search is planned for v0.12 as a fresh design.
 
 ## CLI
 
@@ -117,7 +117,7 @@ Restricted to: `Authorization`, `Content-Type`, `X-Requested-With` headers. Meth
 ```bash
 cargo test                          # all workspace tests
 cargo test -p tailr-tail-engine     # single crate
-cargo test -p tailr-search-engine test_literal_search_basic  # single test
+cargo test -p tailr-search-engine   # LevelDetector tests
 ```
 
 Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
@@ -128,9 +128,8 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 - WS protocol: tagged enum via `serde(tag = "type", rename_all = "camelCase")`.
 - `Cargo.lock` is committed to version control (binary crate, ensures reproducible CI/release builds).
 - No `rustfmt.toml` or `clippy.toml` — use defaults.
-- `LineIndex` and `SearchEngine` use memory-mapped files; test on files small enough for `tempfile`.
+- `LineIndex` uses memory-mapped files; test on files small enough for `tempfile`.
 - `detect_level` uses zero-alloc ASCII comparison (`contains_case_insensitive`), no heap allocation.
-- `LogFilter` uses builder pattern (`with_pattern`, `with_levels`, `with_time`), precompiles regex.
 - File browser filters non-text files by extension + null-byte detection; skips empty directories (recursion depth ≤ 2).
 - Frontend uses `useAuth` composable for token management (localStorage key: `tailr-token`).
 
@@ -151,10 +150,7 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 | Route | Method | Purpose |
 |---|---|---|
 | `/api/files` | GET | List log files (filtered: text files only, no empty dirs) |
-| `/api/file/content` | GET | Paginated file content (offset/limit) |
 | `/api/file/tail` | GET | Last N lines |
-| `/api/file/info` | GET | File metadata + line count |
-| `/api/search` | GET | Grep search with context, level/time filters |
 | `/api/config/log-levels` | GET | Get current log level configuration |
 | `/api/config/log-levels` | POST | Save log level configuration (requires CSRF header when token set) |
 | `/api/upgrade/check` | GET | Check for newer release (read-only; returns `supported` platform flag) |

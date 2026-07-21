@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use tailr_protocol::{try_parse_timestamp, LogEntry, LogLevelConfig, LogTimezone};
-use tailr_search_engine::{LevelDetector, LogFilter, SearchOptions};
+use tailr_search_engine::LevelDetector;
 use tailr_tail_engine::LineIndex;
 
 use crate::AppState;
@@ -79,25 +79,6 @@ const MAX_LIST_ENTRIES: usize = 5000;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct FileContentData {
-    total_lines: u64,
-    offset: u64,
-    limit: u64,
-    has_more: bool,
-    entries: Vec<LogEntry>,
-}
-
-#[derive(Deserialize)]
-struct FileContentParams {
-    path: String,
-    #[serde(default)]
-    offset: Option<u64>,
-    #[serde(default)]
-    limit: Option<u64>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct FileTailData {
     entries: Vec<LogEntry>,
     total_lines: u64,
@@ -108,55 +89,6 @@ struct FileTailParams {
     path: String,
     #[serde(default)]
     lines: Option<u64>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FileInfoData {
-    size: u64,
-    modified: Option<String>,
-    line_count: u64,
-    inode: u64,
-}
-
-#[derive(Deserialize)]
-struct FileInfoParams {
-    path: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SearchData {
-    matches: Vec<SearchMatchResult>,
-    total_matches: usize,
-    has_more: bool,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SearchMatchResult {
-    line_number: u64,
-    content: String,
-    context_before: Vec<String>,
-    context_after: Vec<String>,
-}
-
-#[derive(Deserialize)]
-struct SearchParams {
-    path: String,
-    q: String,
-    #[serde(default)]
-    regex: Option<bool>,
-    #[serde(default)]
-    levels: Option<String>,
-    #[serde(default)]
-    from: Option<String>,
-    #[serde(default)]
-    to: Option<String>,
-    #[serde(default)]
-    context: Option<u32>,
-    #[serde(default)]
-    limit: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -177,10 +109,7 @@ struct UpgradeCheckParams {
 pub fn routes() -> Router {
     Router::new()
         .route("/api/files", get(list_files))
-        .route("/api/file/content", get(file_content))
         .route("/api/file/tail", get(file_tail))
-        .route("/api/file/info", get(file_info))
-        .route("/api/search", get(search))
         .route("/api/health", get(health))
         .route("/api/config/log-levels", get(get_log_levels).post(save_log_levels))
         .route("/api/upgrade/check", get(check_upgrade))
@@ -461,59 +390,6 @@ async fn is_likely_text(path: &std::path::Path) -> bool {
     !buf[..n].contains(&0)
 }
 
-async fn file_content(
-    Query(params): Query<FileContentParams>,
-    Extension(state): Extension<Arc<AppState>>,
-) -> Result<Json<ApiResponse<FileContentData>>, StatusCode> {
-    let path = match validate_path(&params.path, &state.allowed_dirs, &state.log_files) {
-        Ok(p) => p,
-        Err(StatusCode::NOT_FOUND) => return Ok(Json(ApiResponse::err("file not found"))),
-        Err(_) => return Ok(Json(ApiResponse::err("access denied"))),
-    };
-
-    let offset = params.offset.unwrap_or(0);
-    let limit = params.limit.unwrap_or(100).min(1000);
-
-    let index = get_or_build_index(&state, &path).await;
-    let total_lines = index.total_lines();
-
-    if offset >= total_lines {
-        return Ok(Json(ApiResponse::ok(FileContentData {
-            total_lines,
-            offset,
-            limit,
-            has_more: false,
-            entries: Vec::new(),
-        })));
-    }
-
-    let start_byte = match index.offset_of_line(offset) {
-        Some(b) => b,
-        None => return Ok(Json(ApiResponse::err("invalid offset"))),
-    };
-
-    let detector = state.level_detector.load();
-    let entries = read_lines_from(
-        &path,
-        start_byte,
-        limit as usize,
-        offset,
-        &detector,
-        &state.log_timezone,
-    )
-    .await;
-    let end_offset = offset + entries.len() as u64;
-    let has_more = end_offset < total_lines;
-
-    Ok(Json(ApiResponse::ok(FileContentData {
-        total_lines,
-        offset,
-        limit,
-        has_more,
-        entries,
-    })))
-}
-
 async fn file_tail(
     Query(params): Query<FileTailParams>,
     Extension(state): Extension<Arc<AppState>>,
@@ -561,157 +437,6 @@ async fn file_tail(
     Json(ApiResponse::ok(FileTailData {
         entries,
         total_lines: tail.total_lines,
-    }))
-}
-
-async fn file_info(
-    Query(params): Query<FileInfoParams>,
-    Extension(state): Extension<Arc<AppState>>,
-) -> Json<ApiResponse<FileInfoData>> {
-    let path = match validate_path(&params.path, &state.allowed_dirs, &state.log_files) {
-        Ok(p) => p,
-        Err(StatusCode::NOT_FOUND) => return Json(ApiResponse::err("file not found")),
-        Err(_) => return Json(ApiResponse::err("access denied")),
-    };
-
-    let metadata = match tokio::fs::metadata(&path).await {
-        Ok(m) => m,
-        Err(e) => {
-            tracing::error!("failed to stat file {:?}: {}", path, e);
-            return Json(ApiResponse::err("Internal server error"));
-        }
-    };
-
-    let modified = metadata
-        .modified()
-        .ok()
-        .map(|t| {
-            let dt: DateTime<Utc> = t.into();
-            dt.to_rfc3339()
-        });
-
-    #[cfg(unix)]
-    let inode = {
-        use std::os::unix::fs::MetadataExt;
-        metadata.ino()
-    };
-    #[cfg(not(unix))]
-    let inode = 0;
-
-    let index = get_or_build_index(&state, &path).await;
-    let line_count = index.total_lines();
-
-    Json(ApiResponse::ok(FileInfoData {
-        size: metadata.len(),
-        modified,
-        line_count,
-        inode,
-    }))
-}
-
-async fn search(
-    Query(params): Query<SearchParams>,
-    Extension(state): Extension<Arc<AppState>>,
-) -> Json<ApiResponse<SearchData>> {
-    let path = match validate_path(&params.path, &state.allowed_dirs, &state.log_files) {
-        Ok(p) => p,
-        Err(StatusCode::NOT_FOUND) => return Json(ApiResponse::err("file not found")),
-        Err(_) => return Json(ApiResponse::err("access denied")),
-    };
-
-    let context = params.context.unwrap_or(3).min(50);
-    let limit = params.limit.unwrap_or(100).min(10000);
-    let is_regex = params.regex.unwrap_or(false);
-
-    let all_levels: Vec<String> = params
-        .levels
-        .map(|s| {
-            s.split(',')
-                .map(|l| l.trim().to_uppercase())
-                .filter(|l| !l.is_empty())
-                .collect()
-        })
-        .unwrap_or_default();
-
-    let time_from = params.from.and_then(|s| {
-        DateTime::parse_from_rfc3339(&s)
-            .ok()
-            .map(|dt| dt.with_timezone(&Utc))
-    });
-    let time_to = params.to.and_then(|s| {
-        DateTime::parse_from_rfc3339(&s)
-            .ok()
-            .map(|dt| dt.with_timezone(&Utc))
-    });
-
-    let detector = state.level_detector.load();
-
-    let filter_levels = {
-        let known: Vec<String> = detector
-            .level_names()
-            .into_iter()
-            .map(|s| s.to_uppercase())
-            .collect();
-        let all_selected = !known.is_empty()
-            && known.iter().all(|k| all_levels.contains(k));
-        if all_selected { Vec::new() } else { all_levels }
-    };
-
-    let opts = SearchOptions {
-        pattern: params.q.clone(),
-        is_regex,
-        case_insensitive: false,
-        context_before: context,
-        context_after: context,
-        max_results: limit,
-        level_filter: filter_levels.first().cloned(),
-    };
-
-    let result = match state.search_engine.search(&path, &opts) {
-        Ok(r) => r,
-        Err(e) => {
-            tracing::error!("search failed on {:?}: {}", path, e);
-            return Json(ApiResponse::err("Internal server error"));
-        }
-    };
-
-    let filter = LogFilter::new()
-        .with_levels(filter_levels)
-        .with_time(time_from, time_to);
-
-    let matches: Vec<SearchMatchResult> = result
-        .matches
-        .into_iter()
-        .filter(|m| {
-            if !filter.levels.is_empty() || filter.time_from.is_some() || filter.time_to.is_some() {
-                let entry = tailr_protocol::LogEntry {
-                    line_num: m.line_num,
-                    raw: m.content.clone(),
-                    level: detector.detect(&m.content),
-                    timestamp: None,
-                    raw_timestamp: None,
-                    fields: None,
-                };
-                filter.matches(&entry)
-            } else {
-                true
-            }
-        })
-        .map(|m| SearchMatchResult {
-            line_number: m.line_num,
-            content: m.content,
-            context_before: m.context_before,
-            context_after: m.context_after,
-        })
-        .collect();
-
-    let total_matches = result.total_matches;
-    let has_more = result.has_more;
-
-    Json(ApiResponse::ok(SearchData {
-        matches,
-        total_matches,
-        has_more,
     }))
 }
 
@@ -827,42 +552,6 @@ async fn save_log_levels(
     state.level_config.store(Arc::new(new_config.clone()));
 
     Ok(Json(ApiResponse::ok(new_config)))
-}
-
-async fn get_or_build_index(state: &AppState, path: &PathBuf) -> LineIndex {
-    if let Some(entry) = state.line_indices.get(path) {
-        let idx = entry.value().clone();
-        let file_size = tokio::fs::metadata(path).await.map(|m| m.len()).unwrap_or(0);
-
-        if file_size < idx.file_size {
-            drop(entry);
-            match LineIndex::build(path) {
-                Ok(new_idx) => {
-                    state.line_indices.insert(path.clone(), new_idx.clone());
-                    return new_idx;
-                }
-                Err(_) => return LineIndex::new(),
-            }
-        }
-
-        if file_size > idx.file_size {
-            drop(entry);
-            let mut idx_mut = idx.clone();
-            if idx_mut.update(path, file_size).is_ok() {
-                state.line_indices.insert(path.clone(), idx_mut.clone());
-                return idx_mut;
-            }
-        }
-
-        return idx;
-    }
-    match LineIndex::build(path) {
-        Ok(idx) => {
-            state.line_indices.insert(path.clone(), idx.clone());
-            idx
-        }
-        Err(_) => LineIndex::new(),
-    }
 }
 
 async fn read_lines_from(

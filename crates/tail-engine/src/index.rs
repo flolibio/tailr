@@ -13,7 +13,6 @@ pub struct TailResult {
 pub struct LineIndex {
     pub offsets: Vec<u64>,
     pub file_size: u64,
-    ends_with_newline: bool,
 }
 
 impl LineIndex {
@@ -21,28 +20,7 @@ impl LineIndex {
         Self {
             offsets: Vec::new(),
             file_size: 0,
-            ends_with_newline: false,
         }
-    }
-
-    pub fn count_lines(path: &Path) -> io::Result<u64> {
-        let file = File::open(path)?;
-        let metadata = file.metadata()?;
-        let file_size = metadata.len();
-
-        if file_size == 0 {
-            return Ok(0);
-        }
-
-        let mmap = unsafe { Mmap::map(&file)? };
-        let nl_count = memchr::memchr_iter(b'\n', &mmap).count() as u64;
-        let ends_with_newline = mmap[file_size as usize - 1] == b'\n';
-
-        Ok(if ends_with_newline || nl_count == 0 {
-            nl_count
-        } else {
-            nl_count + 1
-        })
     }
 
     pub fn build(path: &Path) -> io::Result<Self> {
@@ -54,7 +32,6 @@ impl LineIndex {
             return Ok(Self {
                 offsets: vec![0],
                 file_size: 0,
-                ends_with_newline: false,
             });
         }
 
@@ -71,8 +48,6 @@ impl LineIndex {
             }
         }
 
-        let ends_with_newline = mmap[file_size as usize - 1] == b'\n';
-
         debug!(
             path = %path.display(),
             lines = offsets.len(),
@@ -83,51 +58,7 @@ impl LineIndex {
         Ok(Self {
             offsets,
             file_size,
-            ends_with_newline,
         })
-    }
-
-    pub fn update(&mut self, path: &Path, new_size: u64) -> io::Result<()> {
-        if new_size <= self.file_size {
-            return Ok(());
-        }
-
-        let file = File::open(path)?;
-        let metadata = file.metadata()?;
-        let actual_size = metadata.len();
-
-        if actual_size <= self.file_size {
-            return Ok(());
-        }
-
-        let mmap = unsafe { Mmap::map(&file)? };
-        let start = self.file_size as usize;
-        let end = actual_size as usize;
-
-        if self.ends_with_newline && self.file_size < actual_size {
-            self.offsets.push(self.file_size);
-        }
-
-        for i in start..end {
-            if mmap[i] == b'\n' {
-                let next = (i + 1) as u64;
-                if next < actual_size {
-                    self.offsets.push(next);
-                }
-            }
-        }
-
-        self.ends_with_newline = mmap[end - 1] == b'\n';
-        self.file_size = actual_size;
-
-        debug!(
-            path = %path.display(),
-            lines = self.offsets.len(),
-            file_size = actual_size,
-            "LineIndex updated"
-        );
-
-        Ok(())
     }
 
     pub fn offset_of_line(&self, line: u64) -> Option<u64> {
@@ -271,7 +202,6 @@ mod tests {
         let idx = LineIndex::build(f.path()).unwrap();
         assert_eq!(idx.offsets, vec![0, 6, 12]);
         assert_eq!(idx.file_size, 18);
-        assert!(idx.ends_with_newline);
     }
 
     #[test]
@@ -280,7 +210,6 @@ mod tests {
         f.write_all(b"line0\nline1").unwrap();
         let idx = LineIndex::build(f.path()).unwrap();
         assert_eq!(idx.offsets, vec![0, 6]);
-        assert!(!idx.ends_with_newline);
     }
 
     #[test]
@@ -304,42 +233,6 @@ mod tests {
         assert_eq!(idx.line_of_offset(4), 1);
         assert_eq!(idx.line_of_offset(7), 1);
         assert_eq!(idx.line_of_offset(8), 2);
-    }
-
-    #[test]
-    fn test_update_incremental() {
-        let mut f = NamedTempFile::new().unwrap();
-        f.write_all(b"line0\nline1\n").unwrap();
-        f.flush().unwrap();
-        let mut idx = LineIndex::build(f.path()).unwrap();
-        assert_eq!(idx.offsets, vec![0, 6]);
-
-        use std::io::Seek;
-        f.seek(std::io::SeekFrom::End(0)).unwrap();
-        f.write_all(b"line2\n").unwrap();
-        f.flush().unwrap();
-
-        let new_size = f.as_file().metadata().unwrap().len();
-        idx.update(f.path(), new_size).unwrap();
-        assert_eq!(idx.offsets, vec![0, 6, 12]);
-    }
-
-    #[test]
-    fn test_update_no_trailing_newline() {
-        let mut f = NamedTempFile::new().unwrap();
-        f.write_all(b"line0\nline1\n").unwrap();
-        f.flush().unwrap();
-        let mut idx = LineIndex::build(f.path()).unwrap();
-        assert_eq!(idx.offsets, vec![0, 6]);
-
-        use std::io::Seek;
-        f.seek(std::io::SeekFrom::End(0)).unwrap();
-        f.write_all(b"line2").unwrap();
-        f.flush().unwrap();
-
-        let new_size = f.as_file().metadata().unwrap().len();
-        idx.update(f.path(), new_size).unwrap();
-        assert_eq!(idx.offsets, vec![0, 6, 12]);
     }
 
     #[test]
