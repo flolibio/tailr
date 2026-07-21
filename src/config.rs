@@ -46,6 +46,18 @@ log_timezone = "local"
 
 # Custom log file path
 # log_file = "/var/log/tailr.log"
+
+# Resource limits (optional, all defaults shown)
+# [limits]
+# WebSocket 最大并发连接数（全局，所有客户端共享）
+# 内网小团队（5-10 人，每人约 3-5 个 tab/连接）默认 50 够用；
+# 单人使用可调到 20；大型团队可调到 100+
+# max_ws_connections = 50
+#
+# REST API 限流：每 IP 每秒最大请求数（per-IP，每个客户端独立配额）
+# 按 TCP 对端 IP 限流（tailr 直连部署，无反向代理）
+# 单用户正常使用 < 5 req/s，留 4x 余量；内网多人各自独立桶互不影响
+# rate_limit_rps = 20
 "#;
 
 /// Main configuration for tailr.
@@ -64,6 +76,8 @@ pub struct Config {
     pub token: String,
     /// Timezone for naive log timestamps. Values: "local" | "utc" | "+HH:MM".
     pub log_timezone: String,
+    /// Resource limits for production hardening.
+    pub limits: LimitsConfig,
 }
 
 /// Daemon-specific configuration.
@@ -72,6 +86,28 @@ pub struct Config {
 pub struct DaemonConfig {
     pub pid_file: Option<PathBuf>,
     pub log_file: Option<PathBuf>,
+}
+
+/// Resource limits for production hardening.
+/// All thresholds are user-tunable via `[limits]` section in config.toml.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LimitsConfig {
+    /// 全局 WS 连接上限（含所有客户端）。默认 50——覆盖内网 5-10 人团队
+    /// ×每人 3-5 tab 的场景，留余量。触顶通常是前端 bug（WS 未释放）或异常。
+    pub max_ws_connections: usize,
+    /// 每 IP 每秒最大 REST 请求数（GCRA 持续速率）。默认 20——单用户正常使用 < 5 req/s。
+    /// 实际瞬时突发由 `burst_size = rate_limit_rps * 3` 覆盖（不暴露给用户配置）。
+    pub rate_limit_rps: u32,
+}
+
+impl Default for LimitsConfig {
+    fn default() -> Self {
+        Self {
+            max_ws_connections: 50,
+            rate_limit_rps: 20,
+        }
+    }
 }
 
 impl Default for Config {
@@ -83,6 +119,7 @@ impl Default for Config {
             log_levels: Some(default_log_levels("general")),
             token: String::new(),
             log_timezone: "local".to_string(),
+            limits: LimitsConfig::default(),
         }
     }
 }
@@ -326,6 +363,62 @@ mod tests {
         assert!(config.daemon.pid_file.is_none());
         assert!(config.daemon.log_file.is_none());
         assert!(config.token.is_empty());
+        // Limits defaults
+        assert_eq!(config.limits.max_ws_connections, 50);
+        assert_eq!(config.limits.rate_limit_rps, 20);
+    }
+
+    #[test]
+    fn test_limits_default_independent() {
+        let limits = LimitsConfig::default();
+        assert_eq!(limits.max_ws_connections, 50);
+        assert_eq!(limits.rate_limit_rps, 20);
+    }
+
+    #[test]
+    fn test_limits_backward_compat_no_section() {
+        // Old config without [limits] section should still load (uses defaults).
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+        let mut f = fs::File::create(&config_path).unwrap();
+        write!(f, "bind = \"127.0.0.1:8080\"\n").unwrap();
+
+        let config = load_config(&config_path, None, None, false, None, None).unwrap();
+        assert_eq!(config.limits.max_ws_connections, 50);
+        assert_eq!(config.limits.rate_limit_rps, 20);
+    }
+
+    #[test]
+    fn test_limits_custom_values() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+        let mut f = fs::File::create(&config_path).unwrap();
+        write!(
+            f,
+            r#"
+[limits]
+max_ws_connections = 100
+rate_limit_rps = 50
+"#
+        )
+        .unwrap();
+
+        let config = load_config(&config_path, None, None, false, None, None).unwrap();
+        assert_eq!(config.limits.max_ws_connections, 100);
+        assert_eq!(config.limits.rate_limit_rps, 50);
+    }
+
+    #[test]
+    fn test_limits_partial_section_uses_defaults() {
+        // Partial [limits] section: missing keys fall back to defaults via #[serde(default)].
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+        let mut f = fs::File::create(&config_path).unwrap();
+        write!(f, "[limits]\nmax_ws_connections = 10\n").unwrap();
+
+        let config = load_config(&config_path, None, None, false, None, None).unwrap();
+        assert_eq!(config.limits.max_ws_connections, 10);
+        assert_eq!(config.limits.rate_limit_rps, 20); // default
     }
 
     #[test]
