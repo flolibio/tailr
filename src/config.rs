@@ -12,6 +12,10 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 use tailr_protocol::{LevelDef, LogLevelConfig};
+// Re-use the LimitsConfig defined in tailr-server (which owns AppState and
+// actually consumes the limits). Defining it there avoids a cyclic dep:
+// tailr-server can't depend on the tailr binary crate.
+pub use tailr_server::LimitsConfig;
 
 /// Default config file template written on first run.
 const DEFAULT_CONFIG_TEMPLATE: &str = r#"# tailr configuration file
@@ -86,28 +90,6 @@ pub struct Config {
 pub struct DaemonConfig {
     pub pid_file: Option<PathBuf>,
     pub log_file: Option<PathBuf>,
-}
-
-/// Resource limits for production hardening.
-/// All thresholds are user-tunable via `[limits]` section in config.toml.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct LimitsConfig {
-    /// 全局 WS 连接上限（含所有客户端）。默认 50——覆盖内网 5-10 人团队
-    /// ×每人 3-5 tab 的场景，留余量。触顶通常是前端 bug（WS 未释放）或异常。
-    pub max_ws_connections: usize,
-    /// 每 IP 每秒最大 REST 请求数（GCRA 持续速率）。默认 20——单用户正常使用 < 5 req/s。
-    /// 实际瞬时突发由 `burst_size = rate_limit_rps * 3` 覆盖（不暴露给用户配置）。
-    pub rate_limit_rps: u32,
-}
-
-impl Default for LimitsConfig {
-    fn default() -> Self {
-        Self {
-            max_ws_connections: 50,
-            rate_limit_rps: 20,
-        }
-    }
 }
 
 impl Default for Config {

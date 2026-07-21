@@ -275,7 +275,14 @@ async fn run_serve(cfg: config::Config, config_path: PathBuf) {
 
     let server = axum::serve(
         listener,
-        app(log_paths, config_path, level_config, log_timezone, cfg.token.clone()),
+        app(
+            log_paths,
+            config_path,
+            level_config,
+            log_timezone,
+            cfg.token.clone(),
+            cfg.limits.clone(),
+        ),
     )
     .with_graceful_shutdown(daemon::shutdown_signal());
 

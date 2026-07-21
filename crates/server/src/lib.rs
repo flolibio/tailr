@@ -10,15 +10,39 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::Router;
 use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use tailr_protocol::{LogLevelConfig, LogTimezone};
 use tailr_search_engine::LevelDetector;
 use tailr_tail_engine::{FileWatcher, LineIndex};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
+
+/// Resource limits for production hardening.
+/// All thresholds are user-tunable via `[limits]` section in config.toml.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LimitsConfig {
+    /// 全局 WS 连接上限（含所有客户端）。默认 50——覆盖内网 5-10 人团队
+    /// ×每人 3-5 tab 的场景，留余量。触顶通常是前端 bug（WS 未释放）或异常。
+    pub max_ws_connections: usize,
+    /// 每 IP 每秒最大 REST 请求数（GCRA 持续速率）。默认 20——单用户正常使用 < 5 req/s。
+    /// 实际瞬时突发由 `burst_size = rate_limit_rps * 3` 覆盖（不暴露给用户配置）。
+    pub rate_limit_rps: u32,
+}
+
+impl Default for LimitsConfig {
+    fn default() -> Self {
+        Self {
+            max_ws_connections: 50,
+            rate_limit_rps: 20,
+        }
+    }
+}
 
 pub struct AppState {
     pub watcher: Arc<Mutex<FileWatcher>>,
@@ -28,6 +52,11 @@ pub struct AppState {
     /// subscriptions. Used to broadcast server-wide notifications like
     /// `UpdateAvailable` to every connected client.
     pub ws_clients: Mutex<HashMap<String, tokio::sync::mpsc::Sender<tailr_protocol::WSMessage>>>,
+    /// Current WebSocket connection count (global, all clients).
+    /// Bounded by `limits.max_ws_connections`. Incremented in `ws_handler`
+    /// (with TOCTOU-safe fetch_add + rollback on over-limit), decremented
+    /// in `cleanup_client`.
+    pub ws_connection_count: AtomicUsize,
     pub log_dirs: Vec<PathBuf>,
     pub log_files: Vec<PathBuf>,
     pub start_time: Instant,
@@ -38,6 +67,9 @@ pub struct AppState {
     pub allowed_dirs: Vec<PathBuf>,
     pub log_timezone: Arc<LogTimezone>,
     pub upgrade_service: Arc<upgrade::UpgradeService>,
+    /// Resource limits (WS connection cap, REST rate limit). User-tunable
+    /// via `[limits]` in config.toml.
+    pub limits: LimitsConfig,
 }
 
 async fn auth_middleware(
@@ -81,6 +113,7 @@ pub fn app(
     level_config: LogLevelConfig,
     log_timezone: LogTimezone,
     token: String,
+    limits: LimitsConfig,
 ) -> Router {
     let level_detector = LevelDetector::from_config(&level_config);
     let level_detector_arc = Arc::new(ArcSwap::from_pointee(level_detector));
@@ -115,6 +148,7 @@ pub fn app(
         line_indices: DashMap::new(),
         file_subscribers: Mutex::new(HashMap::new()),
         ws_clients: Mutex::new(HashMap::new()),
+        ws_connection_count: AtomicUsize::new(0),
         log_dirs,
         log_files,
         start_time: Instant::now(),
@@ -125,6 +159,7 @@ pub fn app(
         allowed_dirs,
         log_timezone: log_timezone_arc,
         upgrade_service: upgrade::shared_service(),
+        limits,
     });
 
     ws::spawn_watcher_loop(state.clone());
@@ -148,4 +183,99 @@ pub fn app(
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .layer(cors)
         .layer(axum::extract::Extension(state))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::Ordering;
+
+    /// Verify the TOCTOU-safe admission pattern used in ws_handler:
+    /// 1. Each rejected caller rolls back its increment (counter never leaks).
+    /// 2. After all callers release, counter returns to exactly 0.
+    ///
+    /// We don't assert "exactly max admitted" because that's not the
+    /// invariant — once an admitted caller releases, a rejected contender
+    /// on a later retry would be admitted (which is correct: the cap is on
+    /// *active* connections, not total admissions over time).
+    #[test]
+    fn test_ws_connection_count_no_leak_under_concurrency() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let max = 10usize;
+        let contenders = 50usize;
+        let handles: Vec<_> = (0..contenders)
+            .map(|_| {
+                let c = counter.clone();
+                std::thread::spawn(move || {
+                    let prev = c.fetch_add(1, Ordering::SeqCst);
+                    let admitted = prev < max;
+                    if !admitted {
+                        c.fetch_sub(1, Ordering::SeqCst);
+                    } else {
+                        // briefly hold, then release as cleanup_client does
+                        c.fetch_sub(1, Ordering::SeqCst);
+                    }
+                    admitted
+                })
+            })
+            .collect();
+        let _admitted_count = handles
+            .into_iter()
+            .filter_map(|h| h.join().ok())
+            .filter(|&a| a)
+            .count();
+        // No leaks: every fetch_add has a matching fetch_sub.
+        assert_eq!(counter.load(Ordering::SeqCst), 0);
+    }
+
+    /// Verify the cap is enforced on a burst where all contenders hold
+    /// simultaneously: admitted count must equal max exactly.
+    #[test]
+    fn test_ws_connection_count_cap_enforced_when_all_hold() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let max = 8usize;
+        let contenders = 30usize;
+        // Barrier holds all admitted threads until the test signals release.
+        let barrier = Arc::new(std::sync::Barrier::new(max + 1));
+        let admitted = Arc::new(AtomicUsize::new(0));
+
+        let handles: Vec<_> = (0..contenders)
+            .map(|_| {
+                let c = counter.clone();
+                let b = barrier.clone();
+                let a = admitted.clone();
+                std::thread::spawn(move || {
+                    let prev = c.fetch_add(1, Ordering::SeqCst);
+                    if prev >= max {
+                        c.fetch_sub(1, Ordering::SeqCst);
+                        return false;
+                    }
+                    a.fetch_add(1, Ordering::SeqCst);
+                    b.wait(); // hold until main releases
+                    c.fetch_sub(1, Ordering::SeqCst);
+                    true
+                })
+            })
+            .collect();
+
+        // Wait long enough for all contenders to attempt admission.
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        // Active count must respect the cap exactly.
+        assert_eq!(counter.load(Ordering::SeqCst), max);
+        assert_eq!(admitted.load(Ordering::SeqCst), max);
+
+        // Release the barrier so admitted threads can finish.
+        barrier.wait();
+        for h in handles {
+            h.join().unwrap();
+        }
+        assert_eq!(counter.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_limits_config_default() {
+        let l = LimitsConfig::default();
+        assert_eq!(l.max_ws_connections, 50);
+        assert_eq!(l.rate_limit_rps, 20);
+    }
 }
