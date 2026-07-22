@@ -26,6 +26,34 @@ export class AuthError extends Error {
   }
 }
 
+/** Thrown when the server returns 429 (rate limited). Carries the
+ *  Retry-After hint in seconds when the server provides one (may be null). */
+export class RateLimitError extends Error {
+  readonly retryAfter: number | null
+  constructor(retryAfter: number | null) {
+    super('Rate limited')
+    this.name = 'RateLimitError'
+    this.retryAfter = retryAfter
+  }
+}
+
+/** Parse Retry-After header (seconds) from a 429 response. Returns null if
+ *  the header is missing or unparseable. */
+function parseRetryAfter(res: Response): number | null {
+  const raw = res.headers.get('Retry-After')
+  if (!raw) return null
+  const n = parseInt(raw, 10)
+  return Number.isNaN(n) ? null : n
+}
+
+/** Check a fetch Response for 429 and throw RateLimitError if so.
+ *  Used by both request() and the direct-fetch functions that bypass it. */
+function checkRateLimit(res: Response): void {
+  if (res.status === 429) {
+    throw new RateLimitError(parseRetryAfter(res))
+  }
+}
+
 const BASE = ''
 
 function getToken(): string {
@@ -45,6 +73,7 @@ async function request<T>(url: string): Promise<T> {
     handleAuthError()
     throw new AuthError()
   }
+  checkRateLimit(res)
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}: ${res.statusText}`)
   }
@@ -88,6 +117,7 @@ export async function verifyToken(candidate: string): Promise<boolean> {
   }
   const res = await fetch(`${BASE}/api/health`, { headers })
   if (res.status === 401) return false
+  checkRateLimit(res)
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
   return true
 }
@@ -135,6 +165,7 @@ export async function performUpgrade(): Promise<UpgradeResult> {
   if (res.status === 403) {
     throw new Error('CSRF check failed')
   }
+  checkRateLimit(res)
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}: ${res.statusText}`)
   }
@@ -183,6 +214,7 @@ export async function saveLogLevelConfig(config: LogLevelConfig): Promise<LogLev
     handleAuthError()
     throw new AuthError()
   }
+  checkRateLimit(res)
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}: ${res.statusText}`)
   }

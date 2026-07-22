@@ -76,8 +76,19 @@ export class WSClient {
         }
       }
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (ev: CloseEvent) => {
         this.stopHeartbeat()
+        // 1013 (Try Again Later) = server hit the ws_connection_count cap and
+        // closed immediately after upgrade. Browser WS API hides HTTP
+        // handshake status codes, so the server uses close code 1013 instead
+        // of HTTP 429 to signal this. Stop auto-reconnecting — retrying would
+        // just hammer the same cap and amplify load. Surface a manual retry
+        // via the 'rateLimited' event.
+        if (ev.code === 1013) {
+          this.shouldConnect = false
+          this.emit('rateLimited', ev.reason || 'ws connection limit reached')
+          return
+        }
         this.emit('close')
         this.scheduleReconnect()
       }
@@ -248,6 +259,15 @@ export class WSClient {
       this.ws.close()
       this.ws = null
     }
+  }
+
+  /** Manual reconnect entry for the UI "retry" button after a 1013 close.
+   *  The 1013 handler sets `shouldConnect = false` to stop the auto-reconnect
+   *  loop; this flips it back on and starts a fresh connect(). Also resets
+   *  the backoff so the user gets an immediate attempt. */
+  retryConnect(): void {
+    this.reconnectDelay = 1000
+    this.connect()
   }
 
   // Note: there is intentionally no destroy() method. The WSClient is an

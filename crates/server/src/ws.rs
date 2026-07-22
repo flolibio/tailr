@@ -1,6 +1,5 @@
-use axum::extract::ws::{Message, WebSocket};
+use axum::extract::ws::{close_code, CloseFrame, Message, WebSocket};
 use axum::extract::{WebSocketUpgrade, Extension};
-use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
@@ -92,7 +91,28 @@ async fn ws_handler(
     let prev = state.ws_connection_count.fetch_add(1, Ordering::SeqCst);
     if prev >= state.limits.max_ws_connections {
         state.ws_connection_count.fetch_sub(1, Ordering::SeqCst);
-        return StatusCode::TOO_MANY_REQUESTS.into_response();
+        // Browser WebSocket API deliberately hides the HTTP handshake status
+        // code (security: prevent cross-origin HTTP probing). So returning
+        // HTTP 429 here would be indistinguishable from network failure on
+        // the client (CloseEvent.code === 1006 with empty reason), causing
+        // the frontend to reconnect in a tight loop and amplify load.
+        //
+        // Instead, accept the upgrade and immediately send a close frame with
+        // code 1013 (Try Again Later). The frontend reads CloseEvent.code ===
+        // 1013, surfaces a "rate limited" UI, and stops auto-reconnecting
+        // until the user clicks retry. Costs one TCP+WS handshake vs bare
+        // 429, but at the connection-cap that's negligible.
+        return ws
+            .on_upgrade(move |socket| async move {
+                let (mut tx, _rx) = socket.split();
+                let _ = tx
+                    .send(Message::Close(Some(CloseFrame {
+                        code: close_code::AGAIN,
+                        reason: "ws connection limit reached".into(),
+                    })))
+                    .await;
+            })
+            .into_response();
     }
     ws.on_upgrade(move |socket| handle_socket(socket, state)).into_response()
 }

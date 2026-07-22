@@ -132,5 +132,16 @@
     "verifying": "验证中...",
     "invalidToken": "Token 无效，请检查后重试",
     "verifyFailed": "验证失败，请检查网络后重试"
+  },
+  "errors": {
+    "rateLimited": "请求过于频繁，请稍后再试",
+    "rateLimitedWithRetry": "请求过于频繁，{seconds} 秒后重试",
+    "rateLimitTitle": "已限流",
+    "wsConnectionLimit": "WebSocket 连接数已达上限，请关闭其他标签页后重试",
+    "loadFailed": "日志加载失败",
+    "loadFailedRateLimited": "日志加载被服务端限流"
+  },
+  "common": {
+    "retry": "重试"
   }
 }

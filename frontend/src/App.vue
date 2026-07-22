@@ -36,7 +36,23 @@ const {
   setTailMode,
   reloadActiveTab,
   restoreTabs,
+  notifyWsRateLimited,
 } = useTabs()
+
+/** Retry handler for LogPanel's error-state "retry" button. The retry button
+ *  only appears on the visible (active) tab, so we reload the active tab. If
+ *  the WS was rate-limited (1013) and is stopped, also kick a manual reconnect
+ *  — a REST retry alone would load history but leave live tail frozen. */
+function handleTabRetry(path: string): void {
+  // Only the active tab's LogPanel is visible (v-show), so the retry button
+  // can only be clicked on the active tab. Guard anyway.
+  if (activeTabPath.value !== path) return
+  reloadActiveTab()
+  // If WS is stopped due to 1013, the user clicking retry means "try again"
+  // — attempt a manual reconnect. If WS is already open this is a no-op
+  // (connect() early-returns on OPEN state).
+  wsClient.retryConnect()
+}
 
 // v0.8: multi-instance — one LogPanel per tab, kept alive with v-show so each
 // tab preserves its own scrollTop / measuredHeights / expandedLines / markedLine.
@@ -353,6 +369,16 @@ onMounted(() => {
 
   // v0.9: listen for server-pushed update notifications. On first sight of a new
   // version, show a toast (deduped via localStorage) and light the Settings badge.
+  wsClient.on('rateLimited', (reason: unknown) => {
+    // WS closed with code 1013 (Try Again Later) — server hit ws_connection_count
+    // cap. The WSClient has already stopped auto-reconnecting (avoiding a storm);
+    // surface a toast so the user knows live tail is frozen and can retry.
+    if (typeof reason === 'string' && reason.length > 0) {
+      // Future: parse retry hint from reason if we encode one. For now reason
+      // is just a human-readable string, so we use the generic WS message.
+    }
+    notifyWsRateLimited()
+  })
   wsClient.on(
     'updateAvailable',
     (latest: unknown, current: unknown, releaseUrl: unknown) => {
@@ -551,6 +577,7 @@ function handleSettingsUpdate(s: Settings): void {
         :level-colors="levelDotColors"
         :display-mode="settings.displayMode"
         @stick-to-bottom="handleStickToBottom"
+        @retry="handleTabRetry(tab.path)"
       />
     </main>
 

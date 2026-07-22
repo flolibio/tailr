@@ -18,6 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   stickToBottom: []
+  retry: []
 }>()
 
 // Per-tab filtering — computed is scoped to this panel instance, so filtering
@@ -52,6 +53,15 @@ defineExpose({
       <div class="loading-spinner"></div>
       <div class="empty-text">{{ t('app.loading') }}</div>
     </div>
+    <!-- load error: getFileTail failed (e.g. 429 rate limited) -->
+    <div v-else-if="tab.loadError" class="empty-state">
+      <div class="empty-text">
+        {{ tab.loadError === 'rateLimited'
+            ? t('errors.loadFailedRateLimited')
+            : t('errors.loadFailed') }}
+      </div>
+      <button class="btn-retry-inline" @click="emit('retry')">{{ t('common.retry') }}</button>
+    </div>
     <!-- no data: loaded but entries empty (or all filtered out) -->
     <div v-else-if="filteredEntries.length === 0" class="empty-state">
       <div class="empty-text">{{ tab.filterKeywords.length ? t('app.noMatchingLogs') : t('app.waitingForData') }}</div>
@@ -79,5 +89,21 @@ defineExpose({
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Inline "retry" link button — mirrors .btn-retry-inline in AboutSection.vue
+   (scoped there, can't be shared). Keep visual consistent across error states. */
+.btn-retry-inline {
+  margin-top: var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+.btn-retry-inline:hover {
+  opacity: 0.8;
 }
 </style>
