@@ -62,6 +62,12 @@ log_timezone = "local"
 # 按 TCP 对端 IP 限流（tailr 直连部署，无反向代理）
 # 单用户正常使用 < 5 req/s，留 4x 余量；内网多人各自独立桶互不影响
 # rate_limit_rps = 20
+#
+# 是否启用 gzip 压缩响应（默认 false）
+# - 内网千兆:建议关闭。压缩 CPU 开销(~14ms/MB)大于传输节省,实测慢 10-15%
+# - 公网/弱网/VPN 远程访问:建议开启。1MB 响应家用宽带快 5x,4G 快 20x
+# 盈亏平衡点约 560 Mbps 带宽;高于此值关闭,低于此值开启
+# enable_compression = false
 "#;
 
 /// Main configuration for tailr.
@@ -348,6 +354,7 @@ mod tests {
         // Limits defaults
         assert_eq!(config.limits.max_ws_connections, 50);
         assert_eq!(config.limits.rate_limit_rps, 20);
+        assert!(!config.limits.enable_compression);
     }
 
     #[test]
@@ -355,6 +362,7 @@ mod tests {
         let limits = LimitsConfig::default();
         assert_eq!(limits.max_ws_connections, 50);
         assert_eq!(limits.rate_limit_rps, 20);
+        assert!(!limits.enable_compression); // default off (LAN is the primary scenario)
     }
 
     #[test]
@@ -368,6 +376,7 @@ mod tests {
         let config = load_config(&config_path, None, None, false, None, None).unwrap();
         assert_eq!(config.limits.max_ws_connections, 50);
         assert_eq!(config.limits.rate_limit_rps, 20);
+        assert!(!config.limits.enable_compression);
     }
 
     #[test]
@@ -381,6 +390,7 @@ mod tests {
 [limits]
 max_ws_connections = 100
 rate_limit_rps = 50
+enable_compression = true
 "#
         )
         .unwrap();
@@ -388,6 +398,7 @@ rate_limit_rps = 50
         let config = load_config(&config_path, None, None, false, None, None).unwrap();
         assert_eq!(config.limits.max_ws_connections, 100);
         assert_eq!(config.limits.rate_limit_rps, 50);
+        assert!(config.limits.enable_compression);
     }
 
     #[test]
@@ -401,6 +412,7 @@ rate_limit_rps = 50
         let config = load_config(&config_path, None, None, false, None, None).unwrap();
         assert_eq!(config.limits.max_ws_connections, 10);
         assert_eq!(config.limits.rate_limit_rps, 20); // default
+        assert!(!config.limits.enable_compression); // default
     }
 
     #[test]

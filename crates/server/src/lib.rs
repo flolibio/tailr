@@ -20,6 +20,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
 
 /// Resource limits for production hardening.
@@ -33,6 +34,13 @@ pub struct LimitsConfig {
     /// 每 IP 每秒最大 REST 请求数（GCRA 持续速率）。默认 20——单用户正常使用 < 5 req/s。
     /// 实际瞬时突发由 `burst_size = rate_limit_rps * 3` 覆盖（不暴露给用户配置）。
     pub rate_limit_rps: u32,
+    /// 是否启用 gzip 压缩响应。默认 false。
+    /// 内网千兆场景下,miniz_oxide 压缩吞吐(~70MB/s)低于网络带宽(125MB/s),
+    /// 压缩的 CPU 开销(~14ms/MB)大于传输节省,反而变慢 10-15%。
+    /// 公网/弱网/VPN 远程访问场景下,带宽通常 < 70MB/s(560Mbps),压缩有明显收益
+    /// (1MB 响应:家用宽带快 5x,4G 快 20x,弱网快 29x)。
+    /// 用户按自己部署场景决定是否开启。
+    pub enable_compression: bool,
 }
 
 impl Default for LimitsConfig {
@@ -40,6 +48,7 @@ impl Default for LimitsConfig {
         Self {
             max_ws_connections: 50,
             rate_limit_rps: 20,
+            enable_compression: false,
         }
     }
 }
@@ -143,8 +152,9 @@ pub fn app(
         dirs
     };
 
-    // Capture rps before `limits` is moved into AppState.
+    // Capture config values before `limits` is moved into AppState.
     let rps = limits.rate_limit_rps;
+    let enable_compression = limits.enable_compression;
 
     let state = Arc::new(AppState {
         watcher: Arc::new(Mutex::new(watcher)),
@@ -211,9 +221,24 @@ pub fn app(
             config: std::sync::Arc::new(governor_config),
         });
 
-    Router::new()
+    // Compression is opt-in (default off). Only mount the layer when the user
+    // explicitly enabled it — this avoids the ~10-15% overhead on gigabit LAN,
+    // the primary deployment for tailr. Public/weak-network users opt in via
+    // [limits] enable_compression = true.
+    let router = Router::new()
         .merge(ws_router)
-        .merge(api_router)
+        .merge(api_router);
+
+    // CompressionLayer must be the innermost body-transforming layer so it
+    // sees the final response body and can rewrite it. CORS sits outside it
+    // (added next), adding its headers to the (possibly compressed) response.
+    let router = if enable_compression {
+        router.layer(CompressionLayer::new())
+    } else {
+        router
+    };
+
+    router
         .layer(cors)
         .layer(axum::extract::Extension(state))
 }

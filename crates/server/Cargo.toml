@@ -9,7 +9,14 @@ tailr-tail-engine = { path = "../tail-engine" }
 tailr-search-engine = { path = "../search-engine" }
 axum = { version = "0.7", features = ["ws"] }
 tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.5", features = ["cors", "fs"] }
+tower-http = { version = "0.5", features = ["cors", "fs", "compression-gzip"] }
+# Force flate2 to use the pure-Rust miniz_oxide backend instead of the default
+# system zlib. tower-http's compression-gzip pulls flate2; flate2's default
+# links libz.so.1 which would break tailr's "zero user-side install" promise
+# on minimal alpine/distroless/scratch containers. miniz_oxide is statically
+# compiled in — no runtime library dependency. Same rationale as using rustls
+# instead of OpenSSL elsewhere.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 # Pure-Rust per-IP rate limiting (governor underneath). GovernorLayer
 # extracts TCP peer IP from axum's ConnectInfo<SocketAddr> extension, which
 # requires `into_make_service_with_connect_info::<SocketAddr>()` on the
