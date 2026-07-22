@@ -2,6 +2,10 @@
 
 ## [v0.10.0] - 2026-07-22
 
+### Fixes
+
+- **Self-upgrade fails after path migration:** when upgrading from 0.9.x to 0.10.x via the Web UI, `tailr restart` looked for the PID file at the new path (`~/.tailr/tailr.pid`) but the old daemon wrote it to the legacy path (`~/.local/share/tailr/tailr.pid`). The old process was never killed, the port stayed occupied, and the new process failed to bind. `stop_daemon` / `daemon_status` / `restart_daemon` now fall back to the legacy PID file path when the new one doesn't exist.
+
 ### Features
 
 - **Production resource limits (`[limits]` config section):** new opt-in section in `config.toml` with three user-tunable thresholds. All default to safe values for the primary gigabit-LAN deployment scenario.

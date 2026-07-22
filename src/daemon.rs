@@ -24,6 +24,45 @@ pub fn pid_file() -> PathBuf {
     data_dir().join("tailr.pid")
 }
 
+/// The pre-v0.10.0 data directory (`~/.local/share/tailr`). Used as a fallback
+/// when looking for a PID file left behind by a daemon started before the path
+/// migration (e.g. during a self-upgrade: the old 0.9.x daemon wrote its PID to
+/// the legacy path, and the new 0.10.x `tailr restart` needs to find and kill it).
+fn legacy_data_dir() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            PathBuf::from(home).join(".local").join("share")
+        })
+        .join("tailr")
+}
+
+/// The pre-v0.10.0 PID file path.
+fn legacy_pid_file() -> PathBuf {
+    legacy_data_dir().join("tailr.pid")
+}
+
+/// Resolve the PID file path, falling back to the legacy location if the new
+/// path doesn't have one. Returns `(path_to_use, is_legacy)`.
+///
+/// This handles the upgrade scenario: a 0.9.x daemon is running with its PID
+/// file at `~/.local/share/tailr/tailr.pid`. After a self-upgrade to 0.10.x,
+/// `tailr restart` needs to find that PID to stop the old process. Without
+/// this fallback, the old process is never killed, the port stays occupied,
+/// and the new process fails to bind.
+fn resolve_pid_file() -> (PathBuf, bool) {
+    let new = pid_file();
+    if new.exists() {
+        return (new, false);
+    }
+    let old = legacy_pid_file();
+    if old.exists() {
+        return (old, true);
+    }
+    // Neither exists — return new path (will be created on daemon start).
+    (new, false)
+}
+
 /// Returns the path to the daemon log file.
 pub fn log_file() -> PathBuf {
     data_dir().join("tailr.log")
@@ -171,7 +210,7 @@ pub fn daemonize_process(config: &DaemonConfig) {
 /// Reads the PID from the PID file, sends SIGTERM, waits up to `timeout_secs`
 /// for the process to exit, then removes the PID file.
 pub fn stop_daemon(pid_path: Option<&PathBuf>, timeout_secs: u64) -> Result<(), String> {
-    let pid_path = pid_path.cloned().unwrap_or_else(pid_file);
+    let pid_path = pid_path.cloned().unwrap_or_else(|| resolve_pid_file().0);
     let pid = read_pid(&pid_path)?;
 
     let status = Command::new("kill")
@@ -209,7 +248,7 @@ pub fn stop_daemon(pid_path: Option<&PathBuf>, timeout_secs: u64) -> Result<(), 
 ///
 /// Returns a human-readable message: running (with PID), stopped, or no PID file.
 pub fn daemon_status(pid_path: Option<&PathBuf>) -> String {
-    let pid_path = pid_path.cloned().unwrap_or_else(pid_file);
+    let pid_path = pid_path.cloned().unwrap_or_else(|| resolve_pid_file().0);
 
     let pid = match read_pid(&pid_path) {
         Ok(p) => p,
@@ -238,7 +277,7 @@ pub fn daemon_status(pid_path: Option<&PathBuf>) -> String {
 /// Synchronous by design: `restart` is a one-shot CLI command with no concurrent
 /// work to yield to, matching the `stop_daemon` polling style (`std::thread::sleep`).
 pub fn restart_daemon(pid_path: Option<&PathBuf>) -> Result<(), String> {
-    let resolved = pid_path.cloned().unwrap_or_else(pid_file);
+    let resolved = pid_path.cloned().unwrap_or_else(|| resolve_pid_file().0);
     let old_pid = read_pid(&resolved).ok();
     tracing::info!(pid = ?old_pid, "restart: beginning daemon restart");
 
