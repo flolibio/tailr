@@ -173,7 +173,7 @@ tailr config
 tailr --config /path/to/config.toml
 ```
 
-The config file is located at `~/.config/tailr/config.toml` by default:
+The config file is located at `~/.tailr/config.toml` by default. All tailr files (config, PID, logs, restart state) live in `~/.tailr/`.
 
 ```toml
 # Log directories or files to serve
@@ -245,7 +245,7 @@ tailr status
 tailr stop
 ```
 
-**PID/Log files** are stored in `~/.local/share/tailr/` by default. Customize with:
+**PID/Log files** are stored in `~/.tailr/` by default. Customize with:
 
 ```bash
 tailr -d -l /var/log/app \
@@ -304,7 +304,7 @@ tailr restart
 |----------|---------|-------------|
 | `TAILR_LOG_DIR` | `<exe_dir>/logs` | Comma-separated log directories |
 | `TAILR_BIND` | `0.0.0.0:7700` | Listen address |
-| `TAILR_CONFIG` | `~/.config/tailr/config.toml` | Config file path |
+| `TAILR_CONFIG` | `~/.tailr/config.toml` | Config file path |
 | `TAILR_TOKEN` | — | Authentication token (overrides config file) |
 | `RUST_LOG` | — | Tracing filter (e.g. `tailr=debug`) |
 

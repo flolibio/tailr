@@ -16,7 +16,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 axum = "0.7"
 clap = { version = "4", features = ["derive"] }
 daemonize = "0.5"
-dirs = "5.0"
 figment = { version = "0.10", features = ["toml", "env"] }
 serde = { workspace = true }
 arc-swap = "1"

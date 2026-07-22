@@ -199,6 +199,12 @@ fn main() {
 fn run_server(args: ServeArgs) {
     let config_path = config::resolve_config_path(args.config.as_ref());
 
+    // One-time migration from pre-v0.10.0 config location (~/.config/tailr/).
+    // No-op if using --config/TAILR_CONFIG override, or if already migrated.
+    if args.config.is_none() && std::env::var("TAILR_CONFIG").is_err() {
+        config::migrate_legacy_config();
+    }
+
     if let Err(e) = config::ensure_config_file(&config_path) {
         eprintln!("Warning: {}", e);
     }

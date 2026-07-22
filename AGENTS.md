@@ -42,7 +42,7 @@ tailr launchd -l /var/log/app
 tailr upgrade       # Self-upgrade (delegates to UpgradeEngine)
 ```
 
-Priority: CLI args > Config file (`~/.config/tailr/config.toml`) > Env vars > Defaults.
+Priority: CLI args > Config file (`~/.tailr/config.toml`) > Env vars > Defaults.
 
 ## Build
 
@@ -86,7 +86,7 @@ Vite proxies `/api` → `http://localhost:7700` and `/ws` → `ws://localhost:77
 |---|---|---|
 | `TAILR_LOG_DIR` | `<exe_dir>/logs` | Comma-separated list of directories |
 | `TAILR_BIND` | `0.0.0.0:7700` | Listen address |
-| `TAILR_CONFIG` | `~/.config/tailr/config.toml` | Config file path |
+| `TAILR_CONFIG` | `~/.tailr/config.toml` | Config file path |
 | `TAILR_TOKEN` | — | Authentication token (overrides config file) |
 | `RUST_LOG` | — | Standard tracing env filter |
 

@@ -9,14 +9,14 @@ use std::process::Command;
 
 use daemonize::Daemonize;
 
-/// Returns the tailr data directory (`~/.local/share/tailr` or XDG equivalent).
+/// Returns the tailr home directory (`~/.tailr`).
+///
+/// All tailr files — config, PID, logs, restart state — live here since v0.10.0.
+/// Earlier versions used `~/.local/share/tailr/` (XDG data dir); consolidated to
+/// one directory for discoverability and simpler backup/migration.
 pub fn data_dir() -> PathBuf {
-    dirs::data_dir()
-        .unwrap_or_else(|| {
-            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            PathBuf::from(home).join(".local").join("share")
-        })
-        .join("tailr")
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    PathBuf::from(home).join(".tailr")
 }
 
 /// Returns the path to the PID file.

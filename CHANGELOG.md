@@ -17,6 +17,7 @@
 
 - **`LimitsConfig` lives in `tailr-server`:** the server crate owns `AppState` (which consumes the limits), so the config type lives there and is re-exported from the binary crate. Avoids a cyclic dep (server can't depend on the binary).
 - **CompressionLayer layering:** must be the innermost body-transforming layer (before `CorsLayer`) or it silently no-ops — verified empirically. flate2 forced to `rust_backend` (miniz_oxide) so the static binary doesn't link libz — preserves tailr's zero-install guarantee.
+- **Unified data directory `~/.tailr/`:** all tailr files (config, PID, logs, restart state) now live in one directory instead of being split across `~/.config/tailr/` (XDG config) and `~/.local/share/tailr/` (XDG data). On first launch with the new version, an existing `~/.config/tailr/config.toml` is automatically copied to `~/.tailr/config.toml` (the old file is kept as backup). The `dirs` crate dependency was removed — paths are resolved from `$HOME` directly.
 
 ### Removed
 
