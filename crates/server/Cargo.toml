@@ -21,8 +21,8 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 # extracts TCP peer IP from axum's ConnectInfo<SocketAddr> extension, which
 # requires `into_make_service_with_connect_info::<SocketAddr>()` on the
 # `axum::serve(...)` call site (see src/main.rs).
-# Pinned to 0.6.x: that's the last release line compatible with axum 0.7.
-# 0.7+ requires axum 0.8.
+# Pinned to 0.5.x: the last release line compatible with axum 0.7.
+# 0.6+ requires axum 0.8.
 tower_governor = "0.5"
 serde = { workspace = true }
 serde_json = { workspace = true }

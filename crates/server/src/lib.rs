@@ -58,6 +58,27 @@ impl Default for LimitsConfig {
     }
 }
 
+impl LimitsConfig {
+    /// Validate at config-load time so misconfigs produce a clean stderr message
+    /// and graceful exit — not a panic deep in `app()`.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.rate_limit_rps == 0 {
+            return Err(
+                "rate_limit_rps must be > 0 (set to a higher value to loosen, \
+                 not 0 to disable)"
+                    .to_string(),
+            );
+        }
+        if self.max_ws_connections == 0 {
+            return Err(
+                "max_ws_connections must be > 0 (would reject every WS connection)"
+                    .to_string(),
+            );
+        }
+        Ok(())
+    }
+}
+
 pub struct AppState {
     pub watcher: Arc<Mutex<FileWatcher>>,
     pub line_indices: DashMap<PathBuf, LineIndex>,
@@ -340,5 +361,28 @@ mod tests {
         let l = LimitsConfig::default();
         assert_eq!(l.max_ws_connections, 50);
         assert_eq!(l.rate_limit_rps, 20);
+    }
+
+    #[test]
+    fn test_limits_validate_rejects_zero_rps() {
+        let l = LimitsConfig {
+            rate_limit_rps: 0,
+            ..Default::default()
+        };
+        assert!(l.validate().is_err());
+    }
+
+    #[test]
+    fn test_limits_validate_rejects_zero_ws_connections() {
+        let l = LimitsConfig {
+            max_ws_connections: 0,
+            ..Default::default()
+        };
+        assert!(l.validate().is_err());
+    }
+
+    #[test]
+    fn test_limits_validate_accepts_defaults() {
+        assert!(LimitsConfig::default().validate().is_ok());
     }
 }

@@ -23,16 +23,11 @@ export function useAuth() {
     showTokenDialog.value = true
   }
 
-  function dismissDialog(): void {
-    showTokenDialog.value = false
-  }
-
   return {
     token: readonly(token),
     showTokenDialog: readonly(showTokenDialog),
     getToken,
     saveToken,
     handleAuthError,
-    dismissDialog,
   }
 }

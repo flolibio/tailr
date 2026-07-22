@@ -383,14 +383,10 @@ onMounted(() => {
 
   // v0.9: listen for server-pushed update notifications. On first sight of a new
   // version, show a toast (deduped via localStorage) and light the Settings badge.
-  wsClient.on('rateLimited', (reason: unknown) => {
+  wsClient.on('rateLimited', () => {
     // WS closed with code 1013 (Try Again Later) — server hit ws_connection_count
     // cap. The WSClient has already stopped auto-reconnecting (avoiding a storm);
     // surface a toast so the user knows live tail is frozen and can retry.
-    if (typeof reason === 'string' && reason.length > 0) {
-      // Future: parse retry hint from reason if we encode one. For now reason
-      // is just a human-readable string, so we use the generic WS message.
-    }
     notifyWsRateLimited()
   })
   wsClient.on(

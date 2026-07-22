@@ -219,6 +219,13 @@ fn run_server(args: ServeArgs) {
     )
     .expect("Failed to load configuration");
 
+    // Validate limits before anything else — a bad config (e.g. rps=0) should
+    // produce a clean error message, not a panic in app().
+    if let Err(e) = cfg.limits.validate() {
+        eprintln!("Configuration error: {}", e);
+        std::process::exit(1);
+    }
+
     // Handle daemon mode BEFORE tokio runtime starts
     // daemonize() forks the process, which is incompatible with an async runtime
     if args.daemon {

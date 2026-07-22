@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuth } from '../composables/useAuth'
-import { verifyToken } from '../services/api'
+import { verifyToken, RateLimitError } from '../services/api'
 import { Lock } from 'lucide-vue-next'
 
 const { t } = useI18n()
@@ -25,9 +25,17 @@ async function handleSave(): Promise<void> {
       return
     }
     saveToken(inputValue.value) // saves + closes the dialog
-  } catch {
-    // Network error during verification — can't confirm; let the user retry.
-    errorMsg.value = t('tokenDialog.verifyFailed')
+  } catch (e) {
+    // Rate-limited during verification — show the rate-limit message so the
+    // user knows to wait, not a generic "verification failed".
+    if (e instanceof RateLimitError) {
+      errorMsg.value = e.retryAfter !== null
+        ? t('errors.rateLimitedWithRetry', { seconds: e.retryAfter })
+        : t('errors.rateLimited')
+    } else {
+      // Network error during verification — can't confirm; let the user retry.
+      errorMsg.value = t('tokenDialog.verifyFailed')
+    }
   } finally {
     verifying.value = false
   }
