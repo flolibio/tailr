@@ -28,18 +28,23 @@ use tower_http::cors::{Any, CorsLayer};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LimitsConfig {
-    /// 全局 WS 连接上限（含所有客户端）。默认 50——覆盖内网 5-10 人团队
-    /// ×每人 3-5 tab 的场景，留余量。触顶通常是前端 bug（WS 未释放）或异常。
+    /// Global cap on concurrent WebSocket connections (across all clients).
+    /// Default 50 covers a small LAN team (5-10 users × 3-5 tabs each) with
+    /// headroom. Hitting the cap usually signals a frontend bug (WS not
+    /// released) or abnormal load.
     pub max_ws_connections: usize,
-    /// 每 IP 每秒最大 REST 请求数（GCRA 持续速率）。默认 20——单用户正常使用 < 5 req/s。
-    /// 实际瞬时突发由 `burst_size = rate_limit_rps * 3` 覆盖（不暴露给用户配置）。
+    /// Max REST requests per second per client IP (GCRA sustained rate).
+    /// Default 20 — single-user normal usage is < 5 req/s.
+    /// Actual burst is covered by `burst_size = rate_limit_rps * 3`
+    /// (internal-derived, not exposed to the user).
     pub rate_limit_rps: u32,
-    /// 是否启用 gzip 压缩响应。默认 false。
-    /// 内网千兆场景下,miniz_oxide 压缩吞吐(~70MB/s)低于网络带宽(125MB/s),
-    /// 压缩的 CPU 开销(~14ms/MB)大于传输节省,反而变慢 10-15%。
-    /// 公网/弱网/VPN 远程访问场景下,带宽通常 < 70MB/s(560Mbps),压缩有明显收益
-    /// (1MB 响应:家用宽带快 5x,4G 快 20x,弱网快 29x)。
-    /// 用户按自己部署场景决定是否开启。
+    /// Enable gzip response compression. Default false.
+    /// On gigabit LAN, miniz_oxide throughput (~70 MB/s) is below network
+    /// bandwidth (125 MB/s), so the CPU cost (~14ms/MB) exceeds transfer
+    /// savings — measured 10-15% slower on 1MB responses.
+    /// On public/weak network/VPN, bandwidth is typically < 70 MB/s (560 Mbps)
+    /// and compression pays off (1MB response: 5x faster on home broadband,
+    /// 20x on 4G, 29x on weak WiFi). User decides based on deployment.
     pub enable_compression: bool,
 }
 

@@ -53,20 +53,23 @@ log_timezone = "local"
 
 # Resource limits (optional, all defaults shown)
 # [limits]
-# WebSocket 最大并发连接数（全局，所有客户端共享）
-# 内网小团队（5-10 人，每人约 3-5 个 tab/连接）默认 50 够用；
-# 单人使用可调到 20；大型团队可调到 100+
+# Maximum concurrent WebSocket connections (global, shared across all clients).
+# Default 50 covers a small LAN team of 5-10 users with 3-5 tabs each.
+# Single user can lower to 20; large teams can raise to 100+.
 # max_ws_connections = 50
 #
-# REST API 限流：每 IP 每秒最大请求数（per-IP，每个客户端独立配额）
-# 按 TCP 对端 IP 限流（tailr 直连部署，无反向代理）
-# 单用户正常使用 < 5 req/s，留 4x 余量；内网多人各自独立桶互不影响
+# REST API rate limit: max requests per second per client IP.
+# Limited by TCP peer IP (tailr is direct-deployed, no reverse proxy).
+# Single-user normal usage is < 5 req/s, so 20 gives 4x headroom.
+# Each LAN client gets its own bucket — one user's burst doesn't affect others.
 # rate_limit_rps = 20
 #
-# 是否启用 gzip 压缩响应（默认 false）
-# - 内网千兆:建议关闭。压缩 CPU 开销(~14ms/MB)大于传输节省,实测慢 10-15%
-# - 公网/弱网/VPN 远程访问:建议开启。1MB 响应家用宽带快 5x,4G 快 20x
-# 盈亏平衡点约 560 Mbps 带宽;高于此值关闭,低于此值开启
+# Enable gzip response compression (default false).
+# - Gigabit LAN: keep off. Compression CPU cost (~14ms/MB) exceeds transfer
+#   savings; measured 10-15% slower on 1MB responses.
+# - Public/weak network/VPN remote access: turn on. 1MB response is 5x faster
+#   on home broadband, 20x on 4G.
+# Break-even is ~560 Mbps bandwidth: below it compression helps, above it hurts.
 # enable_compression = false
 "#;
 
