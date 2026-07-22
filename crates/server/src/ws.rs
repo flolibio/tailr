@@ -1,10 +1,11 @@
-use axum::extract::ws::{Message, WebSocket};
+use axum::extract::ws::{close_code, CloseFrame, Message, WebSocket};
 use axum::extract::{WebSocketUpgrade, Extension};
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
 use futures::{SinkExt, StreamExt};
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -82,8 +83,38 @@ pub fn routes() -> Router {
 async fn ws_handler(
     ws: WebSocketUpgrade,
     Extension(state): Extension<Arc<AppState>>,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, state))
+) -> Response {
+    // TOCTOU-safe connection cap: fetch_add first, rollback on over-limit.
+    // Two concurrent contenders both incrementing then both rolling back is
+    // impossible — fetch_add returns a unique `prev` to each caller; the one
+    // that observes prev >= max is the loser and rolls back.
+    let prev = state.ws_connection_count.fetch_add(1, Ordering::SeqCst);
+    if prev >= state.limits.max_ws_connections {
+        state.ws_connection_count.fetch_sub(1, Ordering::SeqCst);
+        // Browser WebSocket API deliberately hides the HTTP handshake status
+        // code (security: prevent cross-origin HTTP probing). So returning
+        // HTTP 429 here would be indistinguishable from network failure on
+        // the client (CloseEvent.code === 1006 with empty reason), causing
+        // the frontend to reconnect in a tight loop and amplify load.
+        //
+        // Instead, accept the upgrade and immediately send a close frame with
+        // code 1013 (Try Again Later). The frontend reads CloseEvent.code ===
+        // 1013, surfaces a "rate limited" UI, and stops auto-reconnecting
+        // until the user clicks retry. Costs one TCP+WS handshake vs bare
+        // 429, but at the connection-cap that's negligible.
+        return ws
+            .on_upgrade(move |socket| async move {
+                let (mut tx, _rx) = socket.split();
+                let _ = tx
+                    .send(Message::Close(Some(CloseFrame {
+                        code: close_code::AGAIN,
+                        reason: "ws connection limit reached".into(),
+                    })))
+                    .await;
+            })
+            .into_response();
+    }
+    ws.on_upgrade(move |socket| handle_socket(socket, state)).into_response()
 }
 
 async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
@@ -200,13 +231,20 @@ async fn handle_subscribe(
         if let Some(entry) = state.line_indices.get(&path_buf) {
             entry.value().total_lines()
         } else {
-            match LineIndex::build(&path_buf) {
-                Ok(idx) => {
+            // LineIndex::build mmaps the whole file and scans every byte —
+            // O(file_size). On a 10G log this blocks the tokio worker for
+            // seconds, stalling every other WS push / HTTP request / watcher
+            // poll. Move it to a blocking thread so the async runtime stays
+            // responsive. (Concurrent first-open of the same file may build
+            // twice; build is a pure function so results are equivalent.)
+            let pb = path_buf.clone();
+            match tokio::task::spawn_blocking(move || LineIndex::build(&pb)).await {
+                Ok(Ok(idx)) => {
                     let lines = idx.total_lines();
                     state.line_indices.insert(path_buf.clone(), idx);
                     lines
                 }
-                Err(_) => 0,
+                _ => 0,
             }
         }
     };
@@ -283,6 +321,8 @@ async fn cleanup_client(state: &AppState, client_id: &str) {
     // Remove from the global broadcast registry too.
     let mut clients = state.ws_clients.lock().await;
     clients.remove(client_id);
+    // Release the connection slot reserved in ws_handler.
+    state.ws_connection_count.fetch_sub(1, Ordering::SeqCst);
 }
 
 /// Broadcast a server-wide message to every connected WS client.

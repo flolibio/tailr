@@ -132,5 +132,16 @@
     "verifying": "Verifying...",
     "invalidToken": "Invalid token, please check and retry",
     "verifyFailed": "Verification failed, please check your network and retry"
+  },
+  "errors": {
+    "rateLimited": "Too many requests, please slow down",
+    "rateLimitedWithRetry": "Too many requests, retry in {seconds}s",
+    "rateLimitTitle": "Rate limited",
+    "wsConnectionLimit": "WebSocket connection limit reached, please close other tabs and retry",
+    "loadFailed": "Failed to load log",
+    "loadFailedRateLimited": "Log load was rate-limited by the server"
+  },
+  "common": {
+    "retry": "Retry"
   }
 }

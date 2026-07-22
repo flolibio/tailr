@@ -319,8 +319,10 @@ pub fn shared_service() -> Arc<UpgradeService> {
 /// fall back to it when `current_exe()` based spawning fails (e.g. the path it
 /// returns is briefly invalid right after a binary replace).
 fn read_persisted_restart_cmd() -> Option<(std::path::PathBuf, Vec<String>)> {
-    let data_dir = dirs::data_dir()?;
-    let cmd_path = data_dir.join("tailr").join("tailr.cmd");
+    // tailr home: ~/.tailr (same as daemon.rs::data_dir, duplicated here because
+    // the server crate can't depend on the binary crate).
+    let home = std::env::var("HOME").ok()?;
+    let cmd_path = std::path::PathBuf::from(home).join(".tailr").join("tailr.cmd");
     let content = std::fs::read_to_string(&cmd_path).ok()?;
     let mut lines = content.lines();
     let exe = std::path::PathBuf::from(lines.next()?);

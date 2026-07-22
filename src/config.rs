@@ -12,6 +12,10 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 use tailr_protocol::{LevelDef, LogLevelConfig};
+// Re-use the LimitsConfig defined in tailr-server (which owns AppState and
+// actually consumes the limits). Defining it there avoids a cyclic dep:
+// tailr-server can't depend on the tailr binary crate.
+pub use tailr_server::LimitsConfig;
 
 /// Default config file template written on first run.
 const DEFAULT_CONFIG_TEMPLATE: &str = r#"# tailr configuration file
@@ -46,6 +50,27 @@ log_timezone = "local"
 
 # Custom log file path
 # log_file = "/var/log/tailr.log"
+
+# Resource limits (optional, all defaults shown)
+# [limits]
+# Maximum concurrent WebSocket connections (global, shared across all clients).
+# Default 50 covers a small LAN team of 5-10 users with 3-5 tabs each.
+# Single user can lower to 20; large teams can raise to 100+.
+# max_ws_connections = 50
+#
+# REST API rate limit: max requests per second per client IP.
+# Limited by TCP peer IP (tailr is direct-deployed, no reverse proxy).
+# Single-user normal usage is < 5 req/s, so 20 gives 4x headroom.
+# Each LAN client gets its own bucket — one user's burst doesn't affect others.
+# rate_limit_rps = 20
+#
+# Enable gzip response compression (default false).
+# - Gigabit LAN: keep off. Compression CPU cost (~14ms/MB) exceeds transfer
+#   savings; measured 10-15% slower on 1MB responses.
+# - Public/weak network/VPN remote access: turn on. 1MB response is 5x faster
+#   on home broadband, 20x on 4G.
+# Break-even is ~560 Mbps bandwidth: below it compression helps, above it hurts.
+# enable_compression = false
 "#;
 
 /// Main configuration for tailr.
@@ -64,6 +89,8 @@ pub struct Config {
     pub token: String,
     /// Timezone for naive log timestamps. Values: "local" | "utc" | "+HH:MM".
     pub log_timezone: String,
+    /// Resource limits for production hardening.
+    pub limits: LimitsConfig,
 }
 
 /// Daemon-specific configuration.
@@ -83,19 +110,87 @@ impl Default for Config {
             log_levels: Some(default_log_levels("general")),
             token: String::new(),
             log_timezone: "local".to_string(),
+            limits: LimitsConfig::default(),
         }
     }
 }
 
-/// Returns the config directory path (`~/.config/tailr`).
-pub fn config_dir() -> PathBuf {
+/// Returns the tailr home directory (`~/.tailr`).
+///
+/// All tailr files — config, PID, logs, restart state — live here since v0.10.0.
+/// Earlier versions split config (`~/.config/tailr/`) and data
+/// (`~/.local/share/tailr/`) per XDG; consolidated to one directory for
+/// discoverability (users only need to know one path) and simpler backup/migration.
+pub fn tailr_home() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home).join(".config").join("tailr")
+    PathBuf::from(home).join(".tailr")
 }
 
-/// Returns the default config file path (`~/.config/tailr/config.toml`).
+/// Returns the config directory path (`~/.tailr`).
+pub fn config_dir() -> PathBuf {
+    tailr_home()
+}
+
+/// Returns the default config file path (`~/.tailr/config.toml`).
 pub fn config_path() -> PathBuf {
     config_dir().join("config.toml")
+}
+
+/// The pre-v0.10.0 config location. Used by [`migrate_legacy_config`].
+fn legacy_config_path() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    PathBuf::from(home).join(".config").join("tailr").join("config.toml")
+}
+
+/// One-time migration: if the new config (`~/.tailr/config.toml`) doesn't exist
+/// but the old one (`~/.config/tailr/config.toml`) does, copy it over.
+///
+/// Called early in `run_server`, before `ensure_config_file`, so the new config
+/// is in place before first load. The old file is left untouched as a backup.
+/// This is a no-op for new users (no old config) and for users who already
+/// migrated (new config exists).
+pub fn migrate_legacy_config() {
+    migrate_config_file(&legacy_config_path(), &config_path());
+}
+
+/// Core copy logic, separated so it can be tested with tempfile.
+/// Returns true if a copy was performed.
+fn migrate_config_file(old_path: &PathBuf, new_path: &PathBuf) -> bool {
+    if new_path.exists() || !old_path.exists() {
+        return false;
+    }
+
+    // Ensure the target directory exists before copying.
+    if let Some(parent) = new_path.parent() {
+        if let Err(e) = fs::create_dir_all(parent) {
+            tracing::warn!(
+                new_path = %new_path.display(),
+                error = %e,
+                "config migration: failed to create directory"
+            );
+            return false;
+        }
+    }
+
+    match fs::copy(old_path, new_path) {
+        Ok(_) => {
+            tracing::info!(
+                from = %old_path.display(),
+                to = %new_path.display(),
+                "migrated config from legacy path (old file kept as backup)"
+            );
+            true
+        }
+        Err(e) => {
+            tracing::warn!(
+                from = %old_path.display(),
+                to = %new_path.display(),
+                error = %e,
+                "config migration: copy failed, will use default config"
+            );
+            false
+        }
+    }
 }
 
 /// Resolves the config file path from: CLI arg > TAILR_CONFIG env > default.
@@ -326,6 +421,68 @@ mod tests {
         assert!(config.daemon.pid_file.is_none());
         assert!(config.daemon.log_file.is_none());
         assert!(config.token.is_empty());
+        // Limits defaults
+        assert_eq!(config.limits.max_ws_connections, 50);
+        assert_eq!(config.limits.rate_limit_rps, 20);
+        assert!(!config.limits.enable_compression);
+    }
+
+    #[test]
+    fn test_limits_default_independent() {
+        let limits = LimitsConfig::default();
+        assert_eq!(limits.max_ws_connections, 50);
+        assert_eq!(limits.rate_limit_rps, 20);
+        assert!(!limits.enable_compression); // default off (LAN is the primary scenario)
+    }
+
+    #[test]
+    fn test_limits_backward_compat_no_section() {
+        // Old config without [limits] section should still load (uses defaults).
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+        let mut f = fs::File::create(&config_path).unwrap();
+        writeln!(f, "bind = \"127.0.0.1:8080\"").unwrap();
+
+        let config = load_config(&config_path, None, None, false, None, None).unwrap();
+        assert_eq!(config.limits.max_ws_connections, 50);
+        assert_eq!(config.limits.rate_limit_rps, 20);
+        assert!(!config.limits.enable_compression);
+    }
+
+    #[test]
+    fn test_limits_custom_values() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+        let mut f = fs::File::create(&config_path).unwrap();
+        write!(
+            f,
+            r#"
+[limits]
+max_ws_connections = 100
+rate_limit_rps = 50
+enable_compression = true
+"#
+        )
+        .unwrap();
+
+        let config = load_config(&config_path, None, None, false, None, None).unwrap();
+        assert_eq!(config.limits.max_ws_connections, 100);
+        assert_eq!(config.limits.rate_limit_rps, 50);
+        assert!(config.limits.enable_compression);
+    }
+
+    #[test]
+    fn test_limits_partial_section_uses_defaults() {
+        // Partial [limits] section: missing keys fall back to defaults via #[serde(default)].
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+        let mut f = fs::File::create(&config_path).unwrap();
+        write!(f, "[limits]\nmax_ws_connections = 10\n").unwrap();
+
+        let config = load_config(&config_path, None, None, false, None, None).unwrap();
+        assert_eq!(config.limits.max_ws_connections, 10);
+        assert_eq!(config.limits.rate_limit_rps, 20); // default
+        assert!(!config.limits.enable_compression); // default
     }
 
     #[test]
@@ -403,5 +560,62 @@ bind = "127.0.0.1:8080"
         ensure_config_file(&path).unwrap();
         let contents = fs::read_to_string(&path).unwrap();
         assert_eq!(contents, "bind = \"custom\"");
+    }
+
+    #[test]
+    fn test_migrate_config_copies_from_old_to_new() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join("old").join("config.toml");
+        let new = dir.path().join("new").join("config.toml");
+
+        fs::create_dir_all(old.parent().unwrap()).unwrap();
+        fs::write(&old, "token = \"secret\"").unwrap();
+
+        let copied = migrate_config_file(&old, &new);
+        assert!(copied);
+        assert!(new.exists());
+        assert_eq!(fs::read_to_string(&new).unwrap(), "token = \"secret\"");
+        // Old file preserved as backup.
+        assert!(old.exists());
+    }
+
+    #[test]
+    fn test_migrate_config_skips_when_new_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join("old.toml");
+        let new = dir.path().join("new.toml");
+
+        fs::write(&old, "old content").unwrap();
+        fs::write(&new, "new content").unwrap();
+
+        let copied = migrate_config_file(&old, &new);
+        assert!(!copied);
+        // New file untouched.
+        assert_eq!(fs::read_to_string(&new).unwrap(), "new content");
+    }
+
+    #[test]
+    fn test_migrate_config_noop_when_old_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join("nonexistent.toml");
+        let new = dir.path().join("new.toml");
+
+        let copied = migrate_config_file(&old, &new);
+        assert!(!copied);
+        assert!(!new.exists());
+    }
+
+    #[test]
+    fn test_migrate_config_creates_target_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join("config.toml");
+        // Target dir doesn't exist yet (nested).
+        let new = dir.path().join("deeply").join("nested").join("dir").join("config.toml");
+
+        fs::write(&old, "bind = \"test\"").unwrap();
+
+        let copied = migrate_config_file(&old, &new);
+        assert!(copied);
+        assert!(new.exists());
     }
 }

@@ -2,11 +2,11 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuth } from '../composables/useAuth'
-import { verifyToken } from '../services/api'
+import { verifyToken, RateLimitError } from '../services/api'
 import { Lock } from 'lucide-vue-next'
 
 const { t } = useI18n()
-const { token, saveToken, dismissDialog } = useAuth()
+const { token, saveToken } = useAuth()
 
 const inputValue = ref(token.value)
 const errorMsg = ref('')
@@ -25,9 +25,17 @@ async function handleSave(): Promise<void> {
       return
     }
     saveToken(inputValue.value) // saves + closes the dialog
-  } catch {
-    // Network error during verification — can't confirm; let the user retry.
-    errorMsg.value = t('tokenDialog.verifyFailed')
+  } catch (e) {
+    // Rate-limited during verification — show the rate-limit message so the
+    // user knows to wait, not a generic "verification failed".
+    if (e instanceof RateLimitError) {
+      errorMsg.value = e.retryAfter !== null
+        ? t('errors.rateLimitedWithRetry', { seconds: e.retryAfter })
+        : t('errors.rateLimited')
+    } else {
+      // Network error during verification — can't confirm; let the user retry.
+      errorMsg.value = t('tokenDialog.verifyFailed')
+    }
   } finally {
     verifying.value = false
   }
@@ -36,14 +44,19 @@ async function handleSave(): Promise<void> {
 function handleKeydown(e: KeyboardEvent): void {
   if (e.key === 'Enter') {
     handleSave()
-  } else if (e.key === 'Escape') {
-    dismissDialog()
   }
+  // Escape deliberately NOT handled: the dialog only appears on 401 (token
+  // missing or invalid), so there's no valid prior state to dismiss to.
+  // Allowing Esc/overlay-click/Cancel would close the dialog and immediately
+  // re-trigger on the next API call, creating an annoying close→reopen loop.
+  // The only way out is entering a valid token.
 }
 </script>
 
 <template>
-  <div class="token-overlay" @click.self="dismissDialog">
+  <!-- No @click.self on overlay: clicking outside must NOT dismiss, see
+       handleKeydown comment above. -->
+  <div class="token-overlay">
     <div class="token-dialog">
       <div class="token-header">
         <Lock :size="16" :stroke-width="2" />
@@ -63,7 +76,8 @@ function handleKeydown(e: KeyboardEvent): void {
         <p v-if="errorMsg" class="token-error">{{ errorMsg }}</p>
       </div>
       <div class="token-footer">
-        <button class="btn-cancel" @click="dismissDialog" :disabled="verifying">{{ t('tokenDialog.cancel') }}</button>
+        <!-- No Cancel button: same rationale as the missing overlay click
+             handler — there is no valid state to cancel to. -->
         <button class="btn-save" @click="handleSave" :disabled="verifying">
           {{ verifying ? t('tokenDialog.verifying') : t('tokenDialog.save') }}
         </button>

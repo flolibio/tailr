@@ -199,6 +199,12 @@ fn main() {
 fn run_server(args: ServeArgs) {
     let config_path = config::resolve_config_path(args.config.as_ref());
 
+    // One-time migration from pre-v0.10.0 config location (~/.config/tailr/).
+    // No-op if using --config/TAILR_CONFIG override, or if already migrated.
+    if args.config.is_none() && std::env::var("TAILR_CONFIG").is_err() {
+        config::migrate_legacy_config();
+    }
+
     if let Err(e) = config::ensure_config_file(&config_path) {
         eprintln!("Warning: {}", e);
     }
@@ -212,6 +218,13 @@ fn run_server(args: ServeArgs) {
         args.log_file.as_ref(),
     )
     .expect("Failed to load configuration");
+
+    // Validate limits before anything else — a bad config (e.g. rps=0) should
+    // produce a clean error message, not a panic in app().
+    if let Err(e) = cfg.limits.validate() {
+        eprintln!("Configuration error: {}", e);
+        std::process::exit(1);
+    }
 
     // Handle daemon mode BEFORE tokio runtime starts
     // daemonize() forks the process, which is incompatible with an async runtime
@@ -275,7 +288,19 @@ async fn run_serve(cfg: config::Config, config_path: PathBuf) {
 
     let server = axum::serve(
         listener,
-        app(log_paths, config_path, level_config, log_timezone, cfg.token.clone()),
+        app(
+            log_paths,
+            config_path,
+            level_config,
+            log_timezone,
+            cfg.token.clone(),
+            cfg.limits.clone(),
+        )
+        // Enable ConnectInfo<SocketAddr> in request extensions. Required by
+        // tower_governor's PeerIpKeyExtractor to obtain the TCP peer IP for
+        // per-IP rate limiting. Without this, every request falls into the
+        // same bucket (limiter effectively useless) or errors on extraction.
+        .into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
     .with_graceful_shutdown(daemon::shutdown_signal());
 

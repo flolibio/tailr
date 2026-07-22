@@ -1,10 +1,15 @@
 import { ref, shallowRef, computed, shallowReactive, type ComputedRef } from 'vue'
 import { WSClient } from '../services/websocket'
 import type { LogEntry } from '../services/api'
-import { getFileTail } from '../services/api'
+import { getFileTail, RateLimitError } from '../services/api'
+import { useToast } from './useToast'
+import i18n from '../locales'
 
 const MAX_TABS = 10
 const INITIAL_LINES = 300
+
+/** Tab-level load error type. `null` = no error. */
+export type TabLoadError = 'rateLimited' | 'generic' | null
 
 export interface TabState {
   path: string
@@ -23,6 +28,11 @@ export interface TabState {
   // v0.8: lazy-load marker. Tabs restored from persistence start as lazy
   // (no entries, no WS subscription); loadInitial+subscribe fire on first switchTo.
   isLazy: boolean
+  /** Non-null when the last loadInitial/reloadActiveTab failed. The LogPanel
+   *  renders an error branch (with retry button) instead of an empty viewer.
+   *  - 'rateLimited': server returned 429 (REST rate limit hit)
+   *  - 'generic': any other failure (network, 5xx, etc.) */
+  loadError: TabLoadError
 }
 
 function createTab(path: string): TabState {
@@ -38,6 +48,7 @@ function createTab(path: string): TabState {
     hasUnread: false,
     pendingCorrection: null,
     isLazy: false,
+    loadError: null,
   })
 }
 
@@ -47,6 +58,53 @@ const maxLines = ref(50000)
 
 const wsClient = new WSClient()
 let wsInitialized = false
+
+// ── Rate-limit toast dedup ──
+// Multiple concurrent REST requests can all 429 at once (e.g. tab restore fires
+// several getFileTail calls). Without dedup, each would pop its own toast and
+// spam the user. We keep a single module-level toast id: the first 429 pops it,
+// subsequent ones within the toast's lifetime are ignored. The toast is
+// dismissed explicitly when any subsequent load succeeds.
+let rateLimitToastId: string | null = null
+
+/** Pop (or refresh) the global rate-limit toast. Called from loadInitial /
+ *  reloadActiveTab catches on RateLimitError, and from App.vue on WS 1013.
+ *  `retryAfter` is the server's hint in seconds (null = not provided, e.g. WS). */
+function showRateLimitToast(retryAfter: number | null): void {
+  const { warning, dismiss } = useToast()
+  const t = i18n.global.t.bind(i18n.global)
+  if (rateLimitToastId) dismiss(rateLimitToastId)
+  const msg = retryAfter !== null
+    ? t('errors.rateLimitedWithRetry', { seconds: retryAfter })
+    : t('errors.rateLimited')
+  rateLimitToastId = warning(msg, {
+    title: t('errors.rateLimitTitle'),
+    duration: 0, // persist until user acts or a load succeeds
+    closeButton: true,
+  })
+}
+
+/** Dismiss the rate-limit toast if present. Called on successful load to clear
+ *  the "rate limited" notice once the user has recovered. */
+function dismissRateLimitToast(): void {
+  if (rateLimitToastId) {
+    const { dismiss } = useToast()
+    dismiss(rateLimitToastId)
+    rateLimitToastId = null
+  }
+}
+
+/** WS-specific rate-limit message (no Retry-After available from close frame). */
+function showWsRateLimitToast(): void {
+  const { warning, dismiss } = useToast()
+  const t = i18n.global.t.bind(i18n.global)
+  if (rateLimitToastId) dismiss(rateLimitToastId)
+  rateLimitToastId = warning(t('errors.wsConnectionLimit'), {
+    title: t('errors.rateLimitTitle'),
+    duration: 0,
+    closeButton: true,
+  })
+}
 
 // ── v0.8: tab persistence (lazy-load) ──
 // Only the tab list (paths + active) is persisted; entries are ephemeral.
@@ -211,6 +269,7 @@ function openTab(path: string): void {
 
 async function loadInitial(tab: TabState): Promise<void> {
   tab.isLoading = true
+  tab.loadError = null
   try {
     const data = await getFileTail(tab.path, INITIAL_LINES)
     // 校验 tab 在 await 期间未被关闭，避免幻影 WS 订阅
@@ -223,8 +282,15 @@ async function loadInitial(tab: TabState): Promise<void> {
     tab.pendingCorrection = { count: data.entries.length, estimatedTotal: data.totalLines }
     tab.isTailMode = true
     wsClient.subscribe(tab.path)
+    dismissRateLimitToast()
   } catch (e) {
-    console.error('Failed to load:', e)
+    if (e instanceof RateLimitError) {
+      tab.loadError = 'rateLimited'
+      showRateLimitToast(e.retryAfter)
+    } else {
+      console.error('Failed to load:', e)
+      tab.loadError = 'generic'
+    }
   } finally {
     if (tabs.value.find((t) => t.path === tab.path)) {
       tab.isLoading = false
@@ -279,6 +345,7 @@ function setTailMode(val: boolean): void {
 async function reloadActiveTab(): Promise<void> {
   const tab = activeTab.value
   if (!tab) return
+  tab.loadError = null
   try {
     const count = Math.max(tab.entries.length, INITIAL_LINES)
     const data = await getFileTail(tab.path, count)
@@ -288,8 +355,15 @@ async function reloadActiveTab(): Promise<void> {
     // correct the estimate. Clear any stale pendingCorrection rather than leave
     // a shift pending that never resolves.
     tab.pendingCorrection = null
+    dismissRateLimitToast()
   } catch (e) {
-    console.error('Failed to reload after config change:', e)
+    if (e instanceof RateLimitError) {
+      tab.loadError = 'rateLimited'
+      showRateLimitToast(e.retryAfter)
+    } else {
+      console.error('Failed to reload after config change:', e)
+      tab.loadError = 'generic'
+    }
   }
 }
 
@@ -327,5 +401,8 @@ export function useTabs() {
     setTailMode,
     reloadActiveTab,
     restoreTabs,
+    /** Called by App.vue when WSClient emits 'rateLimited' (close code 1013).
+     *  Shows the WS-specific rate-limit toast (no Retry-After available). */
+    notifyWsRateLimited: showWsRateLimitToast,
   }
 }

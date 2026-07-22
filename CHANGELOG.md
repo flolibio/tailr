@@ -1,5 +1,35 @@
 # Changelog
 
+## [v0.10.0] - 2026-07-22
+
+### Features
+
+- **Production resource limits (`[limits]` config section):** new opt-in section in `config.toml` with three user-tunable thresholds. All default to safe values for the primary gigabit-LAN deployment scenario.
+  - `max_ws_connections` (default 50): global WebSocket connection cap. Over-limit connections are accepted then immediately closed with code 1013 (Try Again Later) — browser WS API hides HTTP handshake status codes, so returning 429 is indistinguishable from network failure on the client.
+  - `rate_limit_rps` (default 20): per-client-IP REST rate limit (GCRA, burst = rps × 3). Each LAN client gets its own bucket.
+  - `enable_compression` (default false): opt-in gzip response compression. Break-even is ~560 Mbps; off by default for LAN (miniz_oxide CPU cost > transfer savings), on for public/weak-network access.
+- **Per-IP REST rate limiting:** `tower_governor` (governor underneath) extracts the TCP peer IP from axum's `ConnectInfo<SocketAddr>` extension. Required `into_make_service_with_connect_info::<SocketAddr>()` on the `axum::serve(...)` call site. tailr is direct-deployed (systemd/launchd starts the binary, no reverse proxy), so TCP peer IP == real client IP — no X-Forwarded-For parsing (forgery risk).
+- **Global WebSocket connection cap:** `AtomicUsize` counter with TOCTOU-safe `fetch_add` + rollback on over-limit. Counter is released in `cleanup_client` when the socket closes.
+- **First-open no longer blocks the runtime:** `LineIndex::build` in `handle_subscribe` (WS subscribe) was synchronous — on a 10 GB log it blocked the tokio worker for seconds, freezing every other WS push / HTTP request / watcher poll. Now wrapped in `tokio::task::spawn_blocking`. Concurrent first-open of the same file may build twice (race widened), but build is a pure function so results are equivalent.
+- **Rate-limit / WS-cap errors surfaced in the UI:** before, hitting REST 429 left the log area blank (the load catch only `console.error`'d) and a WS rejection looked identical to network failure (browser WS API hides handshake status), causing an infinite reconnect storm. REST 429 now throws `RateLimitError`, the log panel shows an error state with a Retry button, and a deduplicated toast reports the `Retry-After` hint. WS close code 1013 stops auto-reconnect and surfaces a "connection limit reached" toast with a manual retry entry.
+
+### Architecture
+
+- **`LimitsConfig` lives in `tailr-server`:** the server crate owns `AppState` (which consumes the limits), so the config type lives there and is re-exported from the binary crate. Avoids a cyclic dep (server can't depend on the binary).
+- **CompressionLayer layering:** must be the innermost body-transforming layer (before `CorsLayer`) or it silently no-ops — verified empirically. flate2 forced to `rust_backend` (miniz_oxide) so the static binary doesn't link libz — preserves tailr's zero-install guarantee.
+- **Unified data directory `~/.tailr/`:** all tailr files (config, PID, logs, restart state) now live in one directory instead of being split across `~/.config/tailr/` (XDG config) and `~/.local/share/tailr/` (XDG data). On first launch with the new version, an existing `~/.config/tailr/config.toml` is automatically copied to `~/.tailr/config.toml` (the old file is kept as backup). The `dirs` crate dependency was removed — paths are resolved from `$HOME` directly.
+
+### Removed
+
+- **3 dead endpoints dropped:** `GET /api/file/content`, `GET /api/file/info`, `GET /api/search` — zero frontend callers (verified via grep). Cascading cleanup deleted `grep.rs` / `filter.rs` in search-engine (the crate now only provides `LevelDetector`), the `AppState.search_engine` field, 7 now-unused structs, frontend api.ts wrappers, and orphaned workspace deps (`memchr`, `tracing-subscriber`). Multi-file search is planned for v0.12 as a fresh design (the old single-file `/api/search` wouldn't be reused anyway). Not a breaking change: these endpoints were never advertised as stable (project is 0.x).
+
+### UI
+
+- **Default theme is now "follow system":** new users get `prefers-color-scheme` instead of always-dark. The three-way selector (Light / Dark / System) in Settings highlights "System" on first open.
+- **Default display mode is now "cozy":** was "compact".
+- **Default language is now English:** was inferred from browser language. Users can still switch to zh-CN in Settings; their choice is persisted.
+- **Token dialog can no longer be dismissed without a valid token:** the dialog only appears on 401 (token missing or invalid), so there's no valid prior state to dismiss to. Removed the overlay click-to-close, Cancel button, and Escape shortcut — the only way out is entering a token that passes verification. Previously, dismissing created an annoying close→reopen loop as the next API call 401'd again.
+
 ## [v0.9.5] - 2026-07-20
 
 ### Fixes
