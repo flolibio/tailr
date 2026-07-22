@@ -14,8 +14,9 @@ const SUPPORTED_LOCALES: Record<string, typeof enUS> = {
 function getInitialLocale(): string {
   const saved = localStorage.getItem(I18N_KEY)
   if (saved && saved in SUPPORTED_LOCALES) return saved
-  const browser = navigator.language
-  return browser.startsWith('zh') ? 'zh-CN' : 'en-US'
+  // Default to English for new users. Users can switch to zh-CN in Settings,
+  // and their choice is persisted across sessions.
+  return 'en-US'
 }
 
 const i18n = createI18n({

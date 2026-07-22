@@ -66,6 +66,8 @@
 - **Update notifications** — Background check for new releases; badge + toast in the Web UI when an update is available
 - **Token authentication** — Optional Bearer token for secure access
 - **Path validation** — Prevents directory traversal attacks
+- **Resource limits** — Configurable WebSocket connection cap and per-IP REST rate limiting for production hardening
+- **Optional gzip compression** — Opt-in response compression for public/weak-network access (off by default; gigabit LAN is faster without it)
 - **Multi-language UI** — English (default) and Chinese, with easy extensibility
 - **Cross-platform** — Linux (x86_64/ARM64), macOS
 
@@ -182,6 +184,12 @@ bind = "0.0.0.0:7700"
 
 # Token for authentication (empty = no auth required)
 token = ""
+
+# Resource limits (optional, all defaults shown)
+# [limits]
+# max_ws_connections = 50       # global WebSocket connection cap
+# rate_limit_rps = 20           # per-client-IP REST requests/second (burst = ×3)
+# enable_compression = false    # gzip; off by default (LAN is faster without it)
 
 # Log level configuration (optional, uses "general" preset by default)
 [log_levels]
@@ -305,10 +313,7 @@ tailr restart
 | Route | Method | Description |
 |-------|--------|-------------|
 | `/api/files` | GET | List log files (filtered: text files only) |
-| `/api/file/content` | GET | Paginated file content (`?path=&offset=&limit=`) |
 | `/api/file/tail` | GET | Last N lines (`?path=&lines=`) |
-| `/api/file/info` | GET | File metadata + line count |
-| `/api/search` | GET | Grep search (`?path=&q=&regex=&levels=&context=&limit=`) |
 | `/api/config/log-levels` | GET | Get current log level configuration |
 | `/api/config/log-levels` | POST | Save log level configuration (hot-reload + persist to config.toml) |
 | `/api/upgrade/check` | GET | Check for a newer release (`?force=true` bypasses cache) |

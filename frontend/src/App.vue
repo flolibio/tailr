@@ -213,14 +213,21 @@ const matchCount = computed(() => {
 })
 
 const SETTINGS_KEY = 'tailr-settings'
+const THEME_MODE_KEY = 'tailr-theme-mode'
+
+/** Resolve the initial darkTheme boolean. New users default to "follow system"
+ *  (prefers-color-scheme); existing users keep their saved tailr-settings value. */
+function initialDarkTheme(): boolean {
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true
+}
 
 const defaultSettings: Settings = {
   fontSize: 14,
   fontFamily: 'JetBrains Mono',
   autoScroll: true,
   maxVisibleLines: 50000,
-  darkTheme: true,
-  displayMode: 'compact',
+  darkTheme: initialDarkTheme(),
+  displayMode: 'cozy',
 }
 
 function loadSettings(): Settings {
@@ -230,6 +237,13 @@ function loadSettings(): Settings {
       return { ...defaultSettings, ...JSON.parse(saved) }
     }
   } catch {}
+  // First-time user: preset theme-mode to "system" so SettingsDialog's
+  // three-way selector highlights "System" on first open (it only restores
+  // from localStorage when the key exists; without this the selector starts
+  // blank even though darkTheme follows the system).
+  if (!localStorage.getItem(THEME_MODE_KEY)) {
+    localStorage.setItem(THEME_MODE_KEY, 'system')
+  }
   return { ...defaultSettings }
 }
 
