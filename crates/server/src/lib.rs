@@ -46,6 +46,12 @@ pub struct LimitsConfig {
     /// and compression pays off (1MB response: 5x faster on home broadband,
     /// 20x on 4G, 29x on weak WiFi). User decides based on deployment.
     pub enable_compression: bool,
+    /// Tokio async worker thread count. Default 2.
+    /// tailr is IO-bound (log tailing + WebSocket fan-out); 2 workers cover
+    /// single-user and small-team scenarios. Raise to 4+ for large teams or
+    /// heavy concurrent file-open operations. Lower to 1 for memory-constrained
+    /// containers. (The blocking pool for mmap/HTTP is capped at 4 internally.)
+    pub workers: usize,
 }
 
 impl Default for LimitsConfig {
@@ -54,6 +60,7 @@ impl Default for LimitsConfig {
             max_ws_connections: 50,
             rate_limit_rps: 20,
             enable_compression: false,
+            workers: 2,
         }
     }
 }
@@ -74,6 +81,9 @@ impl LimitsConfig {
                 "max_ws_connections must be > 0 (would reject every WS connection)"
                     .to_string(),
             );
+        }
+        if self.workers == 0 {
+            return Err("workers must be > 0 (tokio needs at least 1 worker thread)".to_string());
         }
         Ok(())
     }
@@ -361,6 +371,7 @@ mod tests {
         let l = LimitsConfig::default();
         assert_eq!(l.max_ws_connections, 50);
         assert_eq!(l.rate_limit_rps, 20);
+        assert_eq!(l.workers, 2);
     }
 
     #[test]
@@ -376,6 +387,15 @@ mod tests {
     fn test_limits_validate_rejects_zero_ws_connections() {
         let l = LimitsConfig {
             max_ws_connections: 0,
+            ..Default::default()
+        };
+        assert!(l.validate().is_err());
+    }
+
+    #[test]
+    fn test_limits_validate_rejects_zero_workers() {
+        let l = LimitsConfig {
+            workers: 0,
             ..Default::default()
         };
         assert!(l.validate().is_err());

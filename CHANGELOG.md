@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.10.1] - 2026-07-23
+
+### Improvements
+
+- **Configurable tokio worker threads:** the server no longer spawns one worker thread per CPU core by default (8-core box = 15 threads, most idle). A new `[limits] workers` option (default 2) controls the tokio async worker pool; the blocking pool (mmap index build, GitHub HTTP) is capped at 4 internally. tailr is IO-bound (log tailing + WebSocket fan-out), so 2 workers cover single-user and small-team scenarios with room to spare. Raise to 4+ for large teams; lower to 1 for memory-constrained containers. Old config files without the key still load (serde default = 2). An 8-core machine drops from ~15 to ~7 threads.
+
 ## [v0.10.0] - 2026-07-22
 
 ### Fixes

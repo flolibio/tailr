@@ -190,40 +190,7 @@ token = ""
 # max_ws_connections = 50       # global WebSocket connection cap
 # rate_limit_rps = 20           # per-client-IP REST requests/second (burst = ×3)
 # enable_compression = false    # gzip; off by default (LAN is faster without it)
-
-# Log level configuration (optional, uses "general" preset by default)
-[log_levels]
-preset = "python"
-
-[[log_levels.levels]]
-name = "CRITICAL"
-keywords = ["CRITICAL"]
-colorLight = "#CC2D26"
-colorDark = "#FF6B63"
-
-[[log_levels.levels]]
-name = "ERROR"
-keywords = ["ERROR"]
-colorLight = "#A32D2D"
-colorDark = "#F09595"
-
-[[log_levels.levels]]
-name = "WARNING"
-keywords = ["WARNING"]
-colorLight = "#854F0B"
-colorDark = "#EF9F27"
-
-[[log_levels.levels]]
-name = "INFO"
-keywords = ["INFO"]
-colorLight = "#0C447C"
-colorDark = "#85B7EB"
-
-[[log_levels.levels]]
-name = "DEBUG"
-keywords = ["DEBUG"]
-colorLight = "#3B6D11"
-colorDark = "#97C459"
+# workers = 2                   # tokio async worker threads (IO-bound; 2 is enough for most)
 ```
 
 **Available presets:** general, java, python, php, go, rust, syslog

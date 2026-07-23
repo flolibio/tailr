@@ -242,7 +242,12 @@ fn run_server(args: ServeArgs) {
     // the same args. Done after daemonize so the daemon child's args are recorded.
     daemon::save_restart_cmd();
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(cfg.limits.workers)
+        .max_blocking_threads(4)
+        .enable_all()
+        .build()
+        .unwrap();
     rt.block_on(async {
         tracing_subscriber::fmt()
             .with_env_filter(
