@@ -62,6 +62,16 @@ export const PRESETS: Record<string, LevelDef[]> = {
     { name: 'INFO', keywords: ['INFO'], colorLight: '#5F5E5A', colorDark: '#B4B2A9' },
     { name: 'DEBUG', keywords: ['DEBUG'], colorLight: '#5F5E5A', colorDark: '#B4B2A9' },
   ],
+  nginx: [
+    { name: 'EMERG', keywords: ['emerg'], colorLight: '#CC2D26', colorDark: '#FF6B63' },
+    { name: 'ALERT', keywords: ['alert'], colorLight: '#D4421E', colorDark: '#FF8A65' },
+    { name: 'CRIT', keywords: ['crit'], colorLight: '#A32D2D', colorDark: '#F09595' },
+    { name: 'ERROR', keywords: ['error'], colorLight: '#854F0B', colorDark: '#EF9F27' },
+    { name: 'WARN', keywords: ['warn'], colorLight: '#664D03', colorDark: '#FFE066' },
+    { name: 'NOTICE', keywords: ['notice'], colorLight: '#0C447C', colorDark: '#85B7EB' },
+    { name: 'INFO', keywords: ['info'], colorLight: '#3B6D11', colorDark: '#97C459' },
+    { name: 'DEBUG', keywords: ['debug'], colorLight: '#5F5E5A', colorDark: '#B4B2A9' },
+  ],
 }
 
 export const PRESET_NAMES: Record<string, string> = {
@@ -71,7 +81,8 @@ export const PRESET_NAMES: Record<string, string> = {
   php: 'PHP (error_log)',
   go: 'Go (slog/zerolog)',
   rust: 'Rust (tracing)',
-  syslog: 'syslog',
+  syslog: 'Syslog',
+  nginx: 'Nginx',
 }
 
 // ── 预设色板 ──────────────────────────────────────────────

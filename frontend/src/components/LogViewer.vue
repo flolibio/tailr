@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import type { LogEntry } from '../services/api'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useCopyFeedbackId } from '../composables/useClipboard'
-import { Bookmark, Maximize2, Minimize2, Check, Copy } from 'lucide-vue-next'
+import { Bookmark, Maximize2, Minimize2, Check, Copy, ArrowDown } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -520,9 +520,10 @@ defineExpose({ scrollToBottom, scrollToLine })
     <button
       v-if="showNewLogsButton"
       class="new-logs-button"
+      :title="t('logViewer.newLogs')"
       @click="onNewLogsClick"
     >
-      {{ t('logViewer.newLogs') }}
+      <ArrowDown :size="22" />
     </button>
   </div>
 </template>
@@ -867,21 +868,25 @@ defineExpose({ scrollToBottom, scrollToLine })
 .new-logs-button {
   position: absolute;
   bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border-color: var(--accent);
-  color: var(--accent);
-  padding: 6px 16px;
-  border-radius: var(--radius);
-  font-size: 14px;
+  right: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--bg-3);
+  border: 1px solid var(--border, #d0d0d0);
+  color: var(--text-2);
+  border-radius: 50%;
+  padding: 0;
   z-index: 10;
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(8px);
-  transition: background .12s ease;
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
 }
 
 .new-logs-button:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  background: var(--bg-3);
+  color: var(--text);
 }
 </style>

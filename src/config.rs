@@ -301,6 +301,16 @@ pub fn default_log_levels(preset: &str) -> LogLevelConfig {
             LevelDef { name: "INFO".into(), keywords: vec!["INFO".into()], color_light: "#5F5E5A".into(), color_dark: "#B4B2A9".into() },
             LevelDef { name: "DEBUG".into(), keywords: vec!["DEBUG".into()], color_light: "#5F5E5A".into(), color_dark: "#B4B2A9".into() },
         ],
+        "nginx" => vec![
+            LevelDef { name: "EMERG".into(), keywords: vec!["emerg".into()], color_light: "#CC2D26".into(), color_dark: "#FF6B63".into() },
+            LevelDef { name: "ALERT".into(), keywords: vec!["alert".into()], color_light: "#D4421E".into(), color_dark: "#FF8A65".into() },
+            LevelDef { name: "CRIT".into(), keywords: vec!["crit".into()], color_light: "#A32D2D".into(), color_dark: "#F09595".into() },
+            LevelDef { name: "ERROR".into(), keywords: vec!["error".into()], color_light: "#854F0B".into(), color_dark: "#EF9F27".into() },
+            LevelDef { name: "WARN".into(), keywords: vec!["warn".into()], color_light: "#664D03".into(), color_dark: "#FFE066".into() },
+            LevelDef { name: "NOTICE".into(), keywords: vec!["notice".into()], color_light: "#0C447C".into(), color_dark: "#85B7EB".into() },
+            LevelDef { name: "INFO".into(), keywords: vec!["info".into()], color_light: "#3B6D11".into(), color_dark: "#97C459".into() },
+            LevelDef { name: "DEBUG".into(), keywords: vec!["debug".into()], color_light: "#5F5E5A".into(), color_dark: "#B4B2A9".into() },
+        ],
         _ => vec![
             // "general" 或未知预设
             LevelDef { name: "ERROR".into(), keywords: vec!["ERROR".into()], color_light: "#A32D2D".into(), color_dark: "#F09595".into() },
