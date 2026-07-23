@@ -53,6 +53,13 @@ function formatSize(bytes: number): string {
       :style="{ paddingLeft: 8 + level * 16 + 'px' }"
       @click="onSelect"
     >
+      <!-- Indentation guide lines: one vertical line per ancestor level -->
+      <span
+        v-if="level > 0"
+        class="indent-guides"
+        :style="{ width: level * 16 + 'px' }"
+        aria-hidden="true"
+      ></span>
       <div v-if="!node.isDir" class="file-icon">
         <FileIcon :size="14" :stroke-width="2" />
       </div>
@@ -105,6 +112,25 @@ function formatSize(bytes: number): string {
   user-select: none;
   position: relative;
   height: 40px;
+}
+
+/* Indentation guide lines — a vertical line at each 16px indent step.
+   Absolutely positioned over the padding area, pointer-events:none so it
+   never blocks clicks. */
+.indent-guides {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  /* Draw a 1px line at the left edge of every 16px cell (skipping the first). */
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent 15px,
+    var(--border) 15px,
+    var(--border) 16px
+  );
 }
 
 .file-item:hover {

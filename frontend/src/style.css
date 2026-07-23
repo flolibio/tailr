@@ -349,8 +349,6 @@ mark.kw-mark-5 { --kw-cur: var(--kw-5); }
   grid-template-rows: var(--tabbar-h) var(--filterbar-h) 1fr var(--statusbar-h);
   height: 100vh;
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
