@@ -1,5 +1,17 @@
 # Changelog
 
+## [v0.10.2] - 2026-07-23
+
+### Features
+
+- **Nginx log level preset:** new `nginx` preset (8 levels: emerg → debug) with lowercase keywords matching nginx error_log format. Available in both the Web UI preset selector and the backend `default_log_levels`.
+
+### UI
+
+- **New-logs button redesigned:** changed from a centered accent-colored text pill to a circular icon button (ChevronDown) at bottom-right — white background, gray border, less intrusive. Same scroll-to-bottom behavior.
+- **File tree indentation guides:** added vertical guide lines at each depth level in the file browser, using theme-adaptive `--border` color. Matches VS Code / file manager tree conventions.
+- **Removed redundant `.app-shell` border/radius:** the border and border-radius were invisible since `.app-shell` fills 100vh with no margin. Kept `overflow: hidden`.
+
 ## [v0.10.1] - 2026-07-23
 
 ### Improvements
