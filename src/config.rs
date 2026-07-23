@@ -71,6 +71,12 @@ log_timezone = "local"
 #   on home broadband, 20x on 4G.
 # Break-even is ~560 Mbps bandwidth: below it compression helps, above it hurts.
 # enable_compression = false
+#
+# Tokio async worker thread count (default 2).
+# tailr is IO-bound; 2 workers suffice for single-user and small teams.
+# Raise to 4+ if many users connect simultaneously or UI feels sluggish.
+# Lower to 1 for memory-constrained containers.
+# workers = 2
 "#;
 
 /// Main configuration for tailr.
@@ -425,6 +431,7 @@ mod tests {
         assert_eq!(config.limits.max_ws_connections, 50);
         assert_eq!(config.limits.rate_limit_rps, 20);
         assert!(!config.limits.enable_compression);
+        assert_eq!(config.limits.workers, 2);
     }
 
     #[test]
@@ -461,6 +468,7 @@ mod tests {
 max_ws_connections = 100
 rate_limit_rps = 50
 enable_compression = true
+workers = 4
 "#
         )
         .unwrap();
@@ -469,6 +477,7 @@ enable_compression = true
         assert_eq!(config.limits.max_ws_connections, 100);
         assert_eq!(config.limits.rate_limit_rps, 50);
         assert!(config.limits.enable_compression);
+        assert_eq!(config.limits.workers, 4);
     }
 
     #[test]

@@ -190,6 +190,7 @@ token = ""
 # max_ws_connections = 50       # global WebSocket connection cap
 # rate_limit_rps = 20           # per-client-IP REST requests/second (burst = ×3)
 # enable_compression = false    # gzip; off by default (LAN is faster without it)
+# workers = 2                   # tokio async worker threads (IO-bound; 2 is enough for most)
 
 # Log level configuration (optional, uses "general" preset by default)
 [log_levels]
