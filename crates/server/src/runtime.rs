@@ -361,7 +361,9 @@ mod tests {
     fn parse_proc_stat_handles_spaces_in_comm() {
         // Process named "my test proc" — comm has spaces. The rsplit_once(')')
         // approach correctly skips the entire parenthesized field.
-        let stat = "12345 (my test proc) S 1 1 1 0 -1 0 0 0 0 50 60 0 0 20 0 1 0 0 0 0";
+        // Fields after ')': 3=S 4=ppid 5=pgrp 6=sid 7=tty 8=tpgid 9=flags
+        // 10=minflt 11=cminflt 12=majflt 13=cmajflt 14=utime 15=stime ...
+        let stat = "12345 (my test proc) S 1 1 1 0 -1 0 0 0 0 0 0 50 60 0 0 20 0 1 0 0 0 0";
         let jiffies = parse_proc_stat_jiffies(stat).unwrap();
         assert_eq!(jiffies, 110); // utime=50 + stime=60
     }
