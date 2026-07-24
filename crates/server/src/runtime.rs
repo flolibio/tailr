@@ -78,7 +78,9 @@ struct Inner {
     last_sample_at: Instant,
     cached: RuntimeSnapshot,
     /// Previous `/proc/[pid]/stat` jiffies (utime+stime) + timestamp, for
-    /// diffing process CPU%. None until the first real sample.
+    /// diffing process CPU% on Linux. None until the first real sample.
+    /// Unused on macOS (sysinfo computes CPU% directly).
+    #[cfg(target_os = "linux")]
     prev_proc_cpu: Option<(Instant, u64)>,
 }
 
@@ -119,11 +121,13 @@ impl RuntimeSampler {
         let disks = Disks::new_with_refreshed_list();
         let now = Instant::now();
 
-        // Seed process CPU baseline by reading /proc/[pid]/stat once.
+        // Seed process CPU baseline (Linux only): read /proc/[pid]/stat once
+        // so the next sample has something to diff against.
+        #[cfg(target_os = "linux")]
         let prev_proc_cpu = read_proc_cpu_jiffies(pid).map(|jiffies| (now, jiffies));
 
-        // First snapshot: process CPU is 0 (no diff yet). The prev_proc_cpu
-        // baseline makes the *next* sample accurate.
+        // First snapshot: process CPU is 0 (no diff yet). The baseline seeded
+        // above makes the *next* sample accurate.
         let cached = build_snapshot(&sys, &disks, pid, &log_dirs, 0.0);
 
         Self {
@@ -132,6 +136,7 @@ impl RuntimeSampler {
                 disks: Arc::new(std::sync::Mutex::new(disks)),
                 last_sample_at: now,
                 cached,
+                #[cfg(target_os = "linux")]
                 prev_proc_cpu,
             }),
             pid,
@@ -172,6 +177,7 @@ impl RuntimeSampler {
         let disks = inner.disks.clone();
         let pid = self.pid;
         let log_dirs = self.log_dirs.clone();
+        #[cfg(target_os = "linux")]
         let prev_proc_cpu = inner.prev_proc_cpu;
 
         let refresh_result = tokio::task::spawn_blocking(move || {
@@ -180,19 +186,30 @@ impl RuntimeSampler {
             // refresh_cpu_usage updates system/global CPU only.
             sys.refresh_cpu_usage();
             sys.refresh_memory();
-            // Refresh only tailr's own process memory (sysinfo's cpu_usage
-            // is unused — see module doc for why we read /proc/[pid]/stat
-            // directly instead).
+            // Refresh tailr's own process. On macOS, sysinfo's
+            // refresh_processes_specifics DOES compute per-process CPU% (unlike
+            // Linux where compute_cpu_usage only runs for ProcessesToUpdate::All).
+            // So we enable with_cpu() on macOS to get it from sysinfo, and on
+            // Linux we read /proc/[pid]/stat directly (see compute_proc_cpu).
             let pids = [pid];
+            #[cfg(target_os = "macos")]
+            let refresh_kind = sysinfo::ProcessRefreshKind::new().with_cpu().with_memory();
+            #[cfg(target_os = "linux")]
+            let refresh_kind = sysinfo::ProcessRefreshKind::new().with_memory();
             sys.refresh_processes_specifics(
                 sysinfo::ProcessesToUpdate::Some(&pids),
                 false,
-                sysinfo::ProcessRefreshKind::new().with_memory(),
+                refresh_kind,
             );
             disks.refresh();
 
-            // Compute process CPU% by diffing /proc/[pid]/stat jiffies.
+            // Process CPU%: on Linux, diff /proc/[pid]/stat jiffies (sysinfo's
+            // value is stale — see module doc). On macOS, use sysinfo's value
+            // (computed correctly above).
+            #[cfg(target_os = "linux")]
             let proc_cpu = compute_proc_cpu(pid, prev_proc_cpu);
+            #[cfg(not(target_os = "linux"))]
+            let proc_cpu = sys.process(pid).map(|p| p.cpu_usage()).unwrap_or(0.0);
 
             build_snapshot(&sys, &disks, pid, &log_dirs, proc_cpu)
         })
@@ -219,18 +236,13 @@ impl RuntimeSampler {
 /// Read `/proc/[pid]/stat` and extract utime + stime (fields 14 + 15), the
 /// CPU time spent in user + kernel mode measured in clock ticks.
 ///
-/// Returns None on non-Linux or if the file can't be read/parsed (process
-/// died, permission denied). In that case process CPU% falls back to 0.
+/// Returns None if the file can't be read/parsed (process died, permission
+/// denied). In that case process CPU% falls back to 0.
 #[cfg(target_os = "linux")]
 fn read_proc_cpu_jiffies(pid: Pid) -> Option<u64> {
     let stat_path = PathBuf::from("/proc").join(pid.as_u32().to_string()).join("stat");
     let stat_data = std::fs::read_to_string(&stat_path).ok()?;
     parse_proc_stat_jiffies(&stat_data)
-}
-
-#[cfg(not(target_os = "linux"))]
-fn read_proc_cpu_jiffies(_pid: Pid) -> Option<u64> {
-    None // macOS/other: no /proc, process CPU stays from sysinfo (unused path)
 }
 
 /// Parse the utime+stime (jiffies) out of a `/proc/[pid]/stat` line.
@@ -259,7 +271,7 @@ fn parse_proc_stat_jiffies(stat: &str) -> Option<u64> {
 /// Formula: (delta_jiffies / CLK_TCK) / delta_seconds * 100
 /// This matches what `top` reports: percentage of one CPU core. On a 4-core
 /// machine, 100% = one core fully used, 400% = all cores.
-#[allow(unused_variables)]
+#[cfg(target_os = "linux")]
 fn compute_proc_cpu(pid: Pid, prev: Option<(Instant, u64)>) -> f32 {
     let (prev_time, prev_jiffies) = match prev {
         Some(v) => v,
