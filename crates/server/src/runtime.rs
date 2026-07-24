@@ -15,6 +15,13 @@
 //! snapshot — they do NOT each trigger a separate `refresh_*`. This avoids the
 //! thundering-herd pattern where N simultaneous requests each pay the full
 //! sysinfo cost.
+//!
+//! Process CPU: sysinfo's `refresh_processes_specifics(Some(&[pid]))` does NOT
+//! compute per-process CPU% — `compute_cpu_usage` is only called for
+//! `ProcessesToUpdate::All` (sysinfo 0.32 source, system.rs:280). So we read
+//! `/proc/[pid]/stat` directly and diff utime+stime between samples, which is
+//! exactly what `top` does. This works correctly on old kernels (CentOS 6 /
+//! 2.6.32) where sysinfo's path silently returns ~0.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -30,6 +37,13 @@ use tokio::sync::Mutex;
 /// doesn't thrash.
 const SAMPLE_TTL: Duration = Duration::from_secs(5);
 
+/// Clock ticks per second for `/proc/[pid]/stat` time fields. On all
+/// Linux/x86_64 and Linux/aarch64 targets this is 100 (USER_HZ / CLK_TCK).
+/// Hardcoding avoids a libc sysconf call; if a weird platform ever differs,
+/// the CPU% will be proportionally off but won't crash.
+#[cfg(target_os = "linux")]
+const CLK_TCK: f32 = 100.0;
+
 /// Runtime snapshot serialized to the frontend. All fields are instantaneous
 /// values (not cumulative).
 #[derive(Serialize, Clone, Debug, Default)]
@@ -38,11 +52,14 @@ pub struct RuntimeSnapshot {
     /// tailr process RSS memory (bytes). Physical RAM only, excludes shared libs.
     pub process_memory_bytes: u64,
     /// tailr process CPU usage (0.0-100.0 per core; >100 on multi-core).
-    /// First sample after start returns 0 (sysinfo needs two samples to diff).
+    /// First sample after start returns 0 (needs two samples to diff).
     pub process_cpu_percent: f32,
     /// Total physical memory on the machine (bytes).
     pub system_total_memory_bytes: u64,
-    /// Used memory = total - available (bytes).
+    /// Used memory (bytes). On Linux without MemAvailable (CentOS 6 etc),
+    /// this is close to AnonPages — memory that cannot be reclaimed, excluding
+    /// buffers/cached. This is a more meaningful "used" than `free`'s first
+    /// line (which counts reclaimable cache as used).
     pub system_used_memory_bytes: u64,
     /// Global CPU usage across all cores (0.0-100.0 × core count; 400 = 4 cores full).
     pub system_cpu_percent: f32,
@@ -60,6 +77,11 @@ struct Inner {
     disks: Arc<std::sync::Mutex<Disks>>,
     last_sample_at: Instant,
     cached: RuntimeSnapshot,
+    /// Previous `/proc/[pid]/stat` jiffies (utime+stime) + timestamp, for
+    /// diffing process CPU% on Linux. None until the first real sample.
+    /// Unused on macOS (sysinfo computes CPU% directly).
+    #[cfg(target_os = "linux")]
+    prev_proc_cpu: Option<(Instant, u64)>,
 }
 
 /// On-demand runtime sampler with TTL cache.
@@ -82,11 +104,10 @@ pub struct RuntimeSampler {
 impl RuntimeSampler {
     /// Construct and do an initial full refresh to seed the CPU-usage baseline.
     ///
-    /// CPU% requires two samples spaced by `MINIMUM_CPU_UPDATE_INTERVAL`, so
-    /// the very first `/api/runtime` response after server start may report
-    /// ~0% CPU — this is expected and documented. We refresh once here so the
-    /// *second* sample (the first real request) already has a baseline to diff
-    /// against.
+    /// CPU% requires two samples spaced in time, so the very first
+    /// `/api/runtime` response after server start may report ~0% CPU — this is
+    /// expected and documented. We seed `prev_proc_cpu` here so the second
+    /// sample (the first real request) already has a baseline to diff against.
     pub fn new(log_dirs: Vec<PathBuf>) -> Self {
         let mut sys = System::new_all();
         sys.refresh_all();
@@ -99,7 +120,15 @@ impl RuntimeSampler {
         });
         let disks = Disks::new_with_refreshed_list();
         let now = Instant::now();
-        let cached = build_snapshot(&sys, &disks, pid, &log_dirs);
+
+        // Seed process CPU baseline (Linux only): read /proc/[pid]/stat once
+        // so the next sample has something to diff against.
+        #[cfg(target_os = "linux")]
+        let prev_proc_cpu = read_proc_cpu_jiffies(pid).map(|jiffies| (now, jiffies));
+
+        // First snapshot: process CPU is 0 (no diff yet). The baseline seeded
+        // above makes the *next* sample accurate.
+        let cached = build_snapshot(&sys, &disks, pid, &log_dirs, 0.0);
 
         Self {
             inner: Mutex::new(Inner {
@@ -107,6 +136,8 @@ impl RuntimeSampler {
                 disks: Arc::new(std::sync::Mutex::new(disks)),
                 last_sample_at: now,
                 cached,
+                #[cfg(target_os = "linux")]
+                prev_proc_cpu,
             }),
             pid,
             log_dirs,
@@ -146,18 +177,19 @@ impl RuntimeSampler {
         let disks = inner.disks.clone();
         let pid = self.pid;
         let log_dirs = self.log_dirs.clone();
+        #[cfg(target_os = "linux")]
+        let prev_proc_cpu = inner.prev_proc_cpu;
 
         let refresh_result = tokio::task::spawn_blocking(move || {
             let mut sys = sys.lock().unwrap();
             let mut disks = disks.lock().unwrap();
-            // refresh_cpu_usage only updates system/global CPU, NOT per-process
-            // CPU. Process::cpu_usage() stays stale unless we explicitly refresh
-            // our own PID with cpu enabled. This is a common sysinfo pitfall.
+            // refresh_cpu_usage updates system/global CPU only.
             sys.refresh_cpu_usage();
             sys.refresh_memory();
-            // Refresh only tailr's own process (not the whole process list —
-            // that would be O(n) over all processes every poll). with_cpu()
-            // + with_memory() gives us exactly what build_snapshot reads.
+            // Refresh tailr's own process with both cpu + memory. We always
+            // enable with_cpu() so sysinfo's cpu_usage() is available as a
+            // fallback (see proc_cpu logic below). On macOS this is the primary
+            // source; on Linux it's the fallback when /proc/[pid]/stat fails.
             let pids = [pid];
             sys.refresh_processes_specifics(
                 sysinfo::ProcessesToUpdate::Some(&pids),
@@ -165,7 +197,23 @@ impl RuntimeSampler {
                 sysinfo::ProcessRefreshKind::new().with_cpu().with_memory(),
             );
             disks.refresh();
-            build_snapshot(&sys, &disks, pid, &log_dirs)
+
+            // Process CPU%:
+            //   Linux:  primary = /proc/[pid]/stat diff; fallback = sysinfo
+            //   macOS:  primary = sysinfo (computed correctly by refresh above)
+            //
+            // The sysinfo fallback on Linux currently returns ~0 for single-PID
+            // refresh (compute_cpu_usage only runs for ProcessesToUpdate::All),
+            // but the structure is kept uniform so a future sysinfo fix makes
+            // the fallback work automatically without code changes.
+            let sysinfo_cpu = sys.process(pid).map(|p| p.cpu_usage()).unwrap_or(0.0);
+
+            #[cfg(target_os = "linux")]
+            let proc_cpu = compute_proc_cpu(pid, prev_proc_cpu).unwrap_or(sysinfo_cpu);
+            #[cfg(not(target_os = "linux"))]
+            let proc_cpu = sysinfo_cpu;
+
+            build_snapshot(&sys, &disks, pid, &log_dirs, proc_cpu)
         })
         .await;
 
@@ -187,17 +235,71 @@ impl RuntimeSampler {
     }
 }
 
+/// Read `/proc/[pid]/stat` and extract utime + stime (fields 14 + 15), the
+/// CPU time spent in user + kernel mode measured in clock ticks.
+///
+/// Returns None if the file can't be read/parsed (process died, permission
+/// denied). In that case process CPU% falls back to 0.
+#[cfg(target_os = "linux")]
+fn read_proc_cpu_jiffies(pid: Pid) -> Option<u64> {
+    let stat_path = PathBuf::from("/proc").join(pid.as_u32().to_string()).join("stat");
+    let stat_data = std::fs::read_to_string(&stat_path).ok()?;
+    parse_proc_stat_jiffies(&stat_data)
+}
+
+/// Parse the utime+stime (jiffies) out of a `/proc/[pid]/stat` line.
+///
+/// Field layout (1-indexed): ... 14=utime 15=stime ...
+/// The comm field (2) is parenthesized and may contain spaces or parens,
+/// so we split on ')' first to skip past it safely.
+#[cfg(target_os = "linux")]
+fn parse_proc_stat_jiffies(stat: &str) -> Option<u64> {
+    // Skip past the comm field: everything after the last ')'.
+    let after_comm = stat.rsplit_once(')')?.1;
+    let mut fields = after_comm.split_whitespace();
+    // Fields after ')' start at field 3 (state). Skip to field 14 (utime):
+    // that's 14 - 3 = 11 fields to skip.
+    for _ in 0..11 {
+        fields.next()?;
+    }
+    let utime: u64 = fields.next()?.parse().ok()?;
+    let stime: u64 = fields.next()?.parse().ok()?;
+    Some(utime + stime)
+}
+
+/// Compute process CPU% by diffing the current jiffies against the previous
+/// sample. `prev` is (timestamp, jiffies) from the last refresh.
+///
+/// Formula: (delta_jiffies / CLK_TCK) / delta_seconds * 100
+/// This matches what `top` reports: percentage of one CPU core. On a 4-core
+/// machine, 100% = one core fully used, 400% = all cores.
+///
+/// Returns None when the computation can't be done (no baseline yet, /proc
+/// unreadable, elapsed too small). The caller falls back to sysinfo's value
+/// in that case — keeping a uniform "primary → fallback" structure across
+/// platforms.
+#[cfg(target_os = "linux")]
+fn compute_proc_cpu(pid: Pid, prev: Option<(Instant, u64)>) -> Option<f32> {
+    let (prev_time, prev_jiffies) = prev?;
+    let curr_jiffies = read_proc_cpu_jiffies(pid)?;
+    let delta_secs = prev_time.elapsed().as_secs_f32();
+    if delta_secs < 0.001 {
+        return None; // avoid division by near-zero
+    }
+    let delta_jiffies = curr_jiffies.saturating_sub(prev_jiffies) as f32;
+    Some((delta_jiffies / CLK_TCK) / delta_secs * 100.0)
+}
 /// Build a snapshot from the given (already-refreshed) sysinfo state.
-/// Pure function — no locking, no I/O. Kept separate so it can be unit-tested
-/// with synthetic `System`/`Disks` if needed.
+/// Pure function — no locking, no I/O. `proc_cpu` is pre-computed by the
+/// caller (via compute_proc_cpu) since it needs the previous sample's jiffies.
 fn build_snapshot(
     sys: &System,
     disks: &Disks,
     pid: Pid,
     log_dirs: &[PathBuf],
+    proc_cpu: f32,
 ) -> RuntimeSnapshot {
     let proc_mem = sys.process(pid).map(|p| p.memory()).unwrap_or(0);
-    let proc_cpu = sys.process(pid).map(|p| p.cpu_usage()).unwrap_or(0.0);
     let total_mem = sys.total_memory();
     let used_mem = sys.used_memory();
     let sys_cpu = sys.global_cpu_usage();
@@ -220,11 +322,6 @@ fn build_snapshot(
 /// Pick the disk whose mount point contains the first configured log_dir.
 /// Falls back to the largest disk if no match (typical when log_dirs is empty
 /// at construction, e.g. in tests).
-///
-/// Rationale (see design doc §3.4): typical single-disk deployment hits the
-/// match; multi-disk is a minority case deferred to a future dashboard. We
-/// don't aggregate because summing "used" across disks is semantically
-/// meaningless.
 fn find_relevant_disk<'a>(disks: &'a Disks, log_dirs: &[PathBuf]) -> Option<&'a sysinfo::Disk> {
     let target = log_dirs
         .first()
@@ -250,41 +347,51 @@ mod tests {
         assert_eq!(s.system_total_memory_bytes, 0);
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn parse_proc_stat_handles_parens_in_comm() {
+        // Real-world /proc/[pid]/stat (CentOS 6 tailr process). The comm
+        // field has no spaces here, but the parser must handle cases where it
+        // does (e.g. process named "my (test) app").
+        let stat = "26782 (tailr) S 1 26781 26781 0 -1 4202816 3977 0 0 0 109 154 0 0 20 0 7 0 1004153259 26619904 1787";
+        let jiffies = parse_proc_stat_jiffies(stat).unwrap();
+        // utime=109 (field 14) + stime=154 (field 15) = 263
+        assert_eq!(jiffies, 263);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn parse_proc_stat_handles_spaces_in_comm() {
+        // Process named "my test proc" — comm has spaces. The rsplit_once(')')
+        // approach correctly skips the entire parenthesized field.
+        // Fields after ')': 3=S 4=ppid 5=pgrp 6=sid 7=tty 8=tpgid 9=flags
+        // 10=minflt 11=cminflt 12=majflt 13=cmajflt 14=utime 15=stime ...
+        let stat = "12345 (my test proc) S 1 1 1 0 -1 0 0 0 0 0 50 60 0 0 20 0 1 0 0 0 0";
+        let jiffies = parse_proc_stat_jiffies(stat).unwrap();
+        assert_eq!(jiffies, 110); // utime=50 + stime=60
+    }
+
     #[tokio::test]
     async fn sampler_returns_without_panic() {
-        // Construction triggers a real refresh; on any supported platform this
-        // must not panic and must seed a non-empty System.
         let sampler = RuntimeSampler::new(vec![]);
         let (snap, ws, uptime) = sampler.sample(1, 100).await;
-        // ws_connections / uptime are caller-supplied, always pass through.
         assert_eq!(ws, 1);
         assert_eq!(uptime, 100);
-        // total memory should be > 0 on any real machine.
         assert!(snap.system_total_memory_bytes > 0, "system memory should be non-zero");
     }
 
     #[tokio::test]
     async fn sample_is_cached_within_ttl() {
         let sampler = RuntimeSampler::new(vec![]);
-        // First sample (within TTL of construction) should return cached value
-        // without triggering a refresh — verified by the fact that two rapid
-        // calls return identical snapshots.
         let (s1, _, _) = sampler.sample(1, 100).await;
         let (s2, _, _) = sampler.sample(2, 200).await;
-        // ws_connections / uptime differ (caller-supplied, bypass cache), but
-        // the sysinfo-derived fields must be identical (cache hit).
         assert_eq!(s1.process_memory_bytes, s2.process_memory_bytes);
         assert_eq!(s1.system_total_memory_bytes, s2.system_total_memory_bytes);
     }
 
     #[tokio::test]
     async fn concurrent_samples_dont_duplicate_refresh() {
-        // Fire multiple concurrent sample() calls simultaneously. With the
-        // mutex serialization, only the first refreshes; the rest queue and
-        // return the fresh cache. We verify by checking all return the same
-        // sysinfo-derived values (they shared one refresh).
         let sampler = Arc::new(RuntimeSampler::new(vec![]));
-        // Wait for TTL to expire so the first call actually refreshes.
         tokio::time::sleep(SAMPLE_TTL + Duration::from_millis(50)).await;
 
         let handles: Vec<_> = (0..5)
@@ -298,8 +405,6 @@ mod tests {
             .into_iter()
             .map(|r| r.unwrap())
             .collect();
-        // All sysinfo-derived fields must be identical across the 5 concurrent
-        // calls — proving they shared one refresh, not 5 separate ones.
         let first_mem = results[0].0.process_memory_bytes;
         for r in &results {
             assert_eq!(r.0.process_memory_bytes, first_mem);

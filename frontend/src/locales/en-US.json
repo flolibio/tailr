@@ -31,6 +31,7 @@
     "runtimeSystemMemory": "System Memory",
     "runtimeSystemCpu": "System CPU",
     "runtimeDisk": "Log Disk",
+    "runtimeMemoryHint": "Memory usage excludes cache (buffers/cached); reflects actual process usage only",
     "runtimeServerHint": "Under container deployment, metrics in this section reflect host machine values",
     "runtimeUpdatedAt": "Updated",
     "description": "A blazing-fast log tail & search server",
