@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>设置 · 运行状态</title>
+<style>
+  :root {
+    --surface-2: #ffffff;
+    --surface-1: #f4f3f0;
+    --surface-0: #eceae5;
+    --text-primary: #1c1c1a;
+    --text-secondary: #5f5e5a;
+    --text-muted: #8a8983;
+    --border: #e4e2dc;
+    --accent: #185fa5;
+    --accent-bg: #e6f1fb;
+    --success: #1d9e75;
+    --font-sans: -apple-system, "PingFang SC", "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--surface-0);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: 760px;
+    background: var(--surface-2);
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.14), 0 4px 16px rgba(0,0,0,0.06);
+  }
+
+  .modal-header {
+    display: none;
+  }
+
+  .sidebar {
+    width: 190px;
+    flex-shrink: 0;
+    background: var(--surface-1);
+    padding: 22px 12px;
+    border-right: 0.5px solid var(--border);
+  }
+
+  .sidebar-title {
+    font-size: 16px;
+    font-weight: 600;
+    padding: 0 8px 18px;
+  }
+
+  .nav-group-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+    padding: 10px 8px 6px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 8px;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: default;
+  }
+
+  .nav-item svg { flex-shrink: 0; opacity: 0.8; }
+
+  .nav-item.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .nav-item.active svg { opacity: 1; }
+
+  .content {
+    flex: 1;
+    min-width: 0;
+    padding: 26px 30px 20px;
+  }
+
+  .content-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .content-title {
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .content-sub {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 22px;
+  }
+
+  /* --- 实时状态指示：脉冲圆点 + 时间戳，放在标题右侧 --- */
+  .live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 8px;
+    border-radius: 999px;
+    background: var(--surface-1);
+    flex-shrink: 0;
+  }
+
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--success);
+    position: relative;
+  }
+
+  .live-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--success);
+  }
+
+  .live-dot.flash::after {
+    animation: pulse-flash 0.6s ease-out;
+  }
+
+  @keyframes pulse-flash {
+    0%   { transform: scale(1);   opacity: 0.7; }
+    100% { transform: scale(2.8); opacity: 0;   }
+  }
+
+  .live-time {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 10px;
+  }
+
+  .section-label svg { color: var(--accent); }
+
+  .card-grid {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+  .card-grid.cols-4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+  .card-grid.cols-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+
+  .card {
+    background: var(--surface-1);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .card-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .card-value {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .card-unit {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-secondary);
+  }
+
+  .bar-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 9px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  .bar-caption {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 5px;
+  }
+
+  .footnote {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="modal">
+
+  <div class="sidebar">
+    <div class="sidebar-title">设置</div>
+
+    <div class="nav-group-label">通用</div>
+    <div class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      常规
+    </div>
+    <div class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      日志级别
+    </div>
+
+    <div class="nav-group-label">关于</div>
+    <div class="nav-item active">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      运行状态
+    </div>
+    <div class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      关于此应用
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="content-header">
+      <div>
+        <div class="content-title">运行状态</div>
+      </div>
+      <div class="live-indicator">
+        <span class="live-dot" id="liveDot"></span>
+        <span class="live-time" id="liveTime">更新于 15:03:15</span>
+      </div>
+    </div>
+    <div class="content-sub">当前资源占用（每 5 秒刷新一次）</div>
+
+    <div class="section-label">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      TAILR 进程
+    </div>
+    <div class="card-grid cols-4">
+      <div class="card">
+        <div class="card-label">进程内存</div>
+        <div class="card-value">18.3<span class="card-unit"> MB</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">进程 CPU</div>
+        <div class="card-value">0.0<span class="card-unit">%</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">运行时长</div>
+        <div class="card-value">2h 1m</div>
+      </div>
+      <div class="card">
+        <div class="card-label">WS 连接数</div>
+        <div class="card-value">1</div>
+      </div>
+    </div>
+
+    <div class="section-label">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+      服务器
+    </div>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-label">系统内存</div>
+        <div class="card-value">29.0 <span class="card-unit">/ 48.0 GB</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:60%"></div></div>
+        <div class="bar-caption">60%</div>
+      </div>
+      <div class="card">
+        <div class="card-label">系统 CPU</div>
+        <div class="card-value">9.6<span class="card-unit">%</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:9.6%"></div></div>
+        <div class="bar-caption">健康</div>
+      </div>
+      <div class="card">
+        <div class="card-label">日志磁盘</div>
+        <div class="card-value">213.8 <span class="card-unit">/ 926.3 GB</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:23%"></div></div>
+        <div class="bar-caption">23%</div>
+      </div>
+    </div>
+
+    <div class="footnote">容器化部署下，此区域指标反映的是宿主机数值。</div>
+  </div>
+
+</div>
+
+<script>
+  const dot = document.getElementById('liveDot');
+  const timeEl = document.getElementById('liveTime');
+
+  function pad(n) { return n.toString().padStart(2, '0'); }
+
+  function refresh() {
+    dot.classList.remove('flash');
+    void dot.offsetWidth;
+    dot.classList.add('flash');
+
+    const now = new Date();
+    timeEl.textContent = '更新于 ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+  }
+
+  setInterval(refresh, 5000);
+</script>
+
+</body>
+</html>
