@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.11.1] - 2026-07-24
+
+### Fixes
+
+- **Process CPU always shows 0.0%:** sysinfo's `refresh_processes_specifics(Some(&[pid]))` does NOT compute per-process CPU% — `compute_cpu_usage` is only called for `ProcessesToUpdate::All` (sysinfo 0.32 source limitation). On CentOS 6 / kernel 2.6.32 (and likely all platforms), this left `Process::cpu_usage()` permanently at its initial value (~0). Now reads `/proc/[pid]/stat` directly and diffs utime+stime between samples (exactly what `top` does), giving accurate process CPU% on Linux. Verified: `top` showed 0.3-0.7% while sysinfo reported 5.97e-7% — now matches.
+- **System Memory tooltip:** added a footnote clarifying that memory usage excludes cache (buffers/cached), reflecting actual process usage only. Prevents confusion when comparing with `free`'s first line (which counts reclaimable cache as "used").
+
 ## [v0.11.0] - 2026-07-24
 
 ### Features

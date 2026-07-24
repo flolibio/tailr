@@ -182,6 +182,7 @@ const sysCpuClamped = computed(() => Math.min(data.value?.systemCpuPercent ?? 0,
         </div>
       </div>
 
+      <div class="footnote">{{ t('settings.runtimeMemoryHint') }}</div>
       <div class="footnote">{{ t('settings.runtimeServerHint') }}</div>
     </template>
   </div>
