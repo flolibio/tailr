@@ -16,6 +16,7 @@ crates/
   search-engine/      # LevelDetector (dynamic log-level detection from user-configured keywords)
   server/             # Axum app: REST API, WebSocket handler, static file serving
                       # Also owns upgrade.rs: UpgradeEngine (shared by CLI + Web) + UpgradeService (Web-only)
+                      # And runtime.rs: RuntimeSampler (sysinfo + TTL cache) for GET /api/runtime
 frontend/             # Vue 3 + TypeScript + Vite SPA
   composables/        # useLogLevels, useLogStream, useAuth
   components/         # Settings UI (SettingsDialog, LogLevelSettings, TokenDialog)
@@ -155,7 +156,8 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 | `/api/config/log-levels` | POST | Save log level configuration (requires CSRF header when token set) |
 | `/api/upgrade/check` | GET | Check for newer release (read-only; returns `supported` platform flag) |
 | `/api/upgrade` | POST | Download + replace binary + delegate restart. **Forced auth**: requires non-empty token even when global auth is disabled (binary replacement is RCE-class), plus `X-Requested-With` CSRF header |
-| `/api/health` | GET | Status + uptime + version |
+| `/api/health` | GET | Status + uptime + version. **Exempt from rate limiter** (read-only, polled by LB probes) |
+| `/api/runtime` | GET | Runtime resource snapshot (process/system CPU+memory, disk, WS connections, uptime). TTL-cached 5s; refresh runs in `spawn_blocking`. **Exempt from rate limiter** (read-only, polled by Runtime panel) |
 | `/ws` | WS | Subscribe/unsubscribe to live file tail (batched entries) |
 
 ## Development Rules

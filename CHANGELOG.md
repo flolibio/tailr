@@ -1,5 +1,27 @@
 # Changelog
 
+## [v0.11.0] - 2026-07-24
+
+### Features
+
+- **Runtime observability (`GET /api/runtime` + Settings panel):** the server now exposes live resource metrics via a new read-only endpoint, and the Settings dialog gains a "Runtime" panel showing them. Closes the self-ops loop started in v0.9 — users no longer need SSH to check whether the service is eating memory or the log disk is full.
+
+  The panel is split into two sections to keep semantics clear:
+  - **tailr process:** process memory (RSS), process CPU %, uptime, active WebSocket connections.
+  - **server:** system memory (used/total + bar), system CPU % (bar), log disk usage (bar, turns amber past 80%). A hint under this section notes that under container deployment these reflect the host machine, not the container's cgroup quota.
+
+  Data refreshes every 5s via HTTP polling (not WS — keeps the log-stream protocol clean and stops when the panel closes). A pulsing live indicator (dot + timestamp) at the top signals each fresh sample.
+
+  Sampling is TTL-cached (5s) on the server: repeated requests within the window return the cached snapshot without re-running `sysinfo`. The actual `refresh_*` calls run inside `spawn_blocking` so they never stall tokio workers (same pattern as the v0.10 `LineIndex::build` fix). No background thread — zero cost when nobody is viewing the panel.
+
+  `/api/runtime` and `/api/health` are **exempt from the per-IP rate limiter** (split into `api::routes_unlimited`). Both are read-only, TTL-cached, and polled on a timer; letting them share the business endpoints' GCRA bucket meant the runtime panel's 5s poll slowly ate into the client's request budget — combined with a tab-restore burst (which exhausts the 60-request burst capacity), the panel would start hitting 429 minutes later and stay throttled for a while (GCRA recovers slowly after exhaustion). Business endpoints (`/api/files`, `/api/file/tail`, config, upgrade) remain rate-limited.
+
+### Fixes
+
+- **Rate limiter no longer trips on normal usage / GCRA slow-recovery mitigated:** the GCRA burst capacity was raised from `rps × 3` (= 60) to `rps × 10` (= 200). GCRA's defining trait is slow recovery after exhaustion — a fully-drained bucket takes ~20s before a single request passes again (TAT-based penalty). The old tight burst tripped on ~6 rapid page reloads (72 requests), then penalized the user with a 20-60s throttle window where every business request 429'd. Since tailr's "bursts" are normal user behavior (tab restore, impatient reloads), not abuse, this was the wrong tradeoff. At ×10, it takes ~17 consecutive 12-request reloads (204 requests in ~5s) to exhaust — far beyond any realistic non-automated usage. Genuine abuse (sustained high RPS) is still throttled. The frontend also now transparently backoff-retries transient 429s (1s → 2s → 4s with jitter) before surfacing the error, so edge-case 429s are invisible to the user.
+
+  Uses `sysinfo` 0.32 with `default-features = false, features = ["system", "disk"]` (drops network/component/user/multithread). sysinfo calls platform base libs (libc via `/proc`+`/sys` on Linux, libSystem on macOS) — these are always-present OS libs, statically linked under musl, so the zero-install promise is preserved.
+
 ## [v0.10.2] - 2026-07-23
 
 ### Features

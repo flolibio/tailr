@@ -6,8 +6,9 @@ import { healthCheck } from '../services/api'
 import { useLogLevels } from '../composables/useLogLevels'
 import LogLevelSettings from './settings/LogLevelSettings.vue'
 import AboutSection from './settings/AboutSection.vue'
+import RuntimeSection from './settings/RuntimeSection.vue'
 import type { Settings } from './SettingsPanel.vue'
-import { X, Settings as SettingsIcon, Info, Check, ChartNoAxesGantt } from 'lucide-vue-next'
+import { X, Settings as SettingsIcon, Info, Check, ChartNoAxesGantt, Activity } from 'lucide-vue-next'
 
 const props = defineProps<{
   settings: Settings
@@ -24,7 +25,7 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 
 // ── Navigation ──
-type NavSection = 'general' | 'logLevels' | 'about'
+type NavSection = 'general' | 'logLevels' | 'runtime' | 'about'
 const activeNav = ref<NavSection>(props.initialSection ?? 'general')
 
 const navItems = computed<{ key: NavSection; label: string; icon: string; section: string }[]>(() => [
@@ -39,6 +40,12 @@ const navItems = computed<{ key: NavSection; label: string; icon: string; sectio
     label: t('settings.logLevels'),
     icon: 'edit',
     section: t('settings.general'),
+  },
+  {
+    key: 'runtime',
+    label: t('settings.runtime'),
+    icon: 'activity',
+    section: t('settings.about'),
   },
   {
     key: 'about',
@@ -249,6 +256,8 @@ onUnmounted(() => {
               <ChartNoAxesGantt v-else-if="item.icon === 'edit'" class="nav-icon" :size="16" :stroke-width="2" />
               <!-- Info icon -->
               <Info v-else-if="item.icon === 'info'" class="nav-icon" :size="16" :stroke-width="2" />
+              <!-- Activity icon (runtime) -->
+              <Activity v-else-if="item.icon === 'activity'" class="nav-icon" :size="16" :stroke-width="2" />
               {{ item.label }}
             </button>
           </template>
@@ -444,6 +453,12 @@ onUnmounted(() => {
           <template v-else-if="activeNav === 'logLevels'">
             <div class="section-title">{{ t('settings.logLevels') }}</div>
             <LogLevelSettings ref="logLevelsRef" />
+          </template>
+
+          <!-- Runtime -->
+          <template v-else-if="activeNav === 'runtime'">
+            <div class="section-title">{{ t('settings.runtime') }}</div>
+            <RuntimeSection />
           </template>
 
           <!-- About -->

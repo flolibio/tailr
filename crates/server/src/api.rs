@@ -99,6 +99,23 @@ struct HealthData {
     uptime_seconds: u64,
 }
 
+/// Runtime metrics snapshot returned by `GET /api/runtime`.
+/// Combines sysinfo-derived fields (cpu/mem/disk) with cheap AppState reads
+/// (ws connections, uptime). All values are instantaneous.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeData {
+    process_memory_bytes: u64,
+    process_cpu_percent: f32,
+    system_total_memory_bytes: u64,
+    system_used_memory_bytes: u64,
+    system_cpu_percent: f32,
+    disk_total_bytes: u64,
+    disk_used_bytes: u64,
+    ws_connections: usize,
+    uptime_seconds: u64,
+}
+
 #[derive(Deserialize)]
 struct UpgradeCheckParams {
     /// Bypass cache and force a fresh GitHub query.
@@ -110,10 +127,26 @@ pub fn routes() -> Router {
     Router::new()
         .route("/api/files", get(list_files))
         .route("/api/file/tail", get(file_tail))
-        .route("/api/health", get(health))
         .route("/api/config/log-levels", get(get_log_levels).post(save_log_levels))
         .route("/api/upgrade/check", get(check_upgrade))
         .route("/api/upgrade", axum::routing::post(perform_upgrade))
+}
+
+/// Read-only status endpoints exempt from the governor rate limiter.
+///
+/// `/api/health` and `/api/runtime` are lightweight, TTL-cached, carry no
+/// side effects, and are polled on a timer (health by LB probes / the About
+/// panel; runtime by the Runtime panel at 5s). Letting them share the same
+/// per-IP GCRA bucket as business endpoints (file tail, log levels) means a
+/// sustained runtime poll slowly eats into the client's request budget and,
+/// combined with other traffic, eventually trips 429. Since these endpoints
+/// are cheap and non-mutating, they don't need the same abuse protection as
+/// the business surface — exempting them keeps the panel's 5s poll from
+/// competing with real work for quota.
+pub fn routes_unlimited() -> Router {
+    Router::new()
+        .route("/api/health", get(health))
+        .route("/api/runtime", get(runtime))
 }
 
 pub(crate) fn validate_path(
@@ -447,6 +480,33 @@ async fn health(
         status: "ok".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds: state.start_time.elapsed().as_secs(),
+    }))
+}
+
+/// `GET /api/runtime` — runtime resource snapshot (CPU / memory / disk / WS
+/// connections / uptime). Sampling is TTL-cached (5s) and refresh runs in
+/// `spawn_blocking` so it never stalls tokio workers. Read-only, no CSRF.
+async fn runtime(
+    Extension(state): Extension<Arc<AppState>>,
+) -> Json<ApiResponse<RuntimeData>> {
+    use std::sync::atomic::Ordering;
+    let (snap, ws_connections, uptime_seconds) = state
+        .runtime
+        .sample(
+            state.ws_connection_count.load(Ordering::SeqCst),
+            state.start_time.elapsed().as_secs(),
+        )
+        .await;
+    Json(ApiResponse::ok(RuntimeData {
+        process_memory_bytes: snap.process_memory_bytes,
+        process_cpu_percent: snap.process_cpu_percent,
+        system_total_memory_bytes: snap.system_total_memory_bytes,
+        system_used_memory_bytes: snap.system_used_memory_bytes,
+        system_cpu_percent: snap.system_cpu_percent,
+        disk_total_bytes: snap.disk_total_bytes,
+        disk_used_bytes: snap.disk_used_bytes,
+        ws_connections,
+        uptime_seconds,
     }))
 }
 

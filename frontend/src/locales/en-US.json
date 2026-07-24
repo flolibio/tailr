@@ -20,6 +20,19 @@
     "title": "Settings",
     "general": "General",
     "about": "About",
+    "runtime": "Runtime",
+    "runtimeDesc": "Current resource usage (refreshes every 5s)",
+    "runtimeProcessGroup": "tailr Process",
+    "runtimeProcessMemory": "Process Memory",
+    "runtimeProcessCpu": "Process CPU",
+    "runtimeUptime": "Uptime",
+    "runtimeWsConnections": "WS Connections",
+    "runtimeServerGroup": "Server",
+    "runtimeSystemMemory": "System Memory",
+    "runtimeSystemCpu": "System CPU",
+    "runtimeDisk": "Log Disk",
+    "runtimeServerHint": "Under container deployment, metrics in this section reflect host machine values",
+    "runtimeUpdatedAt": "Updated",
     "description": "A blazing-fast log tail & search server",
     "collapse": "Collapse settings",
     "fontSize": "Font size",
@@ -139,7 +152,8 @@
     "rateLimitTitle": "Rate limited",
     "wsConnectionLimit": "WebSocket connection limit reached, please close other tabs and retry",
     "loadFailed": "Failed to load log",
-    "loadFailedRateLimited": "Log load was rate-limited by the server"
+    "loadFailedRateLimited": "Log load was rate-limited by the server",
+    "runtimeFetchFailed": "Failed to fetch runtime info"
   },
   "common": {
     "retry": "Retry"

@@ -67,22 +67,48 @@ async function request<T>(url: string): Promise<T> {
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const res = await fetch(`${BASE}${url}`, { headers })
-  if (res.status === 401) {
-    const { handleAuthError } = useAuth()
-    handleAuthError()
-    throw new AuthError()
+  // 429 auto-retry with exponential backoff. Transient 429s (a stray request
+  // hitting a near-empty bucket) are retried transparently instead of surfacing
+  // as a visible error. The server's burst capacity (rps × 10) is sized so
+  // normal use — including rapid page reloads — almost never exhausts it; this
+  // backoff handles the rare edge case. We honor Retry-After when present
+  // (capped); otherwise 1s → 2s → 4s. After MAX_RETRIES, RateLimitError is
+  // thrown so the existing error UI (retry button + dedup toast) takes over.
+  const MAX_RETRIES = 3
+  const BACKOFF_MS = [1000, 2000, 4000]
+  let attempt = 0
+  for (;;) {
+    const res = await fetch(`${BASE}${url}`, { headers })
+    if (res.status === 401) {
+      const { handleAuthError } = useAuth()
+      handleAuthError()
+      throw new AuthError()
+    }
+    if (res.status === 429 && attempt < MAX_RETRIES) {
+      const retryAfter = parseRetryAfter(res) // seconds, or null
+      // Prefer server hint (capped at 4s); otherwise the backoff table.
+      const base = retryAfter !== null
+        ? Math.min(retryAfter, 4) * 1000
+        : BACKOFF_MS[attempt]
+      // Add 0-25% jitter to de-synchronize concurrent retries. Without this,
+      // a tab-restore burst (12 parallel requests) all 429 at once and would
+      // retry in lockstep — re-hitting the still-depleted bucket together.
+      const jitter = base * 0.25 * Math.random()
+      await new Promise((r) => setTimeout(r, base + jitter))
+      attempt++
+      continue
+    }
+    checkRateLimit(res) // throws RateLimitError when retries exhausted
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+    }
+    const json = await res.json()
+    if (json.success === false) {
+      throw new Error(json.error || 'Request failed')
+    }
+    // Backend wraps in { success, data }. Unwrap data.
+    return (json.data ?? json) as T
   }
-  checkRateLimit(res)
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${res.statusText}`)
-  }
-  const json = await res.json()
-  if (json.success === false) {
-    throw new Error(json.error || 'Request failed')
-  }
-  // Backend wraps in { success, data }. Unwrap data.
-  return (json.data ?? json) as T
 }
 
 export async function listFiles(path?: string, depth?: number): Promise<FileEntry[]> {
@@ -105,6 +131,26 @@ export async function getFileTail(
 
 export async function healthCheck(): Promise<{ status: string; version: string; uptimeSeconds: number }> {
   return request<{ status: string; version: string; uptimeSeconds: number }>('/api/health')
+}
+
+// ── 运行时指标 API ─────────────────────────────────────────
+
+export interface RuntimeData {
+  processMemoryBytes: number
+  processCpuPercent: number
+  systemTotalMemoryBytes: number
+  systemUsedMemoryBytes: number
+  systemCpuPercent: number
+  diskTotalBytes: number
+  diskUsedBytes: number
+  wsConnections: number
+  uptimeSeconds: number
+}
+
+/** Fetch a runtime resource snapshot (CPU / memory / disk / WS / uptime).
+ *  TTL-cached server-side (5s); safe to poll at 5s intervals. */
+export async function fetchRuntime(): Promise<RuntimeData> {
+  return request<RuntimeData>('/api/runtime')
 }
 
 /// Verify a candidate token WITHOUT persisting it. Used by the token dialog to

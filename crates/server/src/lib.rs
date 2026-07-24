@@ -1,4 +1,5 @@
 pub mod api;
+pub mod runtime;
 pub mod static_files;
 pub mod upgrade;
 pub mod ws;
@@ -112,6 +113,9 @@ pub struct AppState {
     pub allowed_dirs: Vec<PathBuf>,
     pub log_timezone: Arc<LogTimezone>,
     pub upgrade_service: Arc<upgrade::UpgradeService>,
+    /// Runtime metrics sampler (sysinfo + TTL cache).
+    /// Powers `GET /api/runtime`. No background thread — samples on demand only.
+    pub runtime: Arc<runtime::RuntimeSampler>,
     /// Resource limits (WS connection cap, REST rate limit). User-tunable
     /// via `[limits]` in config.toml.
     pub limits: LimitsConfig,
@@ -192,6 +196,10 @@ pub fn app(
     let rps = limits.rate_limit_rps;
     let enable_compression = limits.enable_compression;
 
+    // Runtime sampler needs log_dirs to pick which disk to report (first
+    // log_dir's mount point). Clone before `log_dirs` is moved into AppState.
+    let runtime_sampler = Arc::new(runtime::RuntimeSampler::new(log_dirs.clone()));
+
     let state = Arc::new(AppState {
         watcher: Arc::new(Mutex::new(watcher)),
         line_indices: DashMap::new(),
@@ -208,6 +216,7 @@ pub fn app(
         allowed_dirs,
         log_timezone: log_timezone_arc,
         upgrade_service: upgrade::shared_service(),
+        runtime: runtime_sampler,
         limits,
     });
 
@@ -225,28 +234,42 @@ pub fn app(
             "X-Requested-With".parse().unwrap(),
         ]);
 
-    // Per-IP GCRA rate limit on the REST/static surface.
+    // Per-IP GCRA rate limit on the business REST/static surface.
     //
-    // burst_size = rate_limit_rps * 3 is a deliberately loose cap to absorb
-    // the burst that fires when a frontend tab restores: 1 × /api/files,
-    // N × /api/file/tail (one per lazy tab, typically 5+), 1 × log-levels,
-    // 1 × /api/upgrade/check — empirically 8-15 concurrent requests.
-    // ×3 keeps back-to-back reloads from tripping the limiter. Internal
-    // derived value, not exposed to the user.
+    // burst_size = rate_limit_rps * 10. GCRA's defining trait is slow recovery
+    // after exhaustion (TAT-based penalty: a fully-drained bucket takes ~20s
+    // before a single request passes again). For tailr this is the wrong
+    // tradeoff — the "bursts" here are normal user behavior (tab restore fires
+    // 8-15 concurrent requests; an impatient user may reload several times in
+    // a few seconds), not abuse. A tight burst (×3 = 60) trips on ~6 rapid
+    // reloads and then penalizes the user with a 20-60s throttle window.
     //
-    // /ws is excluded: a long-lived connection that opens with a single
-    // upgrade can't meaningfully be "rate limited", and rejecting the
-    // upgrade on burst would hurt legitimate reconnects after a transient
-    // network blip. The WS connection cap (Phase 3) covers abuse there.
+    // ×10 (= 200 at default rps=20) absorbs ~17 consecutive 12-request reloads
+    // before exhausting — far beyond any realistic non-automated usage. This
+    // sidesteps the slow-recovery problem entirely: normal use never drains the
+    // bucket, so recovery speed is moot. Genuine abuse (sustained >200 req/s
+    // from one IP) is still throttled; the frontend backoff-retries transient
+    // edge-case 429s (see api.ts request()).
+    //
+    // /ws, /api/health, /api/runtime are excluded (separate routers): WS is a
+    // long-lived single-upgrade connection where rate limiting is meaningless;
+    // health/runtime are read-only TTL-cached status endpoints polled on a timer
+    // that should not compete with business endpoints for quota.
     let governor_config = tower_governor::governor::GovernorConfigBuilder::default()
         .per_second(rps as u64)
-        .burst_size(rps.saturating_mul(3))
+        .burst_size(rps.saturating_mul(10))
         .use_headers()
         .finish()
         .expect("governor config: per_second>0 and burst_size>0 guaranteed by LimitsConfig defaults");
 
     // /ws on its own router, no GovernorLayer.
     let ws_router = Router::new().merge(ws::routes());
+
+    // Read-only status endpoints (health, runtime) — exempt from governor.
+    // Still auth-gated, just not rate-limited (see api::routes_unlimited).
+    let status_router = Router::new()
+        .merge(api::routes_unlimited())
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
     // Everything else gets the auth middleware + governor.
     let api_router = Router::new()
@@ -263,6 +286,7 @@ pub fn app(
     // [limits] enable_compression = true.
     let router = Router::new()
         .merge(ws_router)
+        .merge(status_router)
         .merge(api_router);
 
     // CompressionLayer must be the innermost body-transforming layer so it
