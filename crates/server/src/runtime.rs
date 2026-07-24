@@ -186,30 +186,32 @@ impl RuntimeSampler {
             // refresh_cpu_usage updates system/global CPU only.
             sys.refresh_cpu_usage();
             sys.refresh_memory();
-            // Refresh tailr's own process. On macOS, sysinfo's
-            // refresh_processes_specifics DOES compute per-process CPU% (unlike
-            // Linux where compute_cpu_usage only runs for ProcessesToUpdate::All).
-            // So we enable with_cpu() on macOS to get it from sysinfo, and on
-            // Linux we read /proc/[pid]/stat directly (see compute_proc_cpu).
+            // Refresh tailr's own process with both cpu + memory. We always
+            // enable with_cpu() so sysinfo's cpu_usage() is available as a
+            // fallback (see proc_cpu logic below). On macOS this is the primary
+            // source; on Linux it's the fallback when /proc/[pid]/stat fails.
             let pids = [pid];
-            #[cfg(target_os = "macos")]
-            let refresh_kind = sysinfo::ProcessRefreshKind::new().with_cpu().with_memory();
-            #[cfg(target_os = "linux")]
-            let refresh_kind = sysinfo::ProcessRefreshKind::new().with_memory();
             sys.refresh_processes_specifics(
                 sysinfo::ProcessesToUpdate::Some(&pids),
                 false,
-                refresh_kind,
+                sysinfo::ProcessRefreshKind::new().with_cpu().with_memory(),
             );
             disks.refresh();
 
-            // Process CPU%: on Linux, diff /proc/[pid]/stat jiffies (sysinfo's
-            // value is stale — see module doc). On macOS, use sysinfo's value
-            // (computed correctly above).
+            // Process CPU%:
+            //   Linux:  primary = /proc/[pid]/stat diff; fallback = sysinfo
+            //   macOS:  primary = sysinfo (computed correctly by refresh above)
+            //
+            // The sysinfo fallback on Linux currently returns ~0 for single-PID
+            // refresh (compute_cpu_usage only runs for ProcessesToUpdate::All),
+            // but the structure is kept uniform so a future sysinfo fix makes
+            // the fallback work automatically without code changes.
+            let sysinfo_cpu = sys.process(pid).map(|p| p.cpu_usage()).unwrap_or(0.0);
+
             #[cfg(target_os = "linux")]
-            let proc_cpu = compute_proc_cpu(pid, prev_proc_cpu);
+            let proc_cpu = compute_proc_cpu(pid, prev_proc_cpu).unwrap_or(sysinfo_cpu);
             #[cfg(not(target_os = "linux"))]
-            let proc_cpu = sys.process(pid).map(|p| p.cpu_usage()).unwrap_or(0.0);
+            let proc_cpu = sysinfo_cpu;
 
             build_snapshot(&sys, &disks, pid, &log_dirs, proc_cpu)
         })
@@ -271,33 +273,22 @@ fn parse_proc_stat_jiffies(stat: &str) -> Option<u64> {
 /// Formula: (delta_jiffies / CLK_TCK) / delta_seconds * 100
 /// This matches what `top` reports: percentage of one CPU core. On a 4-core
 /// machine, 100% = one core fully used, 400% = all cores.
+///
+/// Returns None when the computation can't be done (no baseline yet, /proc
+/// unreadable, elapsed too small). The caller falls back to sysinfo's value
+/// in that case — keeping a uniform "primary → fallback" structure across
+/// platforms.
 #[cfg(target_os = "linux")]
-fn compute_proc_cpu(pid: Pid, prev: Option<(Instant, u64)>) -> f32 {
-    let (prev_time, prev_jiffies) = match prev {
-        Some(v) => v,
-        None => return 0.0, // no baseline yet (first real sample)
-    };
-
-    #[cfg(target_os = "linux")]
-    {
-        let curr_jiffies = match read_proc_cpu_jiffies(pid) {
-            Some(j) => j,
-            None => return 0.0,
-        };
-        let delta_secs = prev_time.elapsed().as_secs_f32();
-        if delta_secs < 0.001 {
-            return 0.0; // avoid division by near-zero
-        }
-        let delta_jiffies = curr_jiffies.saturating_sub(prev_jiffies) as f32;
-        (delta_jiffies / CLK_TCK) / delta_secs * 100.0
+fn compute_proc_cpu(pid: Pid, prev: Option<(Instant, u64)>) -> Option<f32> {
+    let (prev_time, prev_jiffies) = prev?;
+    let curr_jiffies = read_proc_cpu_jiffies(pid)?;
+    let delta_secs = prev_time.elapsed().as_secs_f32();
+    if delta_secs < 0.001 {
+        return None; // avoid division by near-zero
     }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        0.0 // macOS: /proc not available; sysinfo's value is used via build_snapshot
-    }
+    let delta_jiffies = curr_jiffies.saturating_sub(prev_jiffies) as f32;
+    Some((delta_jiffies / CLK_TCK) / delta_secs * 100.0)
 }
-
 /// Build a snapshot from the given (already-refreshed) sysinfo state.
 /// Pure function — no locking, no I/O. `proc_cpu` is pre-computed by the
 /// caller (via compute_proc_cpu) since it needs the previous sample's jiffies.
