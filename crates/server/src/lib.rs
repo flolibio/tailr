@@ -1,5 +1,6 @@
 pub mod api;
 pub(crate) mod error;
+pub mod openapi;
 pub mod runtime;
 pub mod static_files;
 pub mod upgrade;

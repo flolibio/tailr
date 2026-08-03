@@ -37,6 +37,11 @@ uuid = { version = "1", features = ["v4"] }
 futures = "0.3"
 include_dir = "0.7"
 mime_guess = "2"
+# OpenAPI spec generation (compile-time, proc-macro based). Only generates the
+# spec JSON — no swagger-ui bundled (keeps the binary lean; users paste the spec
+# URL into editor.swagger.io to render). 5.x is the last line compatible with
+# axum 0.7 (6.x moved to axum 0.8).
+utoipa = "5"
 
 [dev-dependencies]
 tempfile = "3"

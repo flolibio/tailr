@@ -18,6 +18,7 @@ use serde::Serialize;
 /// Result of a version check.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct UpdateInfo {
     pub current_version: String,
     pub latest_version: String,
@@ -31,6 +32,7 @@ pub struct UpdateInfo {
 /// Result of an upgrade.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct UpgradeResult {
     pub status: String,
     pub message: String,

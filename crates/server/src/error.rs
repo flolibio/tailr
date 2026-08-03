@@ -41,14 +41,16 @@ pub(crate) fn status_for(code: ErrorCode) -> StatusCode {
 /// the fallback (and what non-frontend clients see).
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ErrorBody {
+#[derive(utoipa::ToSchema)]
+pub(crate) struct ErrorBody {
     success: bool,
     error: ErrorDetail,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ErrorDetail {
+#[derive(utoipa::ToSchema)]
+pub(crate) struct ErrorDetail {
     /// SCREAMING_SNAKE machine-readable code (stable, add-only after v1.0).
     code: String,
     /// Baseline English message (the frontend overrides via i18n).
@@ -116,6 +118,7 @@ impl IntoResponse for ApiError {
 /// + error body) rather than HTTP 200 + `{success:false}`.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(utoipa::ToSchema)]
 pub(crate) struct ApiSuccess<T: Serialize> {
     success: bool,
     data: T,

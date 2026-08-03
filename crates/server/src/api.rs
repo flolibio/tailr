@@ -18,7 +18,8 @@ use crate::AppState;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct FileEntry {
+#[derive(utoipa::ToSchema)]
+pub(crate) struct FileEntry {
     name: String,
     path: String,
     size: u64,
@@ -27,12 +28,14 @@ struct FileEntry {
     /// Nested children for directories, populated when a recursive depth was
     /// requested (`?depth=N`). Empty for files or when not recursing.
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[schema(no_recursion)]
     children: Vec<FileEntry>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct FileListData {
+#[derive(utoipa::ToSchema)]
+pub(crate) struct FileListData {
     entries: Vec<FileEntry>,
 }
 
@@ -54,7 +57,8 @@ const MAX_LIST_ENTRIES: usize = 5000;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct FileTailData {
+#[derive(utoipa::ToSchema)]
+pub(crate) struct FileTailData {
     entries: Vec<LogEntry>,
     total_lines: u64,
 }
@@ -68,7 +72,8 @@ struct FileTailParams {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct HealthData {
+#[derive(utoipa::ToSchema)]
+pub(crate) struct HealthData {
     status: String,
     version: String,
     uptime_seconds: u64,
@@ -79,7 +84,8 @@ struct HealthData {
 /// (ws connections, uptime). All values are instantaneous.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct RuntimeData {
+#[derive(utoipa::ToSchema)]
+pub(crate) struct RuntimeData {
     process_memory_bytes: u64,
     process_cpu_percent: f32,
     system_total_memory_bytes: u64,
@@ -122,6 +128,13 @@ pub fn routes_unlimited() -> Router {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/runtime", get(runtime))
+        .route(
+            "/api/docs/openapi.json",
+            get(|| async {
+                use utoipa::OpenApi as _;
+                axum::Json(crate::openapi::ApiDoc::openapi())
+            }),
+        )
 }
 
 pub(crate) fn validate_path(
@@ -142,6 +155,24 @@ pub(crate) fn validate_path(
     }
 }
 
+/// List log files and directories. Returns entries under the configured
+/// `log` paths, or under a specific subdirectory when `?path=` is given.
+/// Recursive depth is controlled by `?depth=` (default 1, max 4).
+#[utoipa::path(
+    get,
+    path = "/api/files",
+    params(
+        ("path" = Option<String>, Query, description = "Subdirectory path to list (default: configured log roots)"),
+        ("depth" = Option<u32>, Query, description = "Recursive depth (default 1 = flat, max 4)"),
+    ),
+    responses(
+        (status = 200, description = "File listing", body = FileListData),
+        (status = 404, description = "Directory not found", body = crate::error::ErrorBody),
+        (status = 403, description = "Path not allowed", body = crate::error::ErrorBody),
+        (status = 500, description = "Internal error", body = crate::error::ErrorBody),
+    ),
+    tag = "files",
+)]
 async fn list_files(
     Query(params): Query<FileListParams>,
     Extension(state): Extension<Arc<AppState>>,
@@ -394,6 +425,21 @@ async fn is_likely_text(path: &std::path::Path) -> bool {
     !buf[..n].contains(&0)
 }
 
+/// Get the last N lines of a log file (default 200, max 5000).
+#[utoipa::path(
+    get,
+    path = "/api/file/tail",
+    params(
+        ("path" = String, Query, description = "Absolute path to the log file"),
+        ("lines" = Option<u64>, Query, description = "Number of lines to read from the end (default 200, max 5000)"),
+    ),
+    responses(
+        (status = 200, description = "Tail entries", body = FileTailData),
+        (status = 404, description = "File not found", body = crate::error::ErrorBody),
+        (status = 403, description = "Path not allowed", body = crate::error::ErrorBody),
+    ),
+    tag = "files",
+)]
 async fn file_tail(
     Query(params): Query<FileTailParams>,
     Extension(state): Extension<Arc<AppState>>,
@@ -440,6 +486,15 @@ async fn file_tail(
     })))
 }
 
+/// Server health check (read-only, exempt from rate limiting).
+#[utoipa::path(
+    get,
+    path = "/api/health",
+    responses(
+        (status = 200, description = "Server health", body = HealthData),
+    ),
+    tag = "system",
+)]
 async fn health(
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiSuccess<HealthData>> {
@@ -453,6 +508,16 @@ async fn health(
 /// `GET /api/runtime` — runtime resource snapshot (CPU / memory / disk / WS
 /// connections / uptime). Sampling is TTL-cached (5s) and refresh runs in
 /// `spawn_blocking` so it never stalls tokio workers. Read-only, no CSRF.
+/// Runtime resource snapshot: process/system CPU+memory, disk, WS connections,
+/// uptime (read-only, exempt from rate limiting, TTL-cached 5s).
+#[utoipa::path(
+    get,
+    path = "/api/runtime",
+    responses(
+        (status = 200, description = "Runtime metrics", body = RuntimeData),
+    ),
+    tag = "system",
+)]
 async fn runtime(
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiSuccess<RuntimeData>> {
@@ -485,6 +550,20 @@ async fn runtime(
 /// Check for a newer release. Read-only — no CSRF/auth gating beyond the global
 /// middleware (token still required if set, but the endpoint carries no sensitive
 /// data and never mutates). Serves from cache unless `?force=true`.
+/// Check for a newer release on GitHub (read-only). Serves from cache unless
+/// `?force=true`. Returns version info + platform support flag.
+#[utoipa::path(
+    get,
+    path = "/api/upgrade/check",
+    params(
+        ("force" = Option<bool>, Query, description = "Bypass cache and force a fresh GitHub query"),
+    ),
+    responses(
+        (status = 200, description = "Update info", body = crate::upgrade::UpdateInfo),
+        (status = 500, description = "Check failed", body = crate::error::ErrorBody),
+    ),
+    tag = "upgrade",
+)]
 async fn check_upgrade(
     Query(params): Query<UpgradeCheckParams>,
     Extension(state): Extension<Arc<AppState>>,
@@ -505,6 +584,21 @@ async fn check_upgrade(
 /// is an RCE-class operation — it must never be reachable when auth is disabled.
 /// When token is empty, the endpoint refuses with an actionable error rather than
 /// silently proceeding.
+/// Perform the upgrade: download + replace binary + delegate restart.
+/// Requires non-empty token (forced auth, RCE-class) + CSRF header.
+#[utoipa::path(
+    post,
+    path = "/api/upgrade",
+    responses(
+        (status = 200, description = "Upgrade result", body = crate::upgrade::UpgradeResult),
+        (status = 400, description = "Unsupported platform", body = crate::error::ErrorBody),
+        (status = 403, description = "Token required / forbidden", body = crate::error::ErrorBody),
+        (status = 409, description = "Upgrade already in progress", body = crate::error::ErrorBody),
+        (status = 500, description = "Upgrade failed", body = crate::error::ErrorBody),
+    ),
+    tag = "upgrade",
+    security(("bearerAuth" = [])),
+)]
 async fn perform_upgrade(
     Extension(state): Extension<Arc<AppState>>,
     headers: HeaderMap,
@@ -527,6 +621,15 @@ async fn perform_upgrade(
     }
 }
 
+/// Get the current log level configuration (preset + level definitions).
+#[utoipa::path(
+    get,
+    path = "/api/config/log-levels",
+    responses(
+        (status = 200, description = "Log level config", body = LogLevelConfig),
+    ),
+    tag = "config",
+)]
 async fn get_log_levels(
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiSuccess<LogLevelConfig>> {
@@ -534,6 +637,21 @@ async fn get_log_levels(
     Json(ApiSuccess::ok(config.as_ref().clone()))
 }
 
+/// Save the log level configuration to config.toml and update the live detector.
+/// Requires CSRF header (`X-Requested-With`) when token auth is enabled.
+#[utoipa::path(
+    post,
+    path = "/api/config/log-levels",
+    request_body = LogLevelConfig,
+    responses(
+        (status = 200, description = "Saved config", body = LogLevelConfig),
+        (status = 400, description = "Invalid config", body = crate::error::ErrorBody),
+        (status = 403, description = "CSRF check failed", body = crate::error::ErrorBody),
+        (status = 500, description = "Config write failed", body = crate::error::ErrorBody),
+    ),
+    tag = "config",
+    security(("bearerAuth" = [])),
+)]
 async fn save_log_levels(
     Extension(state): Extension<Arc<AppState>>,
     headers: HeaderMap,

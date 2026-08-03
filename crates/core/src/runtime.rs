@@ -46,6 +46,7 @@ const CLK_TCK: f32 = 100.0;
 /// values (not cumulative).
 #[derive(Serialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct RuntimeSnapshot {
     /// tailr process RSS memory (bytes). Physical RAM only, excludes shared libs.
     pub process_memory_bytes: u64,

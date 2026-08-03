@@ -256,7 +256,16 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 | `/api/upgrade` | POST | Download + replace binary + delegate restart. **Forced auth**: requires non-empty token even when global auth is disabled (binary replacement is RCE-class), plus `X-Requested-With` CSRF header |
 | `/api/health` | GET | Status + uptime + version. **Exempt from rate limiter** (read-only, polled by LB probes) |
 | `/api/runtime` | GET | Runtime resource snapshot (process/system CPU+memory, disk, WS connections, uptime). TTL-cached 5s; refresh runs in `spawn_blocking`. **Exempt from rate limiter** (read-only, polled by Runtime panel) |
+| `/api/docs/openapi.json` | GET | OpenAPI 3.0 spec (machine-readable API contract). **Exempt from rate limiter**. Render at editor.swagger.io — no swagger-ui bundled |
 | `/ws` | WS | Subscribe/unsubscribe to live file tail (batched entries) |
+
+### Error response format (v0.12+)
+
+All errors return HTTP 4xx/5xx + body `{success:false, error:{code, message}}`:
+- `code` — SCREAMING_SNAKE machine-readable identifier (stable, add-only after v1.0). Defined in `tailr_core::error::ErrorCode`.
+- `message` — baseline English (frontend maps `code` → i18n key; this is the fallback).
+
+Success responses return HTTP 200 + `{success:true, data:<T>}`.
 
 ## Development Rules
 
