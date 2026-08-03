@@ -1,6 +1,6 @@
 [package]
 name = "tailr"
-version = "0.11.1"
+version = "0.12.0"
 edition = "2021"
 
 [[bin]]
@@ -8,6 +8,7 @@ name = "tailr"
 path = "src/main.rs"
 
 [dependencies]
+tailr-core = { path = "crates/core" }
 tailr-server = { path = "crates/server" }
 tailr-protocol = { path = "crates/protocol" }
 tokio = { workspace = true }
@@ -15,12 +16,6 @@ tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 axum = "0.7"
 clap = { version = "4", features = ["derive"] }
-daemonize = "0.5"
-dirs = "5.0"
-figment = { version = "0.10", features = ["toml", "env"] }
-serde = { workspace = true }
-arc-swap = "1"
-toml = "0.8"
 
 [dev-dependencies]
 tempfile = "3"
@@ -31,6 +26,7 @@ members = [
     "crates/protocol",
     "crates/tail-engine",
     "crates/search-engine",
+    "crates/core",
     "crates/server",
 ]
 

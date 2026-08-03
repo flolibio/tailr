@@ -1,9 +1,11 @@
 [package]
 name = "tailr-server"
-version = "0.11.1"
+version = "0.12.0"
 edition = "2021"
 
 [dependencies]
+# Core domain layer (config, daemon, runtime sampler, upgrade engine).
+tailr-core = { path = "../core" }
 tailr-protocol = { path = "../protocol" }
 tailr-tail-engine = { path = "../tail-engine" }
 tailr-search-engine = { path = "../search-engine" }
@@ -35,16 +37,15 @@ uuid = { version = "1", features = ["v4"] }
 futures = "0.3"
 include_dir = "0.7"
 mime_guess = "2"
-self_update = { version = "0.42", default-features = false, features = ["archive-tar", "compression-flate2", "rustls"] }
-# Runtime metrics (CPU / memory / disk) for GET /api/runtime.
-# default-features = false to drop component/network/user/multithread (rayon),
-# keeping only what /api/runtime needs: System (cpu/mem/process) + Disks.
-# Not pure-Rust — calls platform libs (libc on Linux via /proc + /sys, libSystem
-# on macOS), but those are always-present base OS libs, statically linked under
-# musl. Does NOT break the "zero user-side install" promise (unlike libz.so.1 /
-# OpenSSL which are non-preinstalled). Must verify musl static build + alpine
-# container sampling in Phase 4.
-sysinfo = { version = "0.32", default-features = false, features = ["system", "disk"] }
+# OpenAPI spec generation (compile-time, proc-macro based). Only generates the
+# spec JSON — no swagger-ui bundled (keeps the binary lean; users paste the spec
+# URL into editor.swagger.io to render). 5.x is the last line compatible with
+# axum 0.7 (6.x moved to axum 0.8).
+utoipa = "5"
 
 [dev-dependencies]
 tempfile = "3"
+# tower::ServiceExt::oneshot for in-process router testing (no TCP listener).
+tower = { version = "0.5", features = ["util"] }
+# URL-encoding helper for constructing query strings in integration tests.
+urlencoding = "2"

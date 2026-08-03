@@ -5,6 +5,7 @@ import {
   checkUpgrade,
   performUpgrade,
   healthCheck,
+  ApiError,
   type UpdateInfo,
 } from '../../services/api'
 import { Download, RefreshCw, Upload, AlertCircle, CheckCircle2 } from 'lucide-vue-next'
@@ -66,25 +67,30 @@ async function handleUpgrade() {
     // Reload to pick up the new frontend bundle baked into the new binary.
     window.location.reload()
   } catch (e) {
-    const raw = e instanceof Error ? e.message : String(e)
-    upgradeError.value = mapUpgradeError(raw)
+    // ApiError carries a stable SCREAMING_SNAKE code from the backend; map it
+    // to a localized message. Unknown codes / network errors fall back to the
+    // raw message string.
+    const code = e instanceof ApiError && e.code ? e.code : (e instanceof Error ? e.message : String(e))
+    upgradeError.value = mapUpgradeError(code)
     upgradeMessage.value = ''
     upgrading.value = false
   }
 }
 
-/// Map backend error codes (see upgrade.rs / api.rs) to localized messages.
-/// Unknown codes (e.g. network failures) fall back to the raw string.
-const ERROR_CODE_MAP: Record<string, string> = {
+/// Map backend upgrade error codes to upgrade-specific localized messages.
+/// These are richer than the generic errors.* keys (e.g. they mention sudo,
+/// Token configuration) — tailored to the upgrade panel's context.
+/// Unknown codes / network errors fall back to the error's message string.
+const UPGRADE_ERROR_CODE_MAP: Record<string, string> = {
   UNSUPPORTED_PLATFORM: 'settings.upgradeUnsupported',
   PERMISSION_DENIED: 'settings.permissionDenied',
   TOKEN_REQUIRED: 'settings.upgradeRequiresToken',
   UPGRADE_IN_PROGRESS: 'settings.upgradeInProgress',
 }
 
-function mapUpgradeError(raw: string): string {
-  const key = ERROR_CODE_MAP[raw]
-  return key ? t(key) : raw
+function mapUpgradeError(code: string): string {
+  const key = UPGRADE_ERROR_CODE_MAP[code]
+  return key ? t(key) : code
 }
 
 /// Poll health every 1s for up to 30s. The server is unreachable during restart,

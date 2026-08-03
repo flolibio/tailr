@@ -76,6 +76,7 @@ impl LogTimezone {
 /// 单个日志级别定义（名称 + 检测关键词 + 颜色）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct LevelDef {
     /// 级别名称（如 "ERROR", "CRITICAL"）
     pub name: String,
@@ -90,6 +91,7 @@ pub struct LevelDef {
 /// 日志级别配置（预设名称 + 级别列表）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct LogLevelConfig {
     /// 预设名称（"general" | "java" | "python" | "php" | "go" | "rust" | "syslog" | "custom"）
     pub preset: String,
@@ -111,6 +113,7 @@ pub enum LogLevel {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct LogEntry {
     pub line_num: u64,
     pub raw: String,

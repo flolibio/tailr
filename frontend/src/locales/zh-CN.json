@@ -154,7 +154,17 @@
     "wsConnectionLimit": "WebSocket 连接数已达上限，请关闭其他标签页后重试",
     "loadFailed": "日志加载失败",
     "loadFailedRateLimited": "日志加载被服务端限流",
-    "runtimeFetchFailed": "获取运行时信息失败"
+    "runtimeFetchFailed": "获取运行时信息失败",
+    "unauthorized": "认证失败，请检查 Token 是否正确",
+    "forbidden": "无权限访问该资源",
+    "tokenRequired": "此操作需要设置认证 Token",
+    "notFound": "请求的资源不存在",
+    "pathNotAllowed": "路径不在配置的日志目录范围内",
+    "badRequest": "请求参数无效",
+    "unsupportedPlatform": "当前平台不支持自动升级",
+    "permissionDenied": "权限不足，二进制文件不可写",
+    "upgradeInProgress": "升级正在进行中，请稍候",
+    "internal": "服务器内部错误"
   },
   "common": {
     "retry": "重试"

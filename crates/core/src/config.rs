@@ -12,10 +12,8 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 use tailr_protocol::{LevelDef, LogLevelConfig};
-// Re-use the LimitsConfig defined in tailr-server (which owns AppState and
-// actually consumes the limits). Defining it there avoids a cyclic dep:
-// tailr-server can't depend on the tailr binary crate.
-pub use tailr_server::LimitsConfig;
+
+use crate::limits::LimitsConfig;
 
 /// Default config file template written on first run.
 const DEFAULT_CONFIG_TEMPLATE: &str = r#"# tailr configuration file
@@ -43,16 +41,16 @@ token = ""
 # Ctime lines with explicit offset (e.g. "Sun Jul 5 22:43:21 +08 2026") always use that offset.
 log_timezone = "local"
 
-# Daemon mode settings (optional)
-# [daemon]
-# Custom PID file path
+# Daemon mode settings (optional — uncomment values to override defaults)
+[daemon]
+# Custom PID file path (default: ~/.tailr/tailr.pid)
 # pid_file = "/run/tailr.pid"
 
-# Custom log file path
+# Custom log file path (default: ~/.tailr/tailr.log)
 # log_file = "/var/log/tailr.log"
 
-# Resource limits (optional, all defaults shown)
-# [limits]
+# Resource limits (optional — uncomment values to override defaults)
+[limits]
 # Maximum concurrent WebSocket connections (global, shared across all clients).
 # Default 50 covers a small LAN team of 5-10 users with 3-5 tabs each.
 # Single user can lower to 20; large teams can raise to 100+.

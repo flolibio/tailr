@@ -1,0 +1,54 @@
+[package]
+name = "tailr-core"
+version = "0.12.0"
+edition = "2021"
+
+[features]
+default = ["schema"]
+# Enables ToSchema derives on core types (for OpenAPI spec generation).
+# Optional so core can be used without the schema machinery (e.g. a future
+# minimal MCP build that doesn't need API docs).
+schema = ["dep:utoipa"]
+
+[dependencies]
+# Base capability layer (core depends on these, never the reverse).
+tailr-protocol = { path = "../protocol" }
+
+# Config loading.
+figment = { version = "0.10", features = ["toml", "env"] }
+toml = "0.8"
+
+# Serialization.
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Runtime metrics sampling (sysinfo calls platform libs that are always-present
+# base OS libs, statically linked under musl — does not break the "zero user-side
+# install" promise). default-features = false drops component/network/user/multithread.
+sysinfo = { version = "0.32", default-features = false, features = ["system", "disk"] }
+
+# Tracing (logging is allowed in core — it's not terminal I/O like println!,
+# it's structured log emission that each presentation layer's subscriber consumes).
+tracing = { workspace = true }
+
+# tokio signal handling for daemon graceful shutdown. Only the `signal` feature
+# is pulled in (no full runtime here — core never spawns/owns a runtime; the
+# binary starts it). `shutdown_signal()` awaits SIGINT/SIGTERM/SIGHUP within an
+# already-running runtime provided by the presentation layer.
+tokio = { version = "1", features = ["macros", "signal", "time", "sync"] }
+
+# Self-upgrade (pure download + replace logic). rustls backend (no OpenSSL).
+self_update = { version = "0.42", default-features = false, features = ["archive-tar", "compression-flate2", "rustls"] }
+
+# Daemonization (fork/PID/signal management). Pure std-level process control,
+# no HTTP/async runtime dependency.
+daemonize = "0.5"
+dirs = "5.0"
+
+# OpenAPI schema generation (optional, behind `schema` feature).
+# External dep — does not violate core's boundary (no HTTP/axum concepts; just
+# a derive macro that generates spec metadata about the type).
+utoipa = { version = "5", optional = true }
+
+[dev-dependencies]
+tempfile = "3"

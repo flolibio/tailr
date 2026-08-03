@@ -1,5 +1,37 @@
 # Changelog
 
+## [v0.12.0] - 2026-08-04
+
+### Architecture
+
+- **Three-layer architecture:** introduces a domain core layer (`crates/core`) between the presentation layer (CLI/Web) and the base capability layer (`protocol`/`tail-engine`/`search-engine`). This is a pure internal refactor — CLI subcommands, REST API, WS protocol, and config schema are unchanged. It sets up a clean foundation for future CLI log search and MCP integration (both can now reuse core logic without pulling in the axum HTTP stack).
+  - `limits`, `config`, `daemon` moved from `src/` and `crates/server/` into `crates/core`
+  - `runtime` (RuntimeSampler) moved to core as a synchronous `sample_blocking`; the Web layer wraps it in `spawn_blocking` at the call site
+  - `UpgradeEngine` (pure download + replace) moved to core; `UpgradeService` (Web-only, with restart delegation) stays in server
+  - The cyclic-dep workaround (`config.rs` `pub use tailr_server::LimitsConfig`) is eliminated — `LimitsConfig` and `Config` now share a crate
+  - Core has zero `axum`/HTTP dependency, no global runtime, no terminal I/O. Architecture rules documenting the boundary contract are in `AGENTS.md`
+
+### Breaking Changes
+
+- **Unified error response format:** all API errors now return HTTP 4xx/5xx + `{success:false, error:{code, message}}` instead of the previous mixed signals (HTTP 200 + `{success:false, error:"string"}` coexisting with bare HTTP status codes). The `code` field is a stable SCREAMING_SNAKE identifier (e.g. `NOT_FOUND`, `UNAUTHORIZED`, `RATE_LIMITED`); `message` is the baseline English fallback (the frontend maps `code` to localized i18n strings).
+  - 11 error codes defined in `tailr_core::error::ErrorCode` (single source of truth)
+  - The Web layer (`ApiError`) maps each code to an HTTP status at the transport boundary
+  - Frontend `api.ts` simplified: the `json.success === false` branch is removed; branch order preserved (401 → token dialog, 429 → backoff retry, then generic error)
+  - This is the last breaking change before the v1.0 public surface freeze
+
+### Features
+
+- **OpenAPI spec endpoint:** `GET /api/docs/openapi.json` serves a machine-readable OpenAPI 3.1.0 spec (via utoipa). No swagger-ui is bundled — paste the URL into editor.swagger.io to render. This is the v1.0 freeze precondition ("public API has formal documentation"). Exempt from rate limiting.
+- **Config template improvement:** the default `config.toml` template now keeps `[limits]` and `[daemon]` section headers open (child values commented). Previously both the header and children were commented, creating a trap where uncommenting a child without the header silently parsed it as a top-level orphan that figment ignored.
+
+### Fixes
+
+- **Startup limits logging:** the server now logs the effective limits (`ws_cap`, `rps`, `workers`, `compression`) at startup, so configuration issues are visible at a glance.
+
+### Tests
+
+- **API layer integration tests:** 14 integration tests added (axum `oneshot`, in-process, no TCP listener), covering all 7 REST endpoints × (success + main error codes) + the frozen response body shape contract. Previously the entire HTTP/WS request layer had zero tests.
+
 ## [v0.11.1] - 2026-07-24
 
 ### Fixes

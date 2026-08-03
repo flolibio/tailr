@@ -7,3 +7,13 @@ edition = "2021"
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
+# OpenAPI schema generation. Optional + default-on so existing dependents get it
+# automatically, but it can be disabled (`default-features = false`) for
+# contexts that don't need API docs (e.g. a future minimal MCP build).
+# External dep — does not violate protocol's "zero internal deps" rule.
+utoipa = { version = "5", optional = true, features = ["chrono"] }
+
+[features]
+default = ["schema"]
+# Enables ToSchema derives on protocol types (for OpenAPI spec generation).
+schema = ["dep:utoipa"]

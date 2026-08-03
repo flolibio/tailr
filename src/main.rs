@@ -1,8 +1,6 @@
-mod config;
-mod daemon;
-
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
+use tailr_core::{config, daemon};
 use tailr_server::app;
 use tracing_subscriber::EnvFilter;
 
@@ -318,11 +316,12 @@ async fn run_serve(cfg: config::Config, config_path: PathBuf) {
 
 /// CLI entry for `tailr upgrade` / `tailr upgrade --check`.
 ///
-/// Delegates all `self_update` logic to [`tailr_server::upgrade::UpgradeEngine`]
-/// (the single source of truth shared with the Web UI). This function only handles
-/// CLI ergonomics: platform error message, printing, and the post-upgrade hint.
+/// Delegates all `self_update` logic to [`tailr_core::upgrade_engine::UpgradeEngine`]
+/// (the single source of truth shared with the Web UI's UpgradeService). This
+/// function only handles CLI ergonomics: platform error message, printing, and
+/// the post-upgrade hint.
 fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let engine = tailr_server::upgrade::UpgradeEngine::new();
+    let engine = tailr_core::upgrade_engine::UpgradeEngine::new();
 
     if !engine.supported() {
         return Err(

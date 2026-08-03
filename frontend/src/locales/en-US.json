@@ -154,7 +154,17 @@
     "wsConnectionLimit": "WebSocket connection limit reached, please close other tabs and retry",
     "loadFailed": "Failed to load log",
     "loadFailedRateLimited": "Log load was rate-limited by the server",
-    "runtimeFetchFailed": "Failed to fetch runtime info"
+    "runtimeFetchFailed": "Failed to fetch runtime info",
+    "unauthorized": "Authentication failed, please check your token",
+    "forbidden": "Access denied to this resource",
+    "tokenRequired": "This operation requires an auth token to be set",
+    "notFound": "The requested resource was not found",
+    "pathNotAllowed": "Path is outside the configured log directories",
+    "badRequest": "Invalid request parameters",
+    "unsupportedPlatform": "Automatic upgrade is not supported on this platform",
+    "permissionDenied": "Permission denied (binary not writable)",
+    "upgradeInProgress": "An upgrade is already in progress",
+    "internal": "Internal server error"
   },
   "common": {
     "retry": "Retry"
