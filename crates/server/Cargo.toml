@@ -45,3 +45,7 @@ utoipa = "5"
 
 [dev-dependencies]
 tempfile = "3"
+# tower::ServiceExt::oneshot for in-process router testing (no TCP listener).
+tower = { version = "0.5", features = ["util"] }
+# URL-encoding helper for constructing query strings in integration tests.
+urlencoding = "2"
