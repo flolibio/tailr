@@ -132,6 +132,14 @@ pub fn app(
     let rps = limits.rate_limit_rps;
     let enable_compression = limits.enable_compression;
 
+    tracing::info!(
+        ws_cap = limits.max_ws_connections,
+        rps = limits.rate_limit_rps,
+        workers = limits.workers,
+        compression = limits.enable_compression,
+        "limits loaded from config"
+    );
+
     // Runtime sampler needs log_dirs to pick which disk to report (first
     // log_dir's mount point). Clone before `log_dirs` is moved into AppState.
     let runtime_sampler = Arc::new(runtime::RuntimeSampler::new(log_dirs.clone()));
