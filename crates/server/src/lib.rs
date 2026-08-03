@@ -1,4 +1,5 @@
 pub mod api;
+pub(crate) mod error;
 pub mod runtime;
 pub mod static_files;
 pub mod upgrade;
@@ -6,7 +7,7 @@ pub mod ws;
 
 use arc_swap::ArcSwap;
 use axum::extract::{Request, State};
-use axum::http::{header, Method, StatusCode};
+use axum::http::{header, Method};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::Router;
@@ -87,7 +88,7 @@ async fn auth_middleware(
         }
     }
 
-    StatusCode::UNAUTHORIZED.into_response()
+    error::ApiError::new(tailr_core::error::ErrorCode::Unauthorized).into_response()
 }
 
 pub fn app(

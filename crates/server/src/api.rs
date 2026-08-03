@@ -1,5 +1,5 @@
 use axum::extract::{Extension, Query};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::HeaderMap;
 use axum::response::Json;
 use axum::routing::get;
 use axum::Router;
@@ -8,38 +8,13 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use tailr_core::error::{CoreError, ErrorCode};
 use tailr_protocol::{try_parse_timestamp, LogEntry, LogLevelConfig, LogTimezone};
 use tailr_search_engine::LevelDetector;
 use tailr_tail_engine::LineIndex;
 
+use crate::error::{ApiError, ApiSuccess};
 use crate::AppState;
-
-#[derive(Serialize)]
-struct ApiResponse<T: Serialize> {
-    success: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<T>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
-}
-
-impl<T: Serialize> ApiResponse<T> {
-    fn ok(data: T) -> Self {
-        Self {
-            success: true,
-            data: Some(data),
-            error: None,
-        }
-    }
-
-    fn err(msg: impl Into<String>) -> Self {
-        Self {
-            success: false,
-            data: None,
-            error: Some(msg.into()),
-        }
-    }
-}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -153,9 +128,9 @@ pub(crate) fn validate_path(
     requested: &str,
     allowed_dirs: &[PathBuf],
     allowed_files: &[PathBuf],
-) -> Result<PathBuf, StatusCode> {
+) -> Result<PathBuf, ErrorCode> {
     let path = PathBuf::from(requested);
-    let canonical = path.canonicalize().map_err(|_| StatusCode::NOT_FOUND)?;
+    let canonical = path.canonicalize().map_err(|_| ErrorCode::NotFound)?;
 
     let is_allowed = allowed_dirs.iter().any(|d| canonical.starts_with(d))
         || allowed_files.contains(&canonical);
@@ -163,14 +138,14 @@ pub(crate) fn validate_path(
     if is_allowed {
         Ok(canonical)
     } else {
-        Err(StatusCode::FORBIDDEN)
+        Err(ErrorCode::PathNotAllowed)
     }
 }
 
 async fn list_files(
     Query(params): Query<FileListParams>,
     Extension(state): Extension<Arc<AppState>>,
-) -> Json<ApiResponse<FileListData>> {
+) -> Result<Json<ApiSuccess<FileListData>>, ApiError> {
     let mut entries: Vec<FileEntry> = Vec::new();
     // Resolve requested depth, clamped to the hard cap. Default 1 (flat listing).
     let depth = params.depth.unwrap_or(1).clamp(1, MAX_LIST_DEPTH);
@@ -178,14 +153,10 @@ async fn list_files(
 
     match params.path {
         Some(p) => {
-            let dir = match validate_path(&p, &state.allowed_dirs, &state.log_files) {
-                Ok(d) => d,
-                Err(StatusCode::NOT_FOUND) => return Json(ApiResponse::err("directory not found")),
-                Err(_) => return Json(ApiResponse::err("access denied")),
-            };
+            let dir = validate_path(&p, &state.allowed_dirs, &state.log_files)?;
             if let Err(e) = read_dir_entries(&dir, &mut entries, depth, &mut total).await {
                 tracing::error!("failed to read directory {:?}: {}", dir, e);
-                return Json(ApiResponse::err("Internal server error"));
+                return Err(ErrorCode::Internal.into());
             }
         }
         None => {
@@ -229,7 +200,7 @@ async fn list_files(
                     .await
                     {
                         tracing::error!("failed to read directory {:?}: {}", dir, e);
-                        return Json(ApiResponse::err("Internal server error"));
+                        return Err(ErrorCode::Internal.into());
                     }
                     // Preserve the log_dir's own name/path as the parent node,
                     // attaching the recursed children.
@@ -252,7 +223,7 @@ async fn list_files(
                     read_dir_entries(&state.log_dirs[0], &mut entries, depth, &mut total).await
                 {
                     tracing::error!("failed to read directory {:?}: {}", state.log_dirs[0], e);
-                    return Json(ApiResponse::err("Internal server error"));
+                    return Err(ErrorCode::Internal.into());
                 }
             }
         }
@@ -264,7 +235,7 @@ async fn list_files(
             .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
 
-    Json(ApiResponse::ok(FileListData { entries }))
+    Ok(Json(ApiSuccess::ok(FileListData { entries })))
 }
 
 async fn read_dir_entries(
@@ -426,12 +397,8 @@ async fn is_likely_text(path: &std::path::Path) -> bool {
 async fn file_tail(
     Query(params): Query<FileTailParams>,
     Extension(state): Extension<Arc<AppState>>,
-) -> Json<ApiResponse<FileTailData>> {
-    let path = match validate_path(&params.path, &state.allowed_dirs, &state.log_files) {
-        Ok(p) => p,
-        Err(StatusCode::NOT_FOUND) => return Json(ApiResponse::err("file not found")),
-        Err(_) => return Json(ApiResponse::err("access denied")),
-    };
+) -> Result<Json<ApiSuccess<FileTailData>>, ApiError> {
+    let path = validate_path(&params.path, &state.allowed_dirs, &state.log_files)?;
 
     let lines = params.lines.unwrap_or(200).min(5000) as usize;
 
@@ -440,19 +407,19 @@ async fn file_tail(
         match tokio::task::spawn_blocking(move || LineIndex::tail_start(&p, lines)).await {
             Ok(Ok(tail)) => tail,
             _ => {
-                return Json(ApiResponse::ok(FileTailData {
+                return Ok(Json(ApiSuccess::ok(FileTailData {
                     entries: Vec::new(),
                     total_lines: 0,
-                }))
+                })))
             }
         }
     };
 
     if tail.total_lines == 0 {
-        return Json(ApiResponse::ok(FileTailData {
+        return Ok(Json(ApiSuccess::ok(FileTailData {
             entries: Vec::new(),
             total_lines: 0,
-        }));
+        })));
     }
 
     let start_line = tail.total_lines.saturating_sub(lines as u64);
@@ -467,16 +434,16 @@ async fn file_tail(
     )
     .await;
 
-    Json(ApiResponse::ok(FileTailData {
+    Ok(Json(ApiSuccess::ok(FileTailData {
         entries,
         total_lines: tail.total_lines,
-    }))
+    })))
 }
 
 async fn health(
     Extension(state): Extension<Arc<AppState>>,
-) -> Json<ApiResponse<HealthData>> {
-    Json(ApiResponse::ok(HealthData {
+) -> Json<ApiSuccess<HealthData>> {
+    Json(ApiSuccess::ok(HealthData {
         status: "ok".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds: state.start_time.elapsed().as_secs(),
@@ -488,7 +455,7 @@ async fn health(
 /// `spawn_blocking` so it never stalls tokio workers. Read-only, no CSRF.
 async fn runtime(
     Extension(state): Extension<Arc<AppState>>,
-) -> Json<ApiResponse<RuntimeData>> {
+) -> Json<ApiSuccess<RuntimeData>> {
     use std::sync::atomic::Ordering;
     // Core's `sample_blocking` is synchronous; offload the (potentially
     // blocking) sysinfo refresh to the tokio blocking pool.
@@ -502,7 +469,7 @@ async fn runtime(
                 tracing::error!("runtime sample task failed: {e}; returning zero snapshot");
                 (crate::runtime::RuntimeSnapshot::default(), ws, uptime)
             });
-    Json(ApiResponse::ok(RuntimeData {
+    Json(ApiSuccess::ok(RuntimeData {
         process_memory_bytes: snap.process_memory_bytes,
         process_cpu_percent: snap.process_cpu_percent,
         system_total_memory_bytes: snap.system_total_memory_bytes,
@@ -521,12 +488,12 @@ async fn runtime(
 async fn check_upgrade(
     Query(params): Query<UpgradeCheckParams>,
     Extension(state): Extension<Arc<AppState>>,
-) -> Json<ApiResponse<crate::upgrade::UpdateInfo>> {
+) -> Result<Json<ApiSuccess<crate::upgrade::UpdateInfo>>, ApiError> {
     match state.upgrade_service.check_update(params.force.unwrap_or(false)).await {
-        Ok(info) => Json(ApiResponse::ok(info)),
+        Ok(info) => Ok(Json(ApiSuccess::ok(info))),
         Err(e) => {
             tracing::error!("failed to check update: {}", e);
-            Json(ApiResponse::err("Failed to check update"))
+            Err(CoreError::with_detail(ErrorCode::Internal, e).into())
         }
     }
 }
@@ -541,49 +508,49 @@ async fn check_upgrade(
 async fn perform_upgrade(
     Extension(state): Extension<Arc<AppState>>,
     headers: HeaderMap,
-) -> Result<Json<ApiResponse<crate::upgrade::UpgradeResult>>, StatusCode> {
+) -> Result<Json<ApiSuccess<crate::upgrade::UpgradeResult>>, ApiError> {
     // Forced auth: binary replacement is RCE-class, must require explicit token.
     if state.token.is_empty() {
-        return Ok(Json(ApiResponse::err("TOKEN_REQUIRED")));
+        return Err(ErrorCode::TokenRequired.into());
     }
     // CSRF double-check (same pattern as save_log_levels).
     if headers.get("X-Requested-With").is_none() {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(ErrorCode::Forbidden.into());
     }
 
     match state.upgrade_service.perform_upgrade().await {
-        Ok(result) => Ok(Json(ApiResponse::ok(result))),
+        Ok(result) => Ok(Json(ApiSuccess::ok(result))),
         Err(e) => {
             tracing::error!("upgrade failed: {}", e);
-            Ok(Json(ApiResponse::err(e)))
+            Err(upgrade_err_to_api(&e))
         }
     }
 }
 
 async fn get_log_levels(
     Extension(state): Extension<Arc<AppState>>,
-) -> Json<ApiResponse<LogLevelConfig>> {
+) -> Json<ApiSuccess<LogLevelConfig>> {
     let config = state.level_config.load();
-    Json(ApiResponse::ok(config.as_ref().clone()))
+    Json(ApiSuccess::ok(config.as_ref().clone()))
 }
 
 async fn save_log_levels(
     Extension(state): Extension<Arc<AppState>>,
     headers: HeaderMap,
     Json(new_config): Json<LogLevelConfig>,
-) -> Result<Json<ApiResponse<LogLevelConfig>>, StatusCode> {
+) -> Result<Json<ApiSuccess<LogLevelConfig>>, ApiError> {
     if !state.token.is_empty() && headers.get("X-Requested-With").is_none() {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(ErrorCode::Forbidden.into());
     }
 
     let mut doc: toml::Value = if state.config_path.exists() {
         let content = std::fs::read_to_string(&state.config_path).map_err(|e| {
             tracing::error!("failed to read config: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
+            CoreError::with_detail(ErrorCode::Internal, e.to_string())
         })?;
         toml::from_str(&content).map_err(|e| {
             tracing::error!("failed to parse config.toml: {}", e);
-            StatusCode::BAD_REQUEST
+            CoreError::with_detail(ErrorCode::BadRequest, e.to_string())
         })?
     } else {
         toml::Value::Table(Default::default())
@@ -591,11 +558,11 @@ async fn save_log_levels(
 
     let config_toml = toml::to_string_pretty(&new_config).map_err(|e| {
         tracing::error!("failed to serialize log level config: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
+        CoreError::with_detail(ErrorCode::Internal, e.to_string())
     })?;
     let log_levels_value: toml::Value = toml::from_str(&config_toml).map_err(|e| {
         tracing::error!("failed to parse log level config as toml: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
+        CoreError::with_detail(ErrorCode::Internal, e.to_string())
     })?;
 
     if let Some(table) = doc.as_table_mut() {
@@ -604,19 +571,33 @@ async fn save_log_levels(
 
     let toml_str = toml::to_string_pretty(&doc).map_err(|e| {
         tracing::error!("failed to serialize toml: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
+        CoreError::with_detail(ErrorCode::Internal, e.to_string())
     })?;
 
     std::fs::write(&state.config_path, toml_str).map_err(|e| {
         tracing::error!("failed to write config: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
+        CoreError::with_detail(ErrorCode::Internal, e.to_string())
     })?;
 
     let new_detector = LevelDetector::from_config(&new_config);
     state.level_detector.store(Arc::new(new_detector));
     state.level_config.store(Arc::new(new_config.clone()));
 
-    Ok(Json(ApiResponse::ok(new_config)))
+    Ok(Json(ApiSuccess::ok(new_config)))
+}
+
+/// Map an upgrade error string (from core's `UpgradeEngine` / Web's
+/// `UpgradeService`) to an [`ApiError`]. The engine returns SCREAMING_SNAKE
+/// codes for known domain errors; everything else (network failures, etc.) maps
+/// to `Internal`.
+fn upgrade_err_to_api(e: &str) -> ApiError {
+    let code = match e {
+        "UNSUPPORTED_PLATFORM" => ErrorCode::UnsupportedPlatform,
+        "PERMISSION_DENIED" => ErrorCode::PermissionDenied,
+        "UPGRADE_IN_PROGRESS" => ErrorCode::UpgradeInProgress,
+        _ => ErrorCode::Internal,
+    };
+    CoreError::with_detail(code, e).into()
 }
 
 async fn read_lines_from(

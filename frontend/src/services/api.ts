@@ -1,4 +1,5 @@
 import { useAuth } from '../composables/useAuth'
+import { ApiError, parseApiError } from './errors'
 
 export interface LogEntry {
   lineNum: number
@@ -54,6 +55,10 @@ function checkRateLimit(res: Response): void {
   }
 }
 
+// Re-export ApiError + parsing helpers so callers can import from api.ts
+// (the historical import path) without touching errors.ts directly.
+export { ApiError, parseApiError }
+
 const BASE = ''
 
 function getToken(): string {
@@ -79,11 +84,17 @@ async function request<T>(url: string): Promise<T> {
   let attempt = 0
   for (;;) {
     const res = await fetch(`${BASE}${url}`, { headers })
+    // ── Branch order is critical ──
+    // 1. 401 → AuthError (triggers token dialog). Must come before 429: a
+    //    request that's both unauthenticated and rate-limited should prompt
+    //    for token, not silently retry.
     if (res.status === 401) {
       const { handleAuthError } = useAuth()
       handleAuthError()
       throw new AuthError()
     }
+    // 2. 429 → retry with backoff, then RateLimitError. Must come before the
+    //    generic !res.ok check so retries happen transparently.
     if (res.status === 429 && attempt < MAX_RETRIES) {
       const retryAfter = parseRetryAfter(res) // seconds, or null
       // Prefer server hint (capped at 4s); otherwise the backoff table.
@@ -99,14 +110,12 @@ async function request<T>(url: string): Promise<T> {
       continue
     }
     checkRateLimit(res) // throws RateLimitError when retries exhausted
+    // 3. Generic error (any other 4xx/5xx) → ApiError with parsed code.
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+      throw await parseApiError(res)
     }
+    // Success: backend wraps in { success, data }. Unwrap data.
     const json = await res.json()
-    if (json.success === false) {
-      throw new Error(json.error || 'Request failed')
-    }
-    // Backend wraps in { success, data }. Unwrap data.
     return (json.data ?? json) as T
   }
 }
@@ -164,7 +173,7 @@ export async function verifyToken(candidate: string): Promise<boolean> {
   const res = await fetch(`${BASE}/api/health`, { headers })
   if (res.status === 401) return false
   checkRateLimit(res)
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+  if (!res.ok) throw await parseApiError(res)
   return true
 }
 
@@ -203,22 +212,19 @@ export async function performUpgrade(): Promise<UpgradeResult> {
     method: 'POST',
     headers,
   })
+  // ── Branch order (same rationale as request()) ──
   if (res.status === 401) {
     const { handleAuthError } = useAuth()
     handleAuthError()
     throw new AuthError()
   }
-  if (res.status === 403) {
-    throw new Error('CSRF check failed')
-  }
-  checkRateLimit(res)
+  checkRateLimit(res) // throws RateLimitError on 429
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+    // 403 (CSRF missing / token-required), 400 (unsupported platform),
+    // 409 (upgrade in progress), 500 (internal) — all carry {error:{code}}.
+    throw await parseApiError(res)
   }
   const json = await res.json()
-  if (json.success === false) {
-    throw new Error(json.error || 'Upgrade failed')
-  }
   return (json.data ?? json) as UpgradeResult
 }
 
@@ -262,11 +268,8 @@ export async function saveLogLevelConfig(config: LogLevelConfig): Promise<LogLev
   }
   checkRateLimit(res)
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+    throw await parseApiError(res)
   }
   const json = await res.json()
-  if (json.success === false) {
-    throw new Error(json.error || 'Save failed')
-  }
   return (json.data ?? json) as LogLevelConfig
 }
