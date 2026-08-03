@@ -1,0 +1,42 @@
+[package]
+name = "tailr-core"
+version = "0.11.1"
+edition = "2021"
+
+[dependencies]
+# Base capability layer (core depends on these, never the reverse).
+tailr-protocol = { path = "../protocol" }
+
+# Config loading.
+figment = { version = "0.10", features = ["toml", "env"] }
+toml = "0.8"
+
+# Serialization.
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Runtime metrics sampling (sysinfo calls platform libs that are always-present
+# base OS libs, statically linked under musl — does not break the "zero user-side
+# install" promise). default-features = false drops component/network/user/multithread.
+sysinfo = { version = "0.32", default-features = false, features = ["system", "disk"] }
+
+# Tracing (logging is allowed in core — it's not terminal I/O like println!,
+# it's structured log emission that each presentation layer's subscriber consumes).
+tracing = { workspace = true }
+
+# tokio signal handling for daemon graceful shutdown. Only the `signal` feature
+# is pulled in (no full runtime here — core never spawns/owns a runtime; the
+# binary starts it). `shutdown_signal()` awaits SIGINT/SIGTERM/SIGHUP within an
+# already-running runtime provided by the presentation layer.
+tokio = { version = "1", features = ["macros", "signal", "time", "sync"] }
+
+# Self-upgrade (pure download + replace logic). rustls backend (no OpenSSL).
+self_update = { version = "0.42", default-features = false, features = ["archive-tar", "compression-flate2", "rustls"] }
+
+# Daemonization (fork/PID/signal management). Pure std-level process control,
+# no HTTP/async runtime dependency.
+daemonize = "0.5"
+dirs = "5.0"
+
+[dev-dependencies]
+tempfile = "3"

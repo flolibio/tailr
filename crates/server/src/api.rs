@@ -490,13 +490,18 @@ async fn runtime(
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<ApiResponse<RuntimeData>> {
     use std::sync::atomic::Ordering;
-    let (snap, ws_connections, uptime_seconds) = state
-        .runtime
-        .sample(
-            state.ws_connection_count.load(Ordering::SeqCst),
-            state.start_time.elapsed().as_secs(),
-        )
-        .await;
+    // Core's `sample_blocking` is synchronous; offload the (potentially
+    // blocking) sysinfo refresh to the tokio blocking pool.
+    let sampler = state.runtime.clone();
+    let ws = state.ws_connection_count.load(Ordering::SeqCst);
+    let uptime = state.start_time.elapsed().as_secs();
+    let (snap, ws_connections, uptime_seconds) =
+        tokio::task::spawn_blocking(move || sampler.sample_blocking(ws, uptime))
+            .await
+            .unwrap_or_else(|e| {
+                tracing::error!("runtime sample task failed: {e}; returning zero snapshot");
+                (crate::runtime::RuntimeSnapshot::default(), ws, uptime)
+            });
     Json(ApiResponse::ok(RuntimeData {
         process_memory_bytes: snap.process_memory_bytes,
         process_cpu_percent: snap.process_cpu_percent,

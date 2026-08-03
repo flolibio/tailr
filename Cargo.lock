@@ -2266,20 +2266,33 @@ dependencies = [
 name = "tailr"
 version = "0.11.1"
 dependencies = [
- "arc-swap",
  "axum",
  "clap",
- "daemonize",
- "dirs",
- "figment",
- "serde",
+ "tailr-core",
  "tailr-protocol",
  "tailr-server",
  "tempfile",
  "tokio",
- "toml",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "tailr-core"
+version = "0.11.1"
+dependencies = [
+ "daemonize",
+ "dirs",
+ "figment",
+ "self_update",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tailr-protocol",
+ "tempfile",
+ "tokio",
+ "toml",
+ "tracing",
 ]
 
 [[package]]
@@ -2311,10 +2324,9 @@ dependencies = [
  "futures",
  "include_dir",
  "mime_guess",
- "self_update",
  "serde",
  "serde_json",
- "sysinfo",
+ "tailr-core",
  "tailr-protocol",
  "tailr-search-engine",
  "tailr-tail-engine",

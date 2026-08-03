@@ -12,10 +12,8 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 use tailr_protocol::{LevelDef, LogLevelConfig};
-// Re-use the LimitsConfig defined in tailr-server (which owns AppState and
-// actually consumes the limits). Defining it there avoids a cyclic dep:
-// tailr-server can't depend on the tailr binary crate.
-pub use tailr_server::LimitsConfig;
+
+use crate::limits::LimitsConfig;
 
 /// Default config file template written on first run.
 const DEFAULT_CONFIG_TEMPLATE: &str = r#"# tailr configuration file

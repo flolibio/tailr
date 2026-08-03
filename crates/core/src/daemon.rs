@@ -119,7 +119,7 @@ pub fn save_restart_cmd() {
 ///
 /// Returns `None` if no server was ever started (e.g. fresh install) or the
 /// file is unreadable. Callers fall back to an error in that case.
-fn read_restart_cmd() -> Option<(PathBuf, Vec<String>)> {
+pub fn read_restart_cmd() -> Option<(PathBuf, Vec<String>)> {
     let content = fs::read_to_string(cmd_file()).ok()?;
     let mut lines = content.lines();
     let exe = lines.next()?.to_string();
