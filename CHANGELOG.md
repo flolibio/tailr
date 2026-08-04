@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.12.1] - 2026-08-04
+
+### Fixes
+
+- **save_log_levels no longer rewrites config.toml:** the handler was reading config.toml, inserting the log levels, and writing it back via TOML round-trip — which silently stripped all user comments (TOML standard: comments are display-only, not part of the data model). Now it only hot-updates the runtime level detector + in-memory config. The UI button label changed from "保存/Save" to "应用/Apply" to reflect the new semantics. Permanent changes require editing config.toml and restarting.
+- **SelectionToolbar z-index:** the floating action bar (z-index 9999) was stacked above modal dialogs (SettingsDialog z-index 1000), causing it to overlap the settings window when both were visible. Lowered to z-index 100 (above content, below modals).
+
 ## [v0.12.0] - 2026-08-04
 
 ### Architecture
