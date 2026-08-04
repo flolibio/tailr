@@ -254,7 +254,84 @@ async fn save_log_levels_missing_csrf_with_token_returns_403() {
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
-// ── Upgrade: token required ──────────────────────────────────
+// ── Log levels: POST applies to runtime, doesn't touch config.toml ──
+
+#[tokio::test]
+async fn save_log_levels_applies_runtime_and_preserves_config_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config_path = tmp.path().join("config.toml");
+
+    // Write a config file with comments — the bug was that save_log_levels
+    // rewrote the file via toml round-trip, silently stripping all comments.
+    let original_content = r#"# This is a user comment
+# Another comment line
+bind = "0.0.0.0:7700"
+
+[limits]
+max_ws_connections = 50
+"#;
+    std::fs::write(&config_path, original_content).unwrap();
+
+    let state = make_state(vec![], config_path.clone(), String::new());
+    let router = test_router(state);
+
+    // POST a new log levels config.
+    let body = r##"{"preset":"custom","levels":[{"name":"ERROR","keywords":["ERROR"],"colorLight":"#A32D2D","colorDark":"#F09595"}]}"##;
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/config/log-levels")
+                .header("Content-Type", "application/json")
+                .header("X-Requested-With", "XMLHttpRequest")
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // The config file must be untouched — comments preserved, no round-trip.
+    let after = std::fs::read_to_string(&config_path).unwrap();
+    assert_eq!(
+        after, original_content,
+        "config.toml was modified by save_log_levels — it must not be written to"
+    );
+    assert!(
+        after.contains("# This is a user comment"),
+        "user comments were stripped from config.toml"
+    );
+}
+
+#[tokio::test]
+async fn save_log_levels_updates_get_response() {
+    let state = make_state(vec![], PathBuf::from("/tmp/nonexistent.toml"), String::new());
+    let router = test_router(state);
+
+    // POST a custom config.
+    let body = r##"{"preset":"custom","levels":[{"name":"FATAL","keywords":["FATAL"],"colorLight":"#CC2D26","colorDark":"#FF6B63"}]}"##;
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/config/log-levels")
+                .header("Content-Type", "application/json")
+                .header("X-Requested-With", "XMLHttpRequest")
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // GET should now return the updated config (runtime hot-reload verified).
+    let (status, json) = get_json(&router, "/api/config/log-levels").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["data"]["preset"], "custom");
+    assert_eq!(json["data"]["levels"][0]["name"], "FATAL");
+}
 
 #[tokio::test]
 async fn perform_upgrade_without_token_returns_403_token_required() {

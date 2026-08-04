@@ -486,17 +486,17 @@ onUnmounted(() => {
           >
             <template v-if="saveState === 'saving'">
               <span class="spinner"></span>
-              {{ t('settings.saving') }}
+              {{ t('settings.applying') }}
             </template>
             <template v-else-if="saveState === 'success'">
               <Check :size="14" :stroke-width="2.5" />
-              {{ t('settings.saved') }}
+              {{ t('settings.applied') }}
             </template>
             <template v-else-if="saveState === 'error'">
               {{ t('settings.saveError') }}
             </template>
             <template v-else>
-              {{ t('settings.save') }}
+              {{ t('settings.apply') }}
             </template>
           </button>
         </div>

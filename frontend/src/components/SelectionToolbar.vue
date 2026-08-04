@@ -108,7 +108,7 @@ onUnmounted(() => {
 .selection-toolbar {
   position: fixed;
   transform: translate(-50%, -100%);
-  z-index: 9999;
+  z-index: 100;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;

@@ -661,42 +661,9 @@ async fn save_log_levels(
         return Err(ErrorCode::Forbidden.into());
     }
 
-    let mut doc: toml::Value = if state.config_path.exists() {
-        let content = std::fs::read_to_string(&state.config_path).map_err(|e| {
-            tracing::error!("failed to read config: {}", e);
-            CoreError::with_detail(ErrorCode::Internal, e.to_string())
-        })?;
-        toml::from_str(&content).map_err(|e| {
-            tracing::error!("failed to parse config.toml: {}", e);
-            CoreError::with_detail(ErrorCode::BadRequest, e.to_string())
-        })?
-    } else {
-        toml::Value::Table(Default::default())
-    };
-
-    let config_toml = toml::to_string_pretty(&new_config).map_err(|e| {
-        tracing::error!("failed to serialize log level config: {}", e);
-        CoreError::with_detail(ErrorCode::Internal, e.to_string())
-    })?;
-    let log_levels_value: toml::Value = toml::from_str(&config_toml).map_err(|e| {
-        tracing::error!("failed to parse log level config as toml: {}", e);
-        CoreError::with_detail(ErrorCode::Internal, e.to_string())
-    })?;
-
-    if let Some(table) = doc.as_table_mut() {
-        table.insert("log_levels".to_string(), log_levels_value);
-    }
-
-    let toml_str = toml::to_string_pretty(&doc).map_err(|e| {
-        tracing::error!("failed to serialize toml: {}", e);
-        CoreError::with_detail(ErrorCode::Internal, e.to_string())
-    })?;
-
-    std::fs::write(&state.config_path, toml_str).map_err(|e| {
-        tracing::error!("failed to write config: {}", e);
-        CoreError::with_detail(ErrorCode::Internal, e.to_string())
-    })?;
-
+    // 热更新运行时 detector + 内存配置。不持久化到 config.toml
+    // （config.toml 是人工维护的部署配置，程序回写会丢失注释）。
+    // 永久修改请编辑 config.toml 的 [log_levels] 后重启。
     let new_detector = LevelDetector::from_config(&new_config);
     state.level_detector.store(Arc::new(new_detector));
     state.level_config.store(Arc::new(new_config.clone()));
