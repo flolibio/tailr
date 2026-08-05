@@ -92,8 +92,8 @@
     "manualDownload": "Download manually",
     "updateToastTitle": "New version v{version} available",
     "view": "View",
-    "upgradeConfirm": "Upgrade to v{version}? The service will restart. Continue?",
-    "upgradeRequiresToken": "Upgrade disabled: replacing the binary requires authentication, please configure a Token in General settings first"
+    "viewReleaseNotes": "View full release notes",
+    "upgradeRequiresToken": "Upgrade requires an access token. Please set one in General settings and try again."
   },
   "toast": {
     "close": "Close"
