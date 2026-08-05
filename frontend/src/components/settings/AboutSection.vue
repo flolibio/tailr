@@ -49,11 +49,6 @@ async function handleCheck() {
 async function handleUpgrade() {
   if (!updateInfo.value?.hasUpdate || !updateInfo.value.supported) return
 
-  const confirmed = window.confirm(
-    t('settings.upgradeConfirm', { version: updateInfo.value.latestVersion }),
-  )
-  if (!confirmed) return
-
   upgrading.value = true
   upgradeError.value = ''
   upgradeMessage.value = t('settings.upgrading')
@@ -175,6 +170,15 @@ onUnmounted(() => {
             <span class="version-arrow">→</span>
             <span class="version-new">v{{ updateInfo.latestVersion }}</span>
           </span>
+          <!-- 固定说明：想看更新内容，跳转 GitHub release 页面 -->
+          <a
+            class="release-notes-link"
+            :href="updateInfo.releaseUrl"
+            target="_blank"
+            rel="noopener"
+          >
+            {{ t('settings.viewReleaseNotes') }}
+          </a>
         </div>
         <button
           v-if="!upgrading && !upgradeSucceeded"
@@ -196,6 +200,15 @@ onUnmounted(() => {
             <span class="version-new">v{{ updateInfo.latestVersion }}</span>
           </span>
           <span class="update-hint">{{ t('settings.upgradeUnsupported') }}</span>
+          <!-- 固定说明：想看更新内容，跳转 GitHub release 页面 -->
+          <a
+            class="release-notes-link"
+            :href="updateInfo.releaseUrl"
+            target="_blank"
+            rel="noopener"
+          >
+            {{ t('settings.viewReleaseNotes') }}
+          </a>
         </div>
         <a
           class="btn-download"
@@ -413,6 +426,19 @@ onUnmounted(() => {
   color: var(--text-3);
   margin-top: 2px;
   text-align: center;
+}
+
+/* ── Release notes 跳转链接（统一固定说明，引导去 GitHub 查看） ── */
+.release-notes-link {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-3);
+  text-decoration: none;
+  transition: color 0.12s;
+}
+
+.release-notes-link:hover {
+  color: var(--text);
 }
 
 .btn-upgrade {
