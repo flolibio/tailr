@@ -41,7 +41,7 @@
   --c-star: #D4A017;
 
   /* Keyword highlight hues (HSL channels, shared by chips & <mark>) */
-  --kw-1: 43  96%  50%;   /* amber */
+  --kw-1: 25  96% 50%;   /* amber */
   --kw-2: 200 95%  55%;   /* sky */
   --kw-3: 280 75%  60%;   /* violet */
   --kw-4: 150 65%  45%;   /* emerald */
