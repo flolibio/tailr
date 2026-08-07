@@ -298,6 +298,11 @@ When planning any feature, consider:
 
 ## Version Release
 
+### Git conventions
+
+- **Commit messages, PR titles and PR descriptions MUST be in English.** Keep historical records as-is (never rewrite pushed history); this rule applies to all new commits and PRs going forward.
+- Branch naming and tag format follow the patterns already used in this doc (`feat/...`, `fix/...`, `vX.Y.Z`).
+
 Semantic Versioning (SemVer):
 - **PATCH** (0.1.x): Bug fixes, no new features
 - **MINOR** (0.x.0): New features, backward-compatible
