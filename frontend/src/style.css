@@ -41,7 +41,7 @@
   --c-star: #D4A017;
 
   /* Keyword highlight hues (HSL channels, shared by chips & <mark>) */
-  --kw-1: 43  96%  50%;   /* amber */
+  --kw-1: 25  96% 50%;   /* amber */
   --kw-2: 200 95%  55%;   /* sky */
   --kw-3: 280 75%  60%;   /* violet */
   --kw-4: 150 65%  45%;   /* emerald */
@@ -772,14 +772,19 @@ mark.kw-mark-5 { --kw-cur: var(--kw-5); }
   align-items: center;
   gap: 6px;
   background: var(--bg);
+  /* Grid items default to min-width:auto (content size), which lets the
+     filter-content row grow beyond its track and push the whole layout
+     wider than the viewport. min-width:0 lets it shrink as a flex/grid
+     item should. */
+  min-width: 0;
 }
 
 .level-tag {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  border-radius: 9999px;
   font-size: 12px;
   font-weight: var(--fw-semibold);
   letter-spacing: 0.02em;
