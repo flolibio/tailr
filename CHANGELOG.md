@@ -1,5 +1,32 @@
 # Changelog
 
+## [v0.12.3] - 2026-08-07
+
+### FilterBar
+
+- **Fix: filter-content no longer widens beyond the viewport.** Root cause was a broken flex-shrink chain — `.filter-wrap` lacked `min-width:0`, so chip content pushed the whole row wider than the screen. Added `min-width:0` across `.filterbar` (grid item), `.filter-bar` (component root), and `.filter-wrap` (the actual break point).
+- **Chip overflow folds into a "+N" badge.** When chips don't fit, the oldest are folded (front-collapsing: newest chips stay visible next to the input). Uses a scrollWidth-measuring probe + binary search to find the fold count — no magic constants, unlike the earlier failed budget-estimation approach. Clicking the badge opens a popover (width-aligned to the search box) listing the hidden chips, where they can be removed.
+- **Keyword chip interactions (learned from the demo):**
+  - `title` attribute on chips — hover shows the full keyword text when truncated.
+  - Enter **and** Space both add a keyword.
+  - Pasting comma/space-separated text auto-splits into multiple chips.
+  - Chips restyled to pill shape (`border-radius:9999px`); remove button is now circular with hover-invert.
+  - New chips animate in with a scale "pop".
+  - `level-tag` buttons also restyled to pills for visual consistency.
+  - Light-mode `--kw-1` hue adjusted (43 → 25).
+
+### Suggestions dropdown
+
+- **Width now aligns with the search box** (`right:0` instead of `right:30px`).
+- **Keyboard navigation:** ArrowUp/ArrowDown cycle the highlight (scrollIntoView keeps it visible), Enter/Tab commit the highlighted item (or the input text if none highlighted), Escape closes. The first item is highlighted by default so Enter can commit immediately.
+- **Match highlighting:** the matched substring is wrapped in `<mark>` (case-insensitive, supports mid-word matches, XSS-safe via escaping).
+- **Visual refresh (v3 minimal-tech style):** history icon (`↻` glyph → lucide `History` SVG), softer hover/active background, highlighted match gets a tinted background.
+
+### Docs
+
+- **Git convention:** commit messages, PR titles and PR descriptions must be in English going forward (historical records untouched).
+- Added `docs/feat/chip-search-demo-v{2,3,4}.html` as design references.
+
 ## [v0.12.2] - 2026-08-05
 
 ### UX
