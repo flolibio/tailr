@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>日志查看器 · 优化版 Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg:#f4f6f9;
+    --panel:#ffffff;
+    --sidebar:#fafbfc;
+    --border:#e6e9ef;
+    --border-strong:#d7dce4;
+    --ink:#12151c;
+    --muted:#8891a0;
+    --muted-soft:#aeb4bf;
+    --accent:#3b6bf5;
+    --accent-soft:#eaf0fe;
+    --ring:rgba(59,107,245,.14);
+
+    --red-bg:#fdeceb;    --red-text:#c23f37;    --red-border:#f3c8c4;
+    --amber-bg:#fdf3e3;  --amber-text:#a56a12;  --amber-border:#f0dcae;
+    --blue-bg:#eaf0fe;   --blue-text:#3b6bf5;   --blue-border:#c3d3fb;
+    --green-bg:#eaf6ee;  --green-text:#2f8f52;  --green-border:#bfe4cc;
+
+    --mark-bg:#fdf1da;   --mark-text:#a56a12;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+
+  body{
+    margin:0;
+    font-family:'Inter', sans-serif;
+    color:var(--ink);
+    background:var(--bg);
+    -webkit-font-smoothing:antialiased;
+    display:flex;
+    height:100vh;
+    overflow:hidden;
+  }
+
+  /* ---------------- sidebar (静态) ---------------- */
+  .sidebar{
+    width:260px;
+    flex-shrink:0;
+    background:var(--sidebar);
+    border-right:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    padding:16px 14px;
+  }
+
+  .filter-files{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--panel);
+    border:1px solid var(--border-strong);
+    border-radius:9px;
+    padding:9px 12px;
+    font-size:13px;
+    color:var(--muted);
+    margin-bottom:20px;
+  }
+  .filter-files svg{ flex-shrink:0; color:var(--muted-soft); }
+
+  .side-section-title{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:11px;
+    font-weight:600;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    padding:0 4px;
+    margin:4px 0 8px;
+  }
+  .side-section-title svg{ color:var(--muted-soft); }
+
+  .recent-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px 8px;
+    border-radius:8px;
+    font-size:13.5px;
+    color:var(--ink);
+    margin-bottom:18px;
+  }
+  .recent-item .time{ font-size:11.5px; color:var(--muted-soft); }
+
+  .file-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 8px;
+    border-radius:8px;
+    font-size:13.5px;
+    color:var(--ink);
+    margin-bottom:2px;
+  }
+  .file-row svg{ flex-shrink:0; color:var(--muted-soft); }
+  .file-row.active{
+    background:var(--accent-soft);
+    color:var(--accent);
+  }
+  .file-row.active svg{ color:var(--accent); }
+  .file-row .size{
+    margin-left:auto;
+    font-size:11.5px;
+    color:var(--muted-soft);
+  }
+  .file-row.active .size{ color:var(--accent); opacity:.75; }
+
+  /* ---------------- main ---------------- */
+  .main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+
+  /* top bar (静态) */
+  .topbar{
+    height:52px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 16px;
+    background:var(--panel);
+    border-bottom:1px solid var(--border);
+  }
+  .topbar-left{ display:flex; align-items:center; gap:12px; }
+  .topbar-left svg.panel-icon{ color:var(--muted); flex-shrink:0; }
+  .file-tab{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--sidebar);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:6px 8px 6px 12px;
+    font-size:13.5px;
+    font-weight:500;
+  }
+  .file-tab svg{ color:var(--muted-soft); cursor:pointer; }
+  .topbar-right{ display:flex; align-items:center; gap:14px; color:var(--muted); }
+
+  /* ---------------- search / filter row ---------------- */
+  .toolbar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:14px 16px;
+    background:var(--panel);
+    border-bottom:1px solid var(--border);
+  }
+
+  .search-shell{
+    position:relative;
+    flex:1;
+    min-width:220px;
+    max-width:420px;
+  }
+
+  .search-box{
+    background:var(--sidebar);
+    border:1.5px solid var(--border-strong);
+    border-radius:11px;
+    padding:0 8px 0 12px;
+    height:42px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    transition:box-shadow .15s ease, border-color .15s ease, background-color .15s ease;
+  }
+  .search-box.focused{
+    background:var(--panel);
+    border-color:var(--accent);
+    box-shadow:0 0 0 4px var(--ring);
+  }
+  .search-box svg.icon{ flex-shrink:0; color:var(--muted-soft); transition:color .15s ease; }
+  .search-box.focused svg.icon{ color:var(--accent); }
+
+  .chip-line{
+    flex:1;
+    min-width:0;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    overflow:hidden;
+    white-space:nowrap;
+    height:100%;
+  }
+
+  .chip{
+    flex-shrink:0;
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    max-width:150px;
+    background:var(--mark-bg);
+    color:var(--mark-text);
+    font-size:12px;
+    font-weight:500;
+    padding:4px 5px 4px 10px;
+    border-radius:20px; /* 药丸形：用户输入的动态内容 */
+    animation:pop .15s ease;
+  }
+  .chip .chip-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  @keyframes pop{ from{ transform:scale(.85); opacity:0; } to{ transform:scale(1); opacity:1; } }
+
+  .chip button{
+    all:unset;
+    display:flex; align-items:center; justify-content:center;
+    width:14px; height:14px;
+    border-radius:5px;
+    cursor:pointer;
+    color:var(--mark-text);
+    font-size:12px;
+    line-height:1;
+    opacity:.65;
+  }
+  .chip button:hover{ background:var(--mark-text); color:#fff; opacity:1; }
+
+  .chip-line input{
+    flex:1;
+    min-width:50px;
+    border:none;
+    outline:none;
+    background:transparent;
+    font-family:'Inter', sans-serif;
+    font-size:13.5px;
+    color:var(--ink);
+    height:100%;
+  }
+  .chip-line input::placeholder{ color:var(--muted-soft); }
+
+  .clear-x{
+    all:unset;
+    flex-shrink:0;
+    width:24px; height:24px;
+    border-radius:7px;
+    display:none;
+    align-items:center; justify-content:center;
+    cursor:pointer;
+    color:var(--muted-soft);
+    font-size:14px;
+    transition:background .12s ease, color .12s ease;
+  }
+  .clear-x:hover{ background:var(--border); color:var(--ink); }
+  .clear-x.show{ display:flex; }
+
+  .more-badge{
+    flex-shrink:0;
+    display:inline-flex;
+    align-items:center;
+    background:var(--sidebar);
+    border:1px solid var(--border-strong);
+    color:var(--ink);
+    font-size:11.5px;
+    font-weight:600;
+    padding:4px 9px;
+    border-radius:20px;
+    cursor:pointer;
+    user-select:none;
+    transition:background .12s ease, color .12s ease, border-color .12s ease;
+  }
+  .more-badge:hover{ background:var(--accent-soft); color:var(--accent); border-color:var(--blue-border); }
+  .more-badge.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+
+  .popup{
+    position:absolute;
+    top:calc(100% + 8px);
+    left:0;
+    right:0;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:0 16px 40px -12px rgba(16,19,26,.16);
+    padding:14px;
+    display:none;
+    z-index:30;
+    animation:slideDown .15s ease;
+  }
+  .popup.open{ display:block; }
+
+  @keyframes slideDown{
+    from{ opacity:0; transform:translateY(-6px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  .popup-title{
+    font-size:11px;
+    font-weight:600;
+    color:var(--muted);
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    margin:0 0 10px;
+  }
+
+  .popup-chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .popup-chips .chip{ max-width:220px; }
+
+  .suggest-dropdown{
+    position:absolute;
+    top:calc(100% + 8px);
+    left:0;
+    right:0;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:0 16px 40px -12px rgba(16,19,26,.16);
+    padding:6px;
+    display:none;
+    z-index:30;
+    max-height:220px;
+    overflow-y:auto;
+    animation:slideDown .15s ease;
+  }
+  .suggest-dropdown.open{ display:block; }
+
+  .suggest-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 10px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:13px;
+    color:var(--ink);
+    transition:background .1s ease, color .1s ease;
+  }
+  .suggest-item svg{ flex-shrink:0; color:var(--muted-soft); }
+  .suggest-item mark{ background:none; color:var(--accent); font-weight:600; }
+  .suggest-item.active{ background:var(--accent-soft); color:var(--accent); }
+  .suggest-item.active svg{ color:var(--accent); }
+  .suggest-item.active mark{ color:var(--accent); }
+
+  .toolbar-divider{
+    width:1px;
+    height:24px;
+    background:var(--border-strong);
+    flex-shrink:0;
+  }
+
+  /* 快捷筛选：圆角矩形，和搜索 chip 的药丸形明显区分（固定选项 vs 用户输入） */
+  .filter-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+  }
+
+  .level-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:7px 12px;
+    font-size:12.5px;
+    font-weight:600;
+    border-radius:8px;
+    border:1px solid var(--border-strong);
+    background:var(--panel);
+    color:var(--muted);
+    cursor:default;
+  }
+  .level-btn .dot{
+    width:6px; height:6px;
+    border-radius:50%;
+    flex-shrink:0;
+  }
+  .level-btn.error .dot{ background:var(--red-text); }
+  .level-btn.warn  .dot{ background:var(--amber-text); }
+  .level-btn.info  .dot{ background:var(--blue-text); }
+  .level-btn.debug .dot{ background:var(--green-text); }
+
+  /* 选中态：实心浅底 + 对应色边框和文字，未选中态：中性灰描边，只留一个色点提示 */
+  .level-btn.selected.info{
+    background:var(--blue-bg);
+    border-color:var(--blue-border);
+    color:var(--blue-text);
+  }
+
+  /* ---------------- log list (静态) ---------------- */
+  .log-scroll{
+    flex:1;
+    overflow-y:auto;
+    padding:14px 16px 8px;
+  }
+
+  .log-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 14px;
+    margin-bottom:8px;
+  }
+
+  .log-meta{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:4px;
+  }
+  .log-time{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    color:#3f9d63;
+  }
+  .log-level{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.03em;
+  }
+  .log-level.debug{ color:var(--green-text); }
+
+  .log-content{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12.5px;
+    color:var(--ink);
+    line-height:1.6;
+    word-break:break-all;
+  }
+  .log-content mark{
+    background:var(--mark-bg);
+    color:var(--mark-text);
+    border-radius:3px;
+    padding:0 2px;
+    font-weight:600;
+  }
+
+  /* ---------------- footer (静态) ---------------- */
+  .footer{
+    height:40px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 16px;
+    background:var(--panel);
+    border-top:1px solid var(--border);
+    font-size:12px;
+    color:var(--muted);
+  }
+  .footer-left{ display:flex; align-items:center; gap:14px; }
+  .footer-left .dot-live{
+    width:6px; height:6px; border-radius:50%;
+    background:#3f9d63;
+    display:inline-block;
+    margin-right:6px;
+  }
+  .follow-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:var(--green-bg);
+    color:var(--green-text);
+    border:1px solid var(--green-border);
+    border-radius:7px;
+    padding:5px 11px;
+    font-size:12px;
+    font-weight:600;
+  }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="filter-files">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    Filter files...
+  </div>
+
+  <div class="side-section-title">
+    Recent
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="recent-item">
+    <span>demo.log</span>
+    <span class="time">1 hour ago</span>
+  </div>
+
+  <div class="side-section-title">
+    Files
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6l3 -3h4l2 2h9v13a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1v-12"/></svg>
+  </div>
+  <div class="file-row">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6l3 -3h4l2 2h9v13a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1v-12"/></svg>
+    error
+  </div>
+  <div class="file-row">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6l3 -3h4l2 2h9v13a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1v-12"/></svg>
+    service
+  </div>
+  <div class="file-row active">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/></svg>
+    demo.log
+    <span class="size">1.9 GB</span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <svg class="panel-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg>
+      <div class="file-tab">
+        demo.log
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="16" r="2"/><line x1="7.5" y1="11" x2="16.5" y2="7"/><line x1="7.5" y1="13" x2="16.5" y2="15"/></svg>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1 -2.83 2.83l-.06-.06a1.65 1.65 0 0 0 -1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-shell">
+      <div class="search-box" id="searchBox">
+        <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <div class="chip-line" id="chipLine">
+          <input type="text" id="searchInput" placeholder="搜索关键词…">
+        </div>
+        <button class="clear-x" id="clearX" title="清除全部">×</button>
+      </div>
+
+      <div class="popup" id="popup">
+        <p class="popup-title">被折叠的关键词</p>
+        <div class="popup-chips" id="popupChips"></div>
+      </div>
+
+      <div class="suggest-dropdown" id="suggestDropdown"></div>
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <div class="filter-row">
+      <button class="level-btn error"><span class="dot"></span>ERROR</button>
+      <button class="level-btn warn"><span class="dot"></span>WARN</button>
+      <button class="level-btn info selected"><span class="dot"></span>INFO</button>
+      <button class="level-btn debug"><span class="dot"></span>DEBUG</button>
+    </div>
+  </div>
+
+  <div class="log-scroll">
+    <div class="log-card">
+      <div class="log-meta">
+        <span class="log-time">2026-07-22 17:11:50</span>
+        <span class="log-level debug">DEBUG</span>
+      </div>
+      <div class="log-content">{"datetime":"2026-07-22 17:11:50", "level":"<mark>DEBUG</mark>", "message":""}</div>
+    </div>
+    <div class="log-card">
+      <div class="log-meta">
+        <span class="log-time">2026-07-24 12:07:45</span>
+        <span class="log-level debug">DEBUG</span>
+      </div>
+      <div class="log-content">{"datetime":"2026-07-24 12:07:45", "level":"<mark>DEBUG</mark>", "message":""}</div>
+    </div>
+    <div class="log-card">
+      <div class="log-meta">
+        <span class="log-time">2026-07-24 19:21:51</span>
+        <span class="log-level debug">DEBUG</span>
+      </div>
+      <div class="log-content">[2026-07-24 19:21:51] [<mark>DEBUG</mark>]</div>
+    </div>
+    <div class="log-card">
+      <div class="log-meta">
+        <span class="log-time">2026-08-03 15:21:59</span>
+        <span class="log-level debug">DEBUG</span>
+      </div>
+      <div class="log-content">{"datetime":"2026-08-03 15:21:59", "level":"<mark>DEBUG</mark>", "message":""}</div>
+    </div>
+    <div class="log-card">
+      <div class="log-meta">
+        <span class="log-time">2026-08-03 20:46:17</span>
+        <span class="log-level debug">DEBUG</span>
+      </div>
+      <div class="log-content">[2026-08-03 20:46:17] [<mark>DEBUG</mark>]</div>
+    </div>
+    <div class="log-card">
+      <div class="log-meta">
+        <span class="log-time">2026-08-03 20:46:16</span>
+        <span class="log-level debug">DEBUG</span>
+      </div>
+      <div class="log-content">{"datetime":"2026-08-03 20:46:16", "level":"<mark>DEBUG</mark>", "message":"r5M"}</div>
+    </div>
+    <div class="log-card">
+      <div class="log-meta">
+        <span class="log-time">2026-08-03 14:16:46</span>
+        <span class="log-level debug">DEBUG</span>
+      </div>
+      <div class="log-content">[2026-08-03 14:16:46] [<mark>DEBUG</mark>] G</div>
+    </div>
+    <div class="log-card">
+      <div class="log-meta">
+        <span class="log-time">2026-08-03 00:06:45</span>
+        <span class="log-level debug">DEBUG</span>
+      </div>
+      <div class="log-content">{"datetime":"2026-08-03 00:06:45", "level":"<mark>DEBUG</mark>", "message":"c"}</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">
+      <span><span class="dot-live"></span>demo.log</span>
+      <span>300 / 50000 lines</span>
+      <span>8 shown</span>
+      <span>8 matches · DEBUG</span>
+    </div>
+    <div class="follow-btn">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      Follow
+    </div>
+  </div>
+</div>
+
+<script>
+  const searchBox = document.getElementById('searchBox');
+  const chipLine  = document.getElementById('chipLine');
+  const input     = document.getElementById('searchInput');
+  const clearX    = document.getElementById('clearX');
+  const popup     = document.getElementById('popup');
+  const popupChips= document.getElementById('popupChips');
+  const suggestDropdown = document.getElementById('suggestDropdown');
+
+  let keywords = [];   // 完整关键词列表
+  let hiddenCount = 0; // 从最前面折叠进 +N 的数量
+
+  // ---- 联想建议（示例数据，实际项目里换成接口请求 / debounce）----
+  const SUGGESTION_POOL = [
+    'ERROR','WARN','INFO','DEBUG','timeout','connection refused',
+    'database','api','user_id','404','500','502','retry','deprecated',
+    'null pointer','stack trace','crash','memory leak','slow query','auth failed'
+  ];
+
+  let suggestions = [];
+  let activeIndex = -1;
+
+  function escapeHtml(str){
+    return str.replace(/[&<>"']/g, m => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[m]));
+  }
+
+  function makeChip(word, onRemove){
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.title = word;
+    chip.innerHTML = `<span class="chip-text">${escapeHtml(word)}</span><button aria-label="remove">×</button>`;
+    chip.querySelector('button').addEventListener('click', (e) => {
+      e.stopPropagation();
+      onRemove();
+    });
+    return chip;
+  }
+
+  function removeKeyword(word){
+    keywords = keywords.filter(w => w !== word);
+    if(keywords.length === 0){ closePopup(); }
+    render();
+  }
+
+  function addKeyword(raw){
+    const word = raw.trim();
+    if(!word || keywords.includes(word)) { input.value = ''; return; }
+    keywords.push(word);
+    input.value = '';
+    closeSuggest();
+    render();
+  }
+
+  // 重建单行 chip，超出一行就从最前面折叠进 "+N"
+  function render(){
+    Array.from(chipLine.children).forEach(el => { if(el !== input) el.remove(); });
+
+    keywords.forEach(word => {
+      const chip = makeChip(word, () => removeKeyword(word));
+      chipLine.insertBefore(chip, input);
+    });
+
+    hiddenCount = 0;
+    const chipEls = () => Array.from(chipLine.querySelectorAll('.chip'));
+    let existingBadge = null;
+
+    while(chipLine.scrollWidth > chipLine.clientWidth && chipEls().length > 0){
+      const firstChip = chipEls()[0];
+      firstChip.remove();
+      hiddenCount++;
+
+      if(!existingBadge){
+        existingBadge = document.createElement('span');
+        existingBadge.className = 'more-badge';
+        existingBadge.addEventListener('click', (e) => {
+          e.stopPropagation();
+          togglePopup();
+        });
+        chipLine.insertBefore(existingBadge, chipLine.firstChild);
+      }
+      existingBadge.textContent = `+${hiddenCount}`;
+    }
+
+    clearX.classList.toggle('show', keywords.length > 0);
+    renderPopup();
+  }
+
+  function renderPopup(){
+    if(hiddenCount === 0){
+      closePopup();
+      popupChips.innerHTML = '';
+      return;
+    }
+    const hidden = keywords.slice(0, hiddenCount);
+    popupChips.innerHTML = '';
+    hidden.forEach(word => {
+      popupChips.appendChild(makeChip(word, () => removeKeyword(word)));
+    });
+    const badge = chipLine.querySelector('.more-badge');
+    if(badge) badge.classList.toggle('active', popup.classList.contains('open'));
+  }
+
+  function togglePopup(){
+    closeSuggest();
+    popup.classList.toggle('open');
+    const badge = chipLine.querySelector('.more-badge');
+    if(badge) badge.classList.toggle('active', popup.classList.contains('open'));
+  }
+  function closePopup(){
+    popup.classList.remove('open');
+    const badge = chipLine.querySelector('.more-badge');
+    if(badge) badge.classList.remove('active');
+  }
+
+  // ---- 联想建议 ----
+  function highlightMatch(word, query){
+    const idx = word.toLowerCase().indexOf(query.toLowerCase());
+    if(idx === -1) return escapeHtml(word);
+    return escapeHtml(word.slice(0, idx))
+      + '<mark>' + escapeHtml(word.slice(idx, idx + query.length)) + '</mark>'
+      + escapeHtml(word.slice(idx + query.length));
+  }
+
+  function getSuggestions(query){
+    if(!query) return [];
+    return SUGGESTION_POOL
+      .filter(w => !keywords.includes(w) && w.toLowerCase().includes(query.toLowerCase()))
+      .slice(0, 6);
+  }
+
+  function renderSuggestions(){
+    const query = input.value.trim();
+    suggestions = getSuggestions(query);
+    activeIndex = suggestions.length ? 0 : -1;
+
+    if(!query || suggestions.length === 0){
+      closeSuggest();
+      return;
+    }
+
+    suggestDropdown.innerHTML = '';
+    suggestions.forEach((word, i) => {
+      const item = document.createElement('div');
+      item.className = 'suggest-item' + (i === activeIndex ? ' active' : '');
+      item.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <span>${highlightMatch(word, query)}</span>`;
+      item.addEventListener('mouseenter', () => setActive(i));
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        selectSuggestion(word);
+      });
+      suggestDropdown.appendChild(item);
+    });
+
+    closePopup();
+    suggestDropdown.classList.add('open');
+  }
+
+  function setActive(i){
+    activeIndex = i;
+    Array.from(suggestDropdown.children).forEach((el, idx) => {
+      el.classList.toggle('active', idx === i);
+    });
+    const activeEl = suggestDropdown.children[i];
+    if(activeEl) activeEl.scrollIntoView({ block:'nearest' });
+  }
+
+  function selectSuggestion(word){
+    addKeyword(word);
+    closeSuggest();
+    input.focus();
+  }
+
+  function closeSuggest(){
+    suggestDropdown.classList.remove('open');
+    suggestions = [];
+    activeIndex = -1;
+  }
+
+  // ---- events ----
+  input.addEventListener('input', renderSuggestions);
+
+  input.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowDown'){
+      if(suggestions.length){
+        e.preventDefault();
+        setActive((activeIndex + 1) % suggestions.length);
+      }
+      return;
+    }
+    if(e.key === 'ArrowUp'){
+      if(suggestions.length){
+        e.preventDefault();
+        setActive((activeIndex - 1 + suggestions.length) % suggestions.length);
+      }
+      return;
+    }
+    if(e.key === 'Escape'){
+      if(suggestDropdown.classList.contains('open')){
+        e.preventDefault();
+        closeSuggest();
+      }
+      return;
+    }
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      if(suggestDropdown.classList.contains('open') && activeIndex >= 0 && suggestions[activeIndex]){
+        selectSuggestion(suggestions[activeIndex]);
+      } else {
+        addKeyword(input.value);
+        closeSuggest();
+      }
+    } else if(e.key === 'Backspace' && input.value === '' && keywords.length){
+      keywords.pop();
+      render();
+    }
+  });
+
+  input.addEventListener('paste', (e) => {
+    const text = e.clipboardData.getData('text');
+    if(/[,\s]/.test(text)){
+      e.preventDefault();
+      text.split(/[,\s]+/).forEach(addKeyword);
+    }
+  });
+
+  input.addEventListener('focus', () => {
+    searchBox.classList.add('focused');
+    if(input.value.trim()) renderSuggestions();
+  });
+  input.addEventListener('blur', () => {
+    searchBox.classList.remove('focused');
+    closeSuggest();
+  });
+
+  chipLine.addEventListener('click', (e) => { if(e.target === chipLine) input.focus(); });
+
+  clearX.addEventListener('click', () => {
+    keywords = [];
+    render();
+    input.focus();
+  });
+
+  document.addEventListener('click', (e) => {
+    if(!e.target.closest('.search-shell')){
+      closePopup();
+      closeSuggest();
+    }
+  });
+
+  window.addEventListener('resize', render);
+
+  // demo 预置几个关键词，方便直接看到单行折叠 + 弹窗效果
+  ['DEBUG', 'timeout', 'user_id', 'database connection', '500'].forEach(w => keywords.push(w));
+  render();
+</script>
+
+</body>
+</html>

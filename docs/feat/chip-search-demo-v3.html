@@ -4,16 +4,50 @@
 <meta charset="UTF-8">
 <title>多关键词搜索框 Demo v2</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root{
-    --ink:#1c1b19;
-    --paper:#f6f3ec;
-    --line:#d8d2c4;
-    --accent:#c65d3b;
-    --accent-soft:#f0dcd2;
-    --muted:#8a8478;
-    --card:#fffdf8;
+    --bg:#f4f6f9;
+    --card:#ffffff;
+    --border:#e3e7ee;
+    --border-strong:#d3d9e3;
+    --ink:#10131a;
+    --muted:#8891a0;
+    --muted-soft:#aab1bd;
+    --accent:#3b6bf5;
+    --accent-hover:#2f56d1;
+    --accent-soft:#eaf0fe;
+    --accent-text-on-solid:#ffffff;
+    --ring:rgba(59,107,245,.14);
+    --badge-bg:#eef1f6;
+    --hover-bg:#f1f3f7;
+    --dot-color:rgba(59,107,245,0.07);
+    --shadow-sm:0 1px 2px rgba(16,19,26,.04);
+    --shadow-md:0 8px 24px -8px rgba(16,19,26,.10);
+    --shadow-lg:0 16px 40px -12px rgba(16,19,26,.16);
+    color-scheme:light;
+  }
+
+  html[data-theme="dark"]{
+    --bg:#0a0c11;
+    --card:#12151c;
+    --border:#232733;
+    --border-strong:#2c3140;
+    --ink:#edf0f5;
+    --muted:#8891a0;
+    --muted-soft:#5c6272;
+    --accent:#5b86ff;
+    --accent-hover:#7597ff;
+    --accent-soft:rgba(91,134,255,.16);
+    --accent-text-on-solid:#0a0c11;
+    --ring:rgba(91,134,255,.22);
+    --badge-bg:#1b1f29;
+    --hover-bg:#1b1f29;
+    --dot-color:rgba(91,134,255,0.10);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+    --shadow-md:0 8px 24px -8px rgba(0,0,0,.5);
+    --shadow-lg:0 16px 40px -12px rgba(0,0,0,.6);
+    color-scheme:dark;
   }
 
   *{ box-sizing:border-box; }
@@ -24,62 +58,110 @@
     display:flex;
     align-items:flex-start;
     justify-content:center;
-    background:var(--paper);
-    background-image:
-      radial-gradient(circle at 1px 1px, rgba(28,27,25,0.06) 1px, transparent 0);
-    background-size: 22px 22px;
-    font-family:'IBM Plex Mono', monospace;
+    background:
+      radial-gradient(circle at 1px 1px, var(--dot-color) 1px, transparent 0) 0 0/24px 24px,
+      var(--bg);
+    font-family:'Inter', sans-serif;
     color:var(--ink);
-    padding:60px 20px;
+    padding:64px 20px;
+    -webkit-font-smoothing:antialiased;
+    transition:background-color .2s ease, color .2s ease;
   }
 
   .wrap{
     width:100%;
-    max-width:600px;
+    max-width:760px;
+  }
+
+  .header-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:24px;
   }
 
   .label{
-    font-family:'Fraunces', serif;
-    font-size:32px;
-    font-weight:600;
-    letter-spacing:-0.01em;
+    font-family:'Inter', sans-serif;
+    font-size:26px;
+    font-weight:700;
+    letter-spacing:-0.02em;
     margin:0 0 6px;
   }
 
   .sub{
-    font-size:12.5px;
+    font-size:13px;
     color:var(--muted);
-    margin:0 0 26px;
-    letter-spacing:.02em;
+    margin:0;
+    letter-spacing:0;
   }
 
+  .theme-toggle{
+    all:unset;
+    box-sizing:border-box;
+    flex-shrink:0;
+    width:36px;
+    height:36px;
+    border-radius:10px;
+    border:1px solid var(--border-strong);
+    background:var(--card);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    color:var(--muted);
+    transition:background .12s ease, color .12s ease, border-color .12s ease;
+  }
+  .theme-toggle:hover{
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  .theme-toggle svg{
+    width:17px;
+    height:17px;
+  }
+  .theme-toggle .icon-moon{ display:none; }
+  html[data-theme="dark"] .theme-toggle .icon-sun{ display:none; }
+  html[data-theme="dark"] .theme-toggle .icon-moon{ display:block; }
+
   /* ---- search box ---- */
+  .search-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap; /* 空间不够时（比如窄屏）整体换行，避免挤压变形 */
+  }
+
   .search-shell{
     position:relative;
+    flex:1;
+    min-width:260px;
   }
 
   .search-box{
     background:var(--card);
-    border:1.5px solid var(--ink);
+    border:1.5px solid var(--border-strong);
     border-radius:14px;
     padding:0 8px 0 14px;
     height:50px;
     display:flex;
     align-items:center;
     gap:8px;
-    box-shadow:5px 5px 0 var(--ink);
-    transition:box-shadow .15s ease, transform .15s ease;
+    box-shadow:var(--shadow-sm);
+    transition:box-shadow .15s ease, border-color .15s ease, background-color .2s ease;
   }
 
   .search-box.focused{
-    box-shadow:2px 2px 0 var(--ink);
-    transform:translate(3px,3px);
+    border-color:var(--accent);
+    box-shadow:0 0 0 4px var(--ring);
   }
 
   .search-box svg.icon{
     flex-shrink:0;
-    color:var(--muted);
+    color:var(--muted-soft);
+    transition:color .15s ease;
   }
+  .search-box.focused svg.icon{ color:var(--accent); }
 
   /* the single-line, non-wrapping row of chips + input */
   .chip-line{
@@ -97,15 +179,15 @@
     flex-shrink:0;
     display:inline-flex;
     align-items:center;
-    gap:5px;
+    gap:4px;
     max-width:160px;
     background:var(--accent-soft);
-    border:1px solid var(--accent);
+    border:1px solid transparent;
     color:var(--accent);
     font-size:12.5px;
     font-weight:500;
     padding:4px 5px 4px 10px;
-    border-radius:20px;
+    border-radius:8px;
     animation:pop .15s ease;
   }
 
@@ -117,7 +199,7 @@
   }
 
   @keyframes pop{
-    from{ transform:scale(.7); opacity:0; }
+    from{ transform:scale(.85); opacity:0; }
     to{ transform:scale(1); opacity:1; }
   }
 
@@ -128,33 +210,35 @@
     justify-content:center;
     width:15px;
     height:15px;
-    border-radius:50%;
+    border-radius:5px;
     cursor:pointer;
     color:var(--accent);
-    font-size:12px;
+    font-size:13px;
     line-height:1;
+    opacity:.65;
   }
   .chip button:hover{
     background:var(--accent);
-    color:#fff;
+    color:var(--accent-text-on-solid);
+    opacity:1;
   }
 
   .more-badge{
     flex-shrink:0;
     display:inline-flex;
     align-items:center;
-    background:var(--ink);
-    color:var(--card);
+    background:var(--badge-bg);
+    color:var(--ink);
     font-size:12px;
-    font-weight:500;
+    font-weight:600;
     padding:5px 10px;
-    border-radius:20px;
+    border-radius:8px;
     cursor:pointer;
     user-select:none;
-    transition:transform .1s ease;
+    transition:background .12s ease, color .12s ease;
   }
-  .more-badge:hover{ transform:scale(1.05); }
-  .more-badge.active{ background:var(--accent); }
+  .more-badge:hover{ background:var(--accent-soft); color:var(--accent); }
+  .more-badge.active{ background:var(--accent); color:var(--accent-text-on-solid); }
 
   .chip-line input{
     flex:1;
@@ -162,14 +246,14 @@
     border:none;
     outline:none;
     background:transparent;
-    font-family:'IBM Plex Mono', monospace;
+    font-family:'Inter', sans-serif;
     font-size:14px;
     color:var(--ink);
     height:100%;
     padding:0 2px;
   }
   .chip-line input::placeholder{
-    color:var(--muted);
+    color:var(--muted-soft);
   }
 
   .clear-x{
@@ -177,17 +261,18 @@
     flex-shrink:0;
     width:26px;
     height:26px;
-    border-radius:50%;
+    border-radius:7px;
     display:none;
     align-items:center;
     justify-content:center;
     cursor:pointer;
-    color:var(--muted);
+    color:var(--muted-soft);
     font-size:15px;
     margin-right:2px;
+    transition:background .12s ease, color .12s ease;
   }
   .clear-x:hover{
-    background:var(--line);
+    background:var(--hover-bg);
     color:var(--ink);
   }
   .clear-x.show{ display:flex; }
@@ -199,9 +284,9 @@
     left:0;
     right:0;
     background:var(--card);
-    border:1.5px solid var(--ink);
+    border:1px solid var(--border);
     border-radius:12px;
-    box-shadow:5px 5px 0 var(--ink);
+    box-shadow:var(--shadow-lg);
     padding:6px;
     display:none;
     z-index:20;
@@ -220,25 +305,24 @@
     cursor:pointer;
     font-size:13.5px;
     color:var(--ink);
+    transition:background .1s ease, color .1s ease;
   }
   .suggest-item svg{
     flex-shrink:0;
-    color:var(--muted);
+    color:var(--muted-soft);
   }
   .suggest-item mark{
-    background:var(--accent-soft);
+    background:none;
     color:var(--accent);
-    border-radius:3px;
-    padding:0 1px;
+    font-weight:600;
   }
   .suggest-item.active{
-    background:var(--accent);
-    color:#fff;
+    background:var(--accent-soft);
+    color:var(--accent);
   }
-  .suggest-item.active svg{ color:#fff; }
+  .suggest-item.active svg{ color:var(--accent); }
   .suggest-item.active mark{
-    background:rgba(255,255,255,.25);
-    color:#fff;
+    color:var(--accent);
   }
 
   .suggest-empty{
@@ -253,9 +337,9 @@
     left:0;
     right:0;
     background:var(--card);
-    border:1.5px solid var(--ink);
+    border:1px solid var(--border);
     border-radius:12px;
-    box-shadow:5px 5px 0 var(--ink);
+    box-shadow:var(--shadow-lg);
     padding:14px;
     display:none;
     z-index:10;
@@ -270,8 +354,10 @@
 
   .popup-title{
     font-size:11px;
+    font-weight:600;
     color:var(--muted);
     letter-spacing:.04em;
+    text-transform:uppercase;
     margin:0 0 10px;
   }
 
@@ -289,16 +375,17 @@
     display:flex;
     justify-content:space-between;
     margin-top:12px;
-    font-size:11px;
+    font-size:11.5px;
     color:var(--muted);
-    letter-spacing:.03em;
   }
   .hint kbd{
-    font-family:inherit;
-    background:#eae5d8;
-    border:1px solid var(--line);
+    font-family:'JetBrains Mono', monospace;
+    font-size:10.5px;
+    background:var(--badge-bg);
+    color:var(--ink);
+    border:1px solid var(--border);
     border-radius:4px;
-    padding:1px 5px;
+    padding:1.5px 5px;
     margin:0 2px;
   }
 
@@ -309,34 +396,125 @@
   }
   .result strong{
     color:var(--ink);
+    font-weight:600;
+  }
+
+  /* ---- quick filter buttons (独立于搜索框内的 chip) ---- */
+  .filter-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    flex-shrink:0;
+  }
+
+  .filter-chip{
+    all:unset;
+    box-sizing:border-box;
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:7px 13px;
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
     font-weight:500;
+    color:var(--muted);
+    background:var(--card);
+    border:1px solid var(--border-strong);
+    border-radius:20px;
+    cursor:pointer;
+    transition:background .12s ease, color .12s ease, border-color .12s ease, transform .08s ease;
+  }
+  .filter-chip:hover{
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  .filter-chip:active{
+    transform:scale(.96);
+  }
+  .filter-chip.selected{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:var(--accent-text-on-solid);
+  }
+  .filter-chip .check{
+    display:none;
+    width:13px;
+    height:13px;
+  }
+  .filter-chip.selected .check{
+    display:inline-flex;
   }
 </style>
 </head>
 <body>
 
 <div class="wrap">
-  <p class="label">搜索</p>
-  <p class="sub">Enter / 空格 添加关键词 · 超出一行会折叠为 +N，点击展开</p>
-
-  <div class="search-shell">
-    <div class="search-box" id="searchBox">
-      <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="11" cy="11" r="7"/>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+  <div class="header-row">
+    <div>
+      <p class="label">搜索</p>
+      <p class="sub">输入关键词后按 Enter 添加，支持联想建议与键盘操作</p>
+    </div>
+    <button class="theme-toggle" id="themeToggle" aria-label="切换深色/浅色主题" title="切换主题">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4"/>
+        <line x1="12" y1="2" x2="12" y2="4.5"/>
+        <line x1="12" y1="19.5" x2="12" y2="22"/>
+        <line x1="4.2" y1="4.2" x2="6" y2="6"/>
+        <line x1="18" y1="18" x2="19.8" y2="19.8"/>
+        <line x1="2" y1="12" x2="4.5" y2="12"/>
+        <line x1="19.5" y1="12" x2="22" y2="12"/>
+        <line x1="4.2" y1="19.8" x2="6" y2="18"/>
+        <line x1="18" y1="6" x2="19.8" y2="4.2"/>
       </svg>
-      <div class="chip-line" id="chipLine">
-        <input type="text" id="searchInput" placeholder="输入关键词…">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.5A8.5 8.5 0 1 1 11.5 3a6.8 6.8 0 0 0 9.5 9.5z"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="search-row">
+    <div class="search-shell">
+      <div class="search-box" id="searchBox">
+        <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <div class="chip-line" id="chipLine">
+          <input type="text" id="searchInput" placeholder="输入关键词…">
+        </div>
+        <button class="clear-x" id="clearX" title="清除全部">×</button>
       </div>
-      <button class="clear-x" id="clearX" title="清除全部">×</button>
+
+      <div class="popup" id="popup">
+        <p class="popup-title">被折叠的关键词</p>
+        <div class="popup-chips" id="popupChips"></div>
+      </div>
+
+      <div class="suggest-dropdown" id="suggestDropdown"></div>
     </div>
 
-    <div class="popup" id="popup">
-      <p class="popup-title">被折叠的关键词</p>
-      <div class="popup-chips" id="popupChips"></div>
+    <div class="filter-row" id="filterRow">
+      <button class="filter-chip" data-filter="article">
+        <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+        文章
+      </button>
+      <button class="filter-chip" data-filter="video">
+        <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+        视频
+      </button>
+      <button class="filter-chip" data-filter="image">
+        <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+        图片
+      </button>
+      <button class="filter-chip" data-filter="user">
+        <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+        用户
+      </button>
+      <button class="filter-chip" data-filter="recent">
+        <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+        最近一周
+      </button>
     </div>
-
-    <div class="suggest-dropdown" id="suggestDropdown"></div>
   </div>
 
   <div class="hint">
@@ -355,6 +533,20 @@
   const popupChips= document.getElementById('popupChips');
   const resultEl  = document.getElementById('result');
   const suggestDropdown = document.getElementById('suggestDropdown');
+  const themeToggle = document.getElementById('themeToggle');
+
+  // ---- theme（跟随系统偏好，支持手动切换）----
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+  applyTheme(prefersDark.matches ? 'dark' : 'light');
+  prefersDark.addEventListener('change', (e) => applyTheme(e.matches ? 'dark' : 'light'));
+
+  themeToggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+  });
 
   let keywords = [];   // full ordered list of keywords
   let hiddenCount = 0; // how many (from the front) are collapsed into "+N"
@@ -470,8 +662,26 @@
   }
 
   function renderResult(){
-    if(keywords.length === 0){ resultEl.textContent = ''; return; }
-    resultEl.innerHTML = `正在搜索 <strong>${keywords.length}</strong> 个关键词：<strong>${keywords.join(' · ')}</strong>`;
+    const filterLabels = {
+      article:'文章', video:'视频', image:'图片', user:'用户', recent:'最近一周'
+    };
+    const activeList = Array.from(activeFilters).map(k => filterLabels[k]);
+
+    if(keywords.length === 0 && activeList.length === 0){
+      resultEl.textContent = '';
+      return;
+    }
+
+    let html = '';
+    if(keywords.length){
+      html += `正在搜索 <strong>${keywords.length}</strong> 个关键词：<strong>${keywords.join(' · ')}</strong>`;
+    } else {
+      html += '暂无关键词';
+    }
+    if(activeList.length){
+      html += ` ｜ 已筛选：<strong>${activeList.join(' · ')}</strong>`;
+    }
+    resultEl.innerHTML = html;
   }
 
   // ---- suggestions ----
@@ -617,6 +827,24 @@
   });
 
   window.addEventListener('resize', render);
+
+  // ---- quick filters（独立状态，不进入搜索框的 chip / keywords 数组）----
+  const filterRow = document.getElementById('filterRow');
+  const activeFilters = new Set();
+
+  filterRow.addEventListener('click', (e) => {
+    const btn = e.target.closest('.filter-chip');
+    if(!btn) return;
+    const key = btn.dataset.filter;
+    if(activeFilters.has(key)){
+      activeFilters.delete(key);
+      btn.classList.remove('selected');
+    } else {
+      activeFilters.add(key);
+      btn.classList.add('selected');
+    }
+    renderResult();
+  });
 
   // seed with a few demo keywords so overflow is visible immediately
   ['产品设计','用户增长这是一个非常非常长的关键词用来测试截断效果','A/B测试','留存分析','转化漏斗','数据看板'].forEach(w => keywords.push(w));

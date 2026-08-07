@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Search, X } from 'lucide-vue-next'
+import { Search, X, History } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -21,6 +21,7 @@ const input = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 const showSuggestions = ref(false)
 const suggestionsRef = ref<HTMLDivElement | null>(null)
+const selectedSuggestionIndex = ref(-1)
 
 const editingIndex = ref<number | null>(null)
 const editingValue = ref('')
@@ -64,13 +65,36 @@ const suggestions = computed(() => {
   ).slice(0, 8)
 })
 
+// Escape user text for safe insertion via v-html (suggestion match highlight).
+function escapeHtml(str: string): string {
+  return str.replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[m]!))
+}
+
+// Wrap the matched substring of `word` in <mark> so the user sees where their
+// query matches inside each suggestion (learned from chip-search-demo-v2).
+function highlightMatch(word: string, query: string): string {
+  const idx = word.toLowerCase().indexOf(query.toLowerCase())
+  if (idx === -1) return escapeHtml(word)
+  return (
+    escapeHtml(word.slice(0, idx)) +
+    '<mark>' + escapeHtml(word.slice(idx, idx + query.length)) + '</mark>' +
+    escapeHtml(word.slice(idx + query.length))
+  )
+}
+
 function onInput(): void {
+  // Default-highlight the first item so Enter can commit it immediately
+  // (matches the demo's activeIndex = 0 on open).
+  selectedSuggestionIndex.value = suggestions.value.length > 0 ? 0 : -1
   showSuggestions.value = input.value.trim().length > 0 && suggestions.value.length > 0
 }
 
 function selectSuggestion(kw: string): void {
   input.value = ''
   showSuggestions.value = false
+  selectedSuggestionIndex.value = -1
   emit('addKeyword', kw)
 }
 
@@ -89,16 +113,49 @@ function commitInput(): boolean {
 }
 
 function onKeydown(e: KeyboardEvent): void {
+  // Keyboard navigation within the suggestions dropdown.
+  if (showSuggestions.value && suggestions.value.length > 0) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      selectedSuggestionIndex.value =
+        (selectedSuggestionIndex.value + 1) % suggestions.value.length
+      scrollSelectedIntoView()
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      const n = suggestions.value.length
+      selectedSuggestionIndex.value =
+        (selectedSuggestionIndex.value - 1 + n) % n
+      scrollSelectedIntoView()
+      return
+    }
+    // Enter / Tab with a highlighted suggestion: commit that suggestion.
+    if ((e.key === 'Enter' || e.key === 'Tab') && selectedSuggestionIndex.value >= 0) {
+      e.preventDefault()
+      selectSuggestion(suggestions.value[selectedSuggestionIndex.value])
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      showSuggestions.value = false
+      selectedSuggestionIndex.value = -1
+      return
+    }
+  }
+
   // Enter OR Space adds the keyword (Space only commits when there is text to
   // commit; an empty input + Space falls through to default so the user can
   // still type a space if they really want one mid-token).
   if (e.key === 'Enter' || (e.key === ' ' && input.value.trim())) {
     e.preventDefault()
     showSuggestions.value = false
+    selectedSuggestionIndex.value = -1
     commitInput()
   } else if (e.key === 'Escape') {
     if (showSuggestions.value) {
       showSuggestions.value = false
+      selectedSuggestionIndex.value = -1
     } else if (input.value) {
       input.value = ''
     } else {
@@ -123,9 +180,20 @@ function onKeydown(e: KeyboardEvent): void {
       }
     })
   } else if (e.key === 'Tab' && suggestions.value.length > 0) {
+    // Tab with no highlight: pick the first suggestion.
     e.preventDefault()
     selectSuggestion(suggestions.value[0])
   }
+}
+
+// Scroll the highlighted suggestion item into view inside the scrollable list.
+function scrollSelectedIntoView(): void {
+  nextTick(() => {
+    const list = suggestionsRef.value
+    if (!list) return
+    const el = list.children[selectedSuggestionIndex.value] as HTMLElement | undefined
+    el?.scrollIntoView({ block: 'nearest' })
+  })
 }
 
 // Paste handling: if the pasted text contains commas or whitespace, split it
@@ -431,13 +499,15 @@ defineExpose({ focus })
       <!-- Suggestions dropdown — positioned relative to filter-wrap -->
       <div v-if="showSuggestions" ref="suggestionsRef" class="suggestions-dropdown">
         <div
-          v-for="s in suggestions"
+          v-for="(s, i) in suggestions"
           :key="s"
           class="suggestion-item"
+          :class="{ active: i === selectedSuggestionIndex }"
           @mousedown.prevent="selectSuggestion(s)"
+          @mouseenter="selectedSuggestionIndex = i"
         >
-          <span class="suggestion-icon">↻</span>
-          <span class="suggestion-text">{{ s }}</span>
+          <History class="suggestion-icon" :size="13" :stroke-width="2" />
+          <span class="suggestion-text" v-html="highlightMatch(s, input.trim())"></span>
         </div>
       </div>
       <button v-if="keywords.length || input" class="filter-clear" @click="doClearAll" :title="t('filter.clearAll')">
@@ -723,7 +793,7 @@ defineExpose({ focus })
   position: absolute;
   top: 100%;
   left: 0;
-  right: 30px;
+  right: 0;
   margin-top: 4px;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -732,13 +802,15 @@ defineExpose({ focus })
   z-index: 100;
   max-height: 240px;
   overflow-y: auto;
+  padding: 4px;
 }
 
 .suggestion-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
   font-family: var(--font-mono);
@@ -750,10 +822,26 @@ defineExpose({ focus })
   background: var(--bg-3);
 }
 
+.suggestion-item.active {
+  background: var(--bg-3);
+}
+
+/* Highlight the matched substring inside a suggestion item. */
+.suggestion-text :deep(mark) {
+  background: hsl(var(--kw-1) / 18%);
+  color: inherit;
+  font-weight: 600;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
 .suggestion-icon {
   color: var(--text-3);
-  font-size: 12px;
   flex-shrink: 0;
+}
+
+.suggestion-item.active .suggestion-icon {
+  color: var(--text);
 }
 
 .suggestion-text {
