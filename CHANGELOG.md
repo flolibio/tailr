@@ -1,5 +1,14 @@
 # Changelog
 
+## [v0.12.4] - 2026-08-07
+
+### FilterBar UI cleanup and refinements
+
+- **Remove status bar keyword text** — the `N matches · kw1 + kw2 + ...` line was too long to fit the status bar. Drops the now-dead `matchCount` computed, `.status-filter-info` CSS, and `app.matches` i18n key.
+- **Remove chip inline-edit (double-click)** — editing was only reachable via dblclick and added complexity (emit, handler, state, styles). Users edit by removing + re-adding. Drops `editKeyword` emit/handler, editing state, and `.chip-edit-input` styles.
+- **Fix chip-text descender clipping** — `.chip` and `.chip-text` now share `line-height: 1.2` (was 1 on the container, 1.2 on the text). At `1`, glyph descenders (g/j/p/q/y) exceeded the box and got clipped by `overflow:hidden` (scrollHeight 14 > clientHeight 13).
+- **Visual polish** — chip font-size 12 → 13, softer kw-chip bg/border opacity, suggestion history icon 13 → 14 with `text-2` color, suggestion item 14px non-mono, stronger match highlight (18% → 40%), lighter in-log `mark.kw-mark` background.
+
 ## [v0.12.3] - 2026-08-07
 
 ### FilterBar
