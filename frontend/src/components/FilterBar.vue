@@ -13,7 +13,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   addKeyword: [keyword: string]
   removeKeyword: [index: number]
-  editKeyword: [index: number, newValue: string]
   clearAll: []
 }>()
 
@@ -22,10 +21,6 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const showSuggestions = ref(false)
 const suggestionsRef = ref<HTMLDivElement | null>(null)
 const selectedSuggestionIndex = ref(-1)
-
-const editingIndex = ref<number | null>(null)
-const editingValue = ref('')
-const editInputRef = ref<HTMLInputElement | null>(null)
 
 const HISTORY_KEY = 'tailr-search-history'
 const MAX_HISTORY = 20
@@ -380,48 +375,6 @@ onUnmounted(() => {
   resizeObserver?.disconnect()
 })
 
-function startEdit(index: number): void {
-  editingIndex.value = index
-  editingValue.value = props.keywords[index]
-  nextTick(() => {
-    const el = editInputRef.value
-    if (el) {
-      el.focus()
-      el.select()
-    }
-  })
-}
-
-function confirmEdit(): void {
-  if (editingIndex.value === null) return
-  const val = editingValue.value.trim()
-  const idx = editingIndex.value
-  editingIndex.value = null
-  editingValue.value = ''
-  if (val && val !== props.keywords[idx]) {
-    emit('editKeyword', idx, val)
-  }
-}
-
-function cancelEdit(): void {
-  editingIndex.value = null
-  editingValue.value = ''
-}
-
-function onEditKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    confirmEdit()
-  } else if (e.key === 'Escape') {
-    e.preventDefault()
-    cancelEdit()
-  }
-}
-
-function onEditBlur(): void {
-  confirmEdit()
-}
-
 defineExpose({ focus })
 </script>
 
@@ -452,20 +405,7 @@ defineExpose({ focus })
           class="chip kw-chip"
           :class="'kw-' + (((i + hiddenCount) % 5) + 1)"
         >
-          <template v-if="editingIndex === i + hiddenCount">
-            <input
-              ref="editInputRef"
-              v-model="editingValue"
-              type="text"
-              class="chip-edit-input"
-              @keydown="onEditKeydown"
-              @blur="onEditBlur"
-              @mousedown.stop
-            />
-          </template>
-          <template v-else>
-            <span class="chip-text" @dblclick="startEdit(i + hiddenCount)">{{ kw }}</span>
-          </template>
+          <span class="chip-text">{{ kw }}</span>
           <button class="chip-remove" @click="emit('removeKeyword', i + hiddenCount)">✕</button>
         </span>
 
@@ -506,7 +446,7 @@ defineExpose({ focus })
           @mousedown.prevent="selectSuggestion(s)"
           @mouseenter="selectedSuggestionIndex = i"
         >
-          <History class="suggestion-icon" :size="13" :stroke-width="2" />
+          <History class="suggestion-icon" :size="14" :stroke-width="2" />
           <span class="suggestion-text" v-html="highlightMatch(s, input.trim())"></span>
         </div>
       </div>
@@ -630,8 +570,11 @@ defineExpose({ focus })
   background: var(--chip-bg);
   border: 1px solid var(--border);
   border-radius: 9999px;
-  font-size: 12px;
-  line-height: 1;
+  font-size: 13px;
+  /* line-height:1.2 gives descenders (g/j/p/q/y) room — at 1 they get clipped
+     by .chip-text's overflow:hidden (scrollHeight > clientHeight). Must match
+     .chip-text's line-height so the row stays vertically centered. */
+  line-height: 1.2;
   color: var(--chip-text);
   white-space: nowrap;
   flex-shrink: 0;
@@ -649,9 +592,9 @@ defineExpose({ focus })
    shared .kw-chip rule derives bg/text/border from that hue. Shares the same
    --kw-* palette as in-log <mark> highlights (defined in style.css). */
 .chip.kw-chip {
-  background: hsl(var(--kw-cur) / 14%);
-  color: hsl(var(--kw-cur) / 90%);
-  border-color: hsl(var(--kw-cur) / 30%);
+  background: hsl(var(--kw-cur) / 10%);
+  color: hsl(var(--kw-cur) / 100%);
+  border-color: hsl(var(--kw-cur) / 20%);
 }
 .chip.kw-chip:hover {
   background: hsl(var(--kw-cur) / 22%);
@@ -675,22 +618,11 @@ defineExpose({ focus })
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: default;
+  /* line-height must match .chip's (1.2) so the text and remove button share
+     the same line-box and stay vertically centered. At line-height:1 the
+     glyph descenders (g/j/p/q/y) exceed the box and get clipped by
+     overflow:hidden (scrollHeight 14 > clientHeight 13). */
   line-height: 1.2;
-}
-
-.chip-edit-input {
-  width: 80px;
-  min-width: 40px;
-  max-width: 200px;
-  height: 18px;
-  border: none;
-  background: var(--bg);
-  font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--text);
-  outline: none;
-  padding: 0 2px;
-  border-radius: 2px;
 }
 
 /* Circular, prominent remove button. On hover it inverts to the chip's hue,
@@ -812,8 +744,7 @@ defineExpose({ focus })
   padding: 8px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
-  font-family: var(--font-mono);
+  font-size: 14px;
   color: var(--text);
   transition: background .1s;
 }
@@ -828,7 +759,7 @@ defineExpose({ focus })
 
 /* Highlight the matched substring inside a suggestion item. */
 .suggestion-text :deep(mark) {
-  background: hsl(var(--kw-1) / 18%);
+  background: hsl(var(--kw-1) / 40%);
   color: inherit;
   font-weight: 600;
   border-radius: 2px;
@@ -836,7 +767,7 @@ defineExpose({ focus })
 }
 
 .suggestion-icon {
-  color: var(--text-3);
+  color: var(--text-2);
   flex-shrink: 0;
 }
 

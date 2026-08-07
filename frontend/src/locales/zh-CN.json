@@ -7,7 +7,6 @@
     "noFile": "未选择文件",
     "lines": "行",
     "shown": "显示",
-    "matches": "匹配",
     "follow": "跟随",
     "pauseTail": "暂停跟随日志",
     "startTail": "开始跟随日志",

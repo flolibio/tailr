@@ -206,12 +206,6 @@ const filteredEntries = computed(() => {
   return filterEntries(tab.entries, tab.selectedLevels, tab.filterKeywords, allLevels.value)
 })
 
-const matchCount = computed(() => {
-  const tab = activeTab.value
-  if (!tab || tab.filterKeywords.length === 0) return 0
-  return filteredEntries.value.length
-})
-
 const SETTINGS_KEY = 'tailr-settings'
 const THEME_MODE_KEY = 'tailr-theme-mode'
 
@@ -306,15 +300,6 @@ function removeKeyword(index: number): void {
   const tab = activeTab.value
   if (!tab) return
   tab.filterKeywords = tab.filterKeywords.filter((_, i) => i !== index)
-}
-
-function editKeyword(index: number, newValue: string): void {
-  const tab = activeTab.value
-  if (!tab) return
-  const updated = [...tab.filterKeywords]
-  updated[index] = newValue
-  tab.filterKeywords = updated
-  saveSearchHistory(newValue)
 }
 
 function clearAllKeywords(): void {
@@ -548,7 +533,6 @@ function handleSettingsUpdate(s: Settings): void {
         :keywords="activeTab?.filterKeywords ?? []"
         @add-keyword="addKeyword"
         @remove-keyword="removeKeyword"
-        @edit-keyword="editKeyword"
         @clear-all="clearAllKeywords"
       />
       <div class="filter-sep"></div>
@@ -613,7 +597,6 @@ function handleSettingsUpdate(s: Settings): void {
       <template v-if="activeTab">
         <span>{{ activeTab.entries.length }} / {{ maxLines }} {{ t('app.lines') }}</span>
         <span v-if="filteredEntries.length < activeTab.entries.length">{{ filteredEntries.length }} {{ t('app.shown') }}</span>
-        <span v-if="activeTab.filterKeywords.length" class="status-filter-info">{{ matchCount }} {{ t('app.matches') }} · {{ activeTab.filterKeywords.join(' + ') }}</span>
       </template>
       <div class="status-spacer"></div>
       <button class="status-toggle" :class="{ active: activeTab?.isTailMode ?? false }" @click="toggleFollowTail" :title="(activeTab?.isTailMode ?? false) ? t('app.pauseTail') : t('app.startTail')">

@@ -328,8 +328,8 @@ input[type="range"] {
    Shared by FilterBar chips and in-log text highlights so "the word I searched"
    reads as one color everywhere. Hue comes from --kw-* (set per-index below);
    background uses a higher opacity than chips so hits stand out inside a row. */
-mark.kw-mark { padding: 0 1px; border-radius: 2px; color: hsl(var(--kw-cur)); background: hsl(var(--kw-cur) / 30%); }
-:root.dark mark.kw-mark { background: hsl(var(--kw-cur) / 28%); }
+mark.kw-mark { padding: 0 1px; border-radius: 2px; color: hsl(var(--kw-cur)); background: hsl(var(--kw-cur) / 10%); }
+:root.dark mark.kw-mark { background: hsl(var(--kw-cur) / 30%); }
 mark.kw-mark-1 { --kw-cur: var(--kw-1); }
 mark.kw-mark-2 { --kw-cur: var(--kw-2); }
 mark.kw-mark-3 { --kw-cur: var(--kw-3); }
@@ -960,11 +960,6 @@ select {
 
 .status-spacer {
   flex: 1;
-}
-
-.status-filter-info {
-  color: var(--text-3);
-  font-size: 12px;
 }
 
 .status-toggle {
