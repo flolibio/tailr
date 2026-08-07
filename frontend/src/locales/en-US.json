@@ -7,7 +7,6 @@
     "noFile": "No file",
     "lines": "lines",
     "shown": "shown",
-    "matches": "matches",
     "follow": "Follow",
     "pauseTail": "Pause following tail",
     "startTail": "Start following tail",
