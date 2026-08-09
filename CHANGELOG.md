@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.0.1] - 2026-08-09
+
+### Fixes
+
+- **displayMode fallback defaults aligned to 'cozy'** — `LogPanel.vue` and `LogViewer.vue` both fell back to `'compact'` when the `displayMode` prop was absent, inconsistent with `App.vue`'s `defaultSettings` (`'cozy'`). First-time users already got cozy via the normal prop-passing flow; this fixes the fallbacks so any caller without an explicit prop also lands on cozy.
+
 ## [v1.0.0] - 2026-08-09
 
 **First stable release. Public surfaces (REST API, WebSocket protocol, config.toml schema, CLI) are now frozen — post-1.0 changes are additive only.**
