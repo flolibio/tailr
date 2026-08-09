@@ -267,12 +267,25 @@ async fn run_serve(cfg: config::Config, config_path: PathBuf) {
         }
     }
 
-    let listener = tokio::net::TcpListener::bind(&cfg.bind).await.unwrap();
+    let listener = match tokio::net::TcpListener::bind(&cfg.bind).await {
+        Ok(l) => l,
+        Err(e) => {
+            // Port-in-use / permission-denied are common real-world failures
+            // (e.g. an old daemon still running). Surface a clean message
+            // instead of panicking on the unwrap.
+            eprintln!("Failed to bind {}: {}", cfg.bind, e);
+            if e.kind() == std::io::ErrorKind::AddrInUse {
+                eprintln!("Hint: the port may be in use by another tailr instance. Try `tailr stop` first, or use `-b <addr>` to bind a different port.");
+            }
+            std::process::exit(1);
+        }
+    };
+    let local = listener.local_addr().map(|a| a.to_string()).unwrap_or(cfg.bind.clone());
     tracing::info!(
         version = env!("CARGO_PKG_VERSION"),
         pid = std::process::id(),
         "tailr listening on {} (paths: {:?})",
-        listener.local_addr().unwrap(),
+        local,
         log_paths
     );
 

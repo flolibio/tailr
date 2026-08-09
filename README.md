@@ -188,7 +188,7 @@ token = ""
 # Resource limits (optional, all defaults shown)
 # [limits]
 # max_ws_connections = 50       # global WebSocket connection cap
-# rate_limit_rps = 20           # per-client-IP REST requests/second (burst = ×3)
+# rate_limit_rps = 20           # per-client-IP REST requests/second (burst = ×10)
 # enable_compression = false    # gzip; off by default (LAN is faster without it)
 # workers = 2                   # tokio async worker threads (IO-bound; 2 is enough for most)
 ```
@@ -282,10 +282,12 @@ tailr restart
 | `/api/files` | GET | List log files (filtered: text files only) |
 | `/api/file/tail` | GET | Last N lines (`?path=&lines=`) |
 | `/api/config/log-levels` | GET | Get current log level configuration |
-| `/api/config/log-levels` | POST | Save log level configuration (hot-reload + persist to config.toml) |
+| `/api/config/log-levels` | POST | Apply log level configuration (hot-reload only; not persisted to config.toml) |
 | `/api/upgrade/check` | GET | Check for a newer release (`?force=true` bypasses cache) |
 | `/api/upgrade` | POST | Download + replace binary + restart (requires token + CSRF header) |
 | `/api/health` | GET | Status + uptime + version |
+| `/api/runtime` | GET | Runtime resource snapshot (process/system CPU+memory, disk, WS connections, uptime). TTL-cached 5s |
+| `/api/docs/openapi.json` | GET | OpenAPI 3.0 spec (machine-readable API contract) |
 | `/ws` | WS | Real-time log streaming |
 
 ### WebSocket Protocol
@@ -343,15 +345,15 @@ The language preference is persisted in localStorage and auto-detected from the 
 
 ```
 src/main.rs           # CLI (clap), env vars, starts axum server
-src/config.rs         # Config loading (figment), presets, persistence
 crates/
+  core/               # Domain core: config (figment), daemon, runtime sampling, upgrade engine
   protocol/           # Shared types: LogEntry, WSMessage, LevelDef, LogLevelConfig
   tail-engine/        # File watching (notify), LineIndex (mmap), TailSession
-  search-engine/      # Grep-based search, LevelDetector (dynamic log levels)
-  server/             # Axum app: REST API, WebSocket, static files
+  search-engine/      # LevelDetector (dynamic log levels)
+  server/             # Axum app: REST API, WebSocket, static files, upgrade service
 frontend/             # Vue 3 + TypeScript + Vite SPA
-  composables/        # useLogLevels (presets, colors, dynamic CSS)
-  components/         # Settings UI (LogLevelSettings, ColorPicker)
+  composables/        # useLogLevels, useLogStream, useAuth
+  components/         # Settings UI, FilterBar, LogPanel
 ```
 
 ## Security
