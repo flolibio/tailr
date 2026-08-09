@@ -77,7 +77,7 @@ defineExpose({
       :max-visible-lines="maxVisibleLines"
       :highlight-keywords="tab.filterKeywords"
       :level-colors="levelColors"
-      :display-mode="displayMode ?? 'compact'"
+      :display-mode="displayMode ?? 'cozy'"
       @stick-to-bottom="emit('stickToBottom')"
     />
   </div>

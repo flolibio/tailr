@@ -25,7 +25,7 @@ const emit = defineEmits<{
 }>()
 
 const lineHeight = computed(() => props.lineHeight ?? 26)
-const displayMode = computed(() => props.displayMode ?? 'compact')
+const displayMode = computed(() => props.displayMode ?? 'cozy')
 const { isBookmarked, add: addBookmark, remove: removeBookmark } = useBookmarks()
 const containerRef = ref<HTMLDivElement | null>(null)
 const scrollTop = ref(0)
