@@ -31,7 +31,7 @@
 
 **Real-time log tailing with multi-keyword filtering:**
 - 📡 WebSocket-based live streaming
-- 🔍 Regex search with mmap
+- 🔍 Multi-keyword filter with case-insensitive substring matching
 - 🎨 Configurable log levels with color coding
 - 🔒 Optional token authentication
 
@@ -43,7 +43,7 @@
 | **Web UI** | ✅ | ✅ | ✅ | ❌ |
 | **Real-time tail** | ✅ | ✅ | ❌ | ✅ |
 | **Multi-file tabs** | ✅ | ❌ | ❌ | ❌ |
-| **Regex search** | ✅ | ❌ | ❌ | ✅ |
+| **Multi-keyword filter** | ✅ | ❌ | ❌ | ✅ |
 | **Log level detection** | ✅ | ❌ | ✅ | ✅ |
 | **Memory-mapped** | ✅ | ❌ | ❌ | ❌ |
 | **Self-upgrade (Web + CLI)** | ✅ | ❌ | ❌ | ❌ |
@@ -53,8 +53,8 @@
 ## Features
 
 - **Real-time tail** — WebSocket-based live log streaming
-- **Multi-keyword filter** — AND logic, like `grep kw1 | grep kw2`
-- **Fast search** — mmap-based grep with regex support
+- **Multi-keyword filter** — AND logic with case-insensitive substring matching, like `grep -i kw1 | grep -i kw2`
+- **Memory-mapped line index** — Large files (hundreds of MB) open in milliseconds via mmap
 - **Multi-file tabs** — Open multiple log files side by side, each with independent filter state
 - **Bookmarks** — Mark lines for quick jump-back, persisted per file
 - **Share links** — Generate a URL encoding the current file + filters; opening it restores the exact view
@@ -303,8 +303,21 @@ tailr restart
 {"type": "catchup", "path": "/var/log/app.log", "entries": [...], "lastSeq": 100}
 
 // Server-pushed update notification (broadcast to all clients)
-{"type": "updateAvailable", "latestVersion": "0.9.5", "currentVersion": "0.9.4", "releaseUrl": "..."}
+{"type": "updateAvailable", "latestVersion": "1.0.1", "currentVersion": "1.0.0", "releaseUrl": "..."}
 ```
+
+### Error Responses
+
+All errors return HTTP 4xx/5xx with a consistent body shape:
+
+```json
+{"success": false, "error": {"code": "PATH_NOT_ALLOWED", "message": "path is outside the allowed directories"}}
+```
+
+- `code` — machine-readable identifier in `SCREAMING_SNAKE` (stable, add-only after v1.0)
+- `message` — baseline English description (the frontend maps `code` to i18n keys; this is the fallback)
+
+Success responses return HTTP 200 with `{"success": true, "data": <T>}`.
 
 ## Development
 
