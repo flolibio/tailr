@@ -23,6 +23,10 @@
   <a href="#license">License</a>
 </p>
 
+<p align="center">
+  <img src="./docs/screenshots/tailr-demo.gif" alt="tailr demo" width="780">
+</p>
+
 ---
 
 ## Demo
@@ -34,21 +38,6 @@
 - 🔍 Multi-keyword filter with case-insensitive substring matching
 - 🎨 Configurable log levels with color coding
 - 🔒 Optional token authentication
-
-## Why tailr?
-
-| Feature | tailr | kail | goaccess | lnav |
-|---------|-------|------|----------|------|
-| **Single binary** | ✅ | ❌ | ❌ | ❌ |
-| **Web UI** | ✅ | ✅ | ✅ | ❌ |
-| **Real-time tail** | ✅ | ✅ | ❌ | ✅ |
-| **Multi-file tabs** | ✅ | ❌ | ❌ | ❌ |
-| **Multi-keyword filter** | ✅ | ❌ | ❌ | ✅ |
-| **Log level detection** | ✅ | ❌ | ✅ | ✅ |
-| **Memory-mapped** | ✅ | ❌ | ❌ | ❌ |
-| **Self-upgrade (Web + CLI)** | ✅ | ❌ | ❌ | ❌ |
-| **Token auth** | ✅ | ❌ | ❌ | ❌ |
-| **Config presets** | ✅ | ❌ | ❌ | ❌ |
 
 ## Features
 
