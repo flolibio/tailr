@@ -5,7 +5,7 @@
 <h1 align="center">tailr</h1>
 
 <p align="center">
-  A blazing-fast log tail & search server. Single binary, web UI, real-time streaming.
+  Tail any log, in your browser. Fast, simple, real-time.
 </p>
 
 <p align="center">
