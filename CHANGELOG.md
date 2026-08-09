@@ -1,5 +1,27 @@
 # Changelog
 
+## [v1.0.0] - 2026-08-09
+
+**First stable release. Public surfaces (REST API, WebSocket protocol, config.toml schema, CLI) are now frozen — post-1.0 changes are additive only.**
+
+### Stability & freeze
+
+- **Public API surface frozen.** The 10 REST endpoints, WS protocol, config.toml schema, and CLI subcommands are now under a stability contract: new endpoints/fields/keys may be added, but existing ones will not be removed, renamed, or have their semantics reversed.
+- **Error code contract frozen.** The 11 `ErrorCode` variants and the `{success:false, error:{code, message}}` response shape are now add-only.
+
+### Pre-freeze cleanup
+
+- **Fix TCP bind panic** (`src/main.rs`): `TcpListener::bind().unwrap()` replaced with a graceful error path. Port-in-use (e.g. an old daemon still running) now prints a clear message + `tailr stop` hint and exits 1 instead of panicking.
+- **README sync**: API table now lists all 10 endpoints (`/api/runtime` and `/api/docs/openapi.json` were missing); architecture section updated to the v0.12 three-layer layout (`crates/core` added, `src/config.rs` removed, grep reference dropped); rate-limit burst corrected (`×3` → `×10`); `/api/config/log-levels` POST description fixed (hot-reload only, no longer persists to config.toml).
+
+### What's included (since v0.12.0)
+
+- v0.12.0: three-layer architecture (`crates/core`), unified error format (11 codes), OpenAPI endpoint
+- v0.12.1: `save_log_levels` no longer rewrites config.toml (stops stripping comments); SelectionToolbar z-index fix
+- v0.12.2: upgrade UX (drop confirm dialog, release-notes link, friendlier token error)
+- v0.12.3: FilterBar chip overflow "+N" folding + suggestions dropdown keyboard navigation/match highlighting
+- v0.12.4: FilterBar UI cleanup (remove status-bar keyword text, remove chip inline-edit, fix descender clipping, visual polish)
+
 ## [v0.12.4] - 2026-08-07
 
 ### FilterBar UI cleanup and refinements
