@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixes
+
+- **Cross-major version upgrades blocked by `self_update`'s compatibility filter** — `self_update::ReleaseUpdate::update()` internally filters release candidates with `bump_is_compatible`, which follows cargo's semver rule that `0.x → 1.0` is a breaking change. This made every v0.12 binary stall at v0.12.4 when trying to auto-upgrade: v1.0.x releases were silently filtered out, leaving only v0.12.3/v0.12.4 as "compatible" candidates. Fixed by bypassing `ReleaseUpdate::update()` entirely and implementing the download+replace flow with `self_update`'s low-level APIs (`ReleaseList` + `Download` + `Extract` + `self_replace`), using a plain semver `>` comparison (`semver::Version`) that allows any upward jump. **Note for v0.12.x users**: this fix ships in v1.0.3, which v0.12.x binaries cannot auto-install (chicken-and-egg). v0.12.x users need one manual upgrade: download `tailr-x86_64-linux-musl.tar.gz` (or aarch64) from the [latest release](https://github.com/flolibio/tailr/releases/latest), extract, and replace the binary, then `tailr restart`. After that, auto-upgrade works normally for all future versions.
+
 ## [v1.0.2] - 2026-08-11
 
 ### Fixes

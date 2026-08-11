@@ -37,8 +37,24 @@ tracing = { workspace = true }
 # already-running runtime provided by the presentation layer.
 tokio = { version = "1", features = ["macros", "signal", "time", "sync"] }
 
-# Self-upgrade (pure download + replace logic). rustls backend (no OpenSSL).
+# Self-upgrade (low-level APIs: ReleaseList, Download, Extract). We don't use
+# ReleaseUpdate::update() because its internal `bump_is_compatible` filter
+# blocks cross-major upgrades (0.x → 1.0). rustls backend (no OpenSSL).
 self_update = { version = "0.42", default-features = false, features = ["archive-tar", "compression-flate2", "rustls"] }
+
+# Atomic self-replacement of the running binary. Re-exported by self_update as
+# `self_update::self_replace`, but depended on directly here for clarity (we
+# call it from our own download+replace logic, not from self_update's).
+self-replace = "1"
+
+# Version parsing/comparison for selecting the newest release. We use our own
+# `>` comparison (via semver::Version) instead of self_update's
+# `bump_is_compatible`, which blocks cross-major upgrades.
+semver = "1"
+
+# Temp dir for downloading + extracting the upgrade archive before atomic
+# replace. Used at runtime (not just tests), so it's a regular dependency.
+tempfile = "3"
 
 # Daemonization (fork/PID/signal management). Pure std-level process control,
 # no HTTP/async runtime dependency.
@@ -51,4 +67,3 @@ dirs = "5.0"
 utoipa = { version = "5", optional = true }
 
 [dev-dependencies]
-tempfile = "3"
