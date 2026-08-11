@@ -138,8 +138,15 @@ export async function getFileTail(
   )
 }
 
-export async function healthCheck(): Promise<{ status: string; version: string; uptimeSeconds: number }> {
-  return request<{ status: string; version: string; uptimeSeconds: number }>('/api/health')
+export interface HealthData {
+  status: string
+  version: string
+  uptimeSeconds: number
+  upgradeInProgress: boolean
+}
+
+export async function healthCheck(): Promise<HealthData> {
+  return request<HealthData>('/api/health')
 }
 
 // ── 运行时指标 API ─────────────────────────────────────────

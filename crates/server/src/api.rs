@@ -77,6 +77,10 @@ pub(crate) struct HealthData {
     status: String,
     version: String,
     uptime_seconds: u64,
+    /// True while a detached upgrade task is running (download → replace →
+    /// restart). Frontend polls this to show a spinner and disable the upgrade
+    /// button — survives page refresh because the flag lives in the process.
+    upgrade_in_progress: bool,
 }
 
 /// Runtime metrics snapshot returned by `GET /api/runtime`.
@@ -502,6 +506,7 @@ async fn health(
         status: "ok".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds: state.start_time.elapsed().as_secs(),
+        upgrade_in_progress: state.upgrade_service.is_upgrade_in_progress(),
     }))
 }
 
