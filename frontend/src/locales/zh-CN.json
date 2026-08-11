@@ -87,6 +87,7 @@
     "permissionDenied": "权限不足，请使用 sudo 运行或检查二进制可写性",
     "upgradeInProgress": "升级正在进行中，请等待完成",
     "restartTimeout": "服务重启超时，请手动检查状态",
+    "upgradeNoChange": "升级未完成，版本未发生变化，请重试",
     "upgradeUnsupported": "当前平台不支持自动升级，请手动下载",
     "manualDownload": "手动下载",
     "updateToastTitle": "新版本 v{version} 可用",

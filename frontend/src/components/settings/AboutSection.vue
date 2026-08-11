@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   checkUpgrade,
@@ -30,6 +30,26 @@ const upgradeSucceeded = ref(false)
 
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 
+/// On mount, check if an upgrade is already in progress (e.g. after page
+/// refresh). If so, resume the "waiting for restart" polling so the user sees
+/// the spinner and cannot trigger a second upgrade.
+onMounted(async () => {
+  try {
+    const health = await healthCheck()
+    if (health.upgradeInProgress) {
+      upgrading.value = true
+      upgradeMessage.value = t('settings.upgrading')
+      // Resume polling — the detached task is still running server-side.
+      waitForRestart(health.version).catch((e) => {
+        upgradeError.value = e instanceof Error ? e.message : String(e)
+        upgrading.value = false
+      })
+    }
+  } catch {
+    // Server unreachable on mount — not our concern, App.vue handles connection state.
+  }
+})
+
 async function handleCheck() {
   checking.value = true
   checkError.value = ''
@@ -48,16 +68,19 @@ async function handleCheck() {
 
 async function handleUpgrade() {
   if (!updateInfo.value?.hasUpdate || !updateInfo.value.supported) return
+  if (upgrading.value) return // double-click guard
 
   upgrading.value = true
   upgradeError.value = ''
   upgradeMessage.value = t('settings.upgrading')
 
+  const currentVersion = updateInfo.value.currentVersion
+
   try {
     await performUpgrade()
-    upgradeMessage.value = t('settings.restarting')
-    // Poll /api/health until the server comes back after restart.
-    await pollUntilReady()
+    // Detached mode: backend returns immediately with status:"started".
+    // Don't reload — poll health until the upgrade completes + server restarts.
+    await waitForRestart(currentVersion)
     upgradeSucceeded.value = true
     // Reload to pick up the new frontend bundle baked into the new binary.
     window.location.reload()
@@ -70,6 +93,67 @@ async function handleUpgrade() {
     upgradeMessage.value = ''
     upgrading.value = false
   }
+}
+
+/// Poll /api/health through the full upgrade lifecycle:
+///   Phase 1: upgradeInProgress=true  → "downloading + installing" (spinner)
+///   Phase 2: requests fail           → server restarting (spinner)
+///   Phase 3: requests succeed + version changed → upgrade done, caller reloads
+///   Timeout: 6 minutes (5min backend UPGRADE_TIMEOUT + 1min restart buffer)
+///
+/// `preUpgradeVersion` is the version before the upgrade, used to detect when
+/// the server has restarted with the new binary.
+async function waitForRestart(preUpgradeVersion: string): Promise<void> {
+  const maxAttempts = 360 // 6 min @ 1s interval
+  let sawUpgradeInProgress = false
+  let sawServerDown = false
+
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const health = await healthCheck()
+
+      if (health.upgradeInProgress) {
+        // Phase 1: detached task still running (download/replace).
+        sawUpgradeInProgress = true
+        upgradeMessage.value = t('settings.upgrading')
+        await sleep(1000)
+        continue
+      }
+
+      if (sawUpgradeInProgress || sawServerDown) {
+        // upgradeInProgress flipped to false (or server came back after restart).
+        // If the version changed → upgrade succeeded. If version is the same
+        // but we saw the flag → upgrade may have failed mid-way; treat as done
+        // and let the caller reload to reflect reality.
+        if (health.version !== preUpgradeVersion) {
+          upgradeMessage.value = t('settings.restarting')
+          return // success — new version is live
+        }
+        // Flag cleared but version unchanged — upgrade task ended without
+        // replacing the binary (e.g. ALREADY_UP_TO_DATE race). Stop waiting.
+        throw new Error(t('settings.upgradeNoChange'))
+      }
+
+      // No upgrade in progress and we never saw it — the request was very fast
+      // or we missed the flag. Check version: if changed, done; else keep waiting.
+      if (health.version !== preUpgradeVersion) {
+        return
+      }
+      // Still on old version, flag never seen — give it a few seconds in case
+      // we raced ahead of the detached task setting the flag.
+      await sleep(1000)
+    } catch {
+      // Phase 2: server unreachable → restarting.
+      sawServerDown = true
+      upgradeMessage.value = t('settings.restarting')
+      await sleep(1000)
+    }
+  }
+  throw new Error(t('settings.restartTimeout'))
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms))
 }
 
 /// Map backend upgrade error codes to upgrade-specific localized messages.
@@ -86,21 +170,6 @@ const UPGRADE_ERROR_CODE_MAP: Record<string, string> = {
 function mapUpgradeError(code: string): string {
   const key = UPGRADE_ERROR_CODE_MAP[code]
   return key ? t(key) : code
-}
-
-/// Poll health every 1s for up to 30s. The server is unreachable during restart,
-/// so HTTP polling is more reliable than WS (which would also be severed).
-async function pollUntilReady(): Promise<void> {
-  const maxAttempts = 30
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      await healthCheck()
-      return // server is back
-    } catch {
-      await new Promise((r) => setTimeout(r, 1000))
-    }
-  }
-  throw new Error(t('settings.restartTimeout'))
 }
 
 onUnmounted(() => {

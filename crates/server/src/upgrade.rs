@@ -71,6 +71,14 @@ impl UpgradeService {
         }
     }
 
+    /// Whether an upgrade is currently in progress (download/replace/restart).
+    /// Exposed via `/api/health` so the frontend can show a spinner and disable
+    /// the upgrade button — survives page refresh (the flag lives in the process,
+    /// not the browser).
+    pub fn is_upgrade_in_progress(&self) -> bool {
+        self.upgrade_in_progress.load(Ordering::SeqCst)
+    }
+
     /// Serve from cache if fresh; otherwise fetch from GitHub (spawn_blocking).
     /// `force` bypasses the cache for an explicit user-triggered refresh.
     pub async fn check_update(&self, force: bool) -> Result<UpdateInfo, String> {
