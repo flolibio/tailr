@@ -36,6 +36,47 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
 
+      - name: Version consistency check
+        # 防止发版时漏 bump 某个 Cargo.toml —— v1.0.1 就踩过这个坑:
+        # binary/server 已经是 1.0.1,但 crates/core 还停在 0.12.2,
+        # 导致升级引擎(在 core 里用 env!("CARGO_PKG_VERSION"))拿到的
+        # "当前版本"一直是 0.12.x,升级后版本号反而倒退。
+        #
+        # 规则:产品版本(binary/core/server 三处 Cargo.toml + Cargo.lock 里
+        # 对应的三个包)必须完全一致。base capability 层(protocol/
+        # tail-engine/search-engine)版本独立,不在此检查范围。
+        run: |
+          set -euo pipefail
+          expected=$(grep -m1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "expected product version: $expected"
+          fail=0
+          for f in crates/core/Cargo.toml crates/server/Cargo.toml; do
+            v=$(grep -m1 '^version = ' "$f" | sed 's/version = "\(.*\)"/\1/')
+            if [ "$v" != "$expected" ]; then
+              echo "❌ $f version is '$v', expected '$expected'"
+              fail=1
+            fi
+          done
+          # Cargo.lock: each of tailr / tailr-core / tailr-server must match.
+          for pkg in tailr tailr-core tailr-server; do
+            v=$(awk -v p="$pkg" '
+              /^name = / { matched = ($0 == "name = \"" p "\"") }
+              /^version = / && matched { print $0; exit }
+            ' Cargo.lock | sed 's/version = "\(.*\)"/\1/')
+            if [ "$v" != "$expected" ]; then
+              echo "❌ Cargo.lock package '$pkg' version is '$v', expected '$expected'"
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo ""
+            echo "Version mismatch detected. Bump the offending Cargo.toml so it"
+            echo "matches the binary version ($expected), then re-run 'cargo update -p <pkg>'"
+            echo "if needed to sync Cargo.lock."
+            exit 1
+          fi
+          echo "✅ product version consistent across binary/core/server ($expected)"
+
       - name: Check
         run: cargo check --workspace
 

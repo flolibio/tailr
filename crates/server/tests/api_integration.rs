@@ -334,11 +334,15 @@ async fn save_log_levels_updates_get_response() {
 }
 
 #[tokio::test]
-async fn perform_upgrade_without_token_returns_403_token_required() {
+async fn perform_upgrade_without_token_passes_csrf_gate() {
+    // No token set → auth is globally disabled (auth_middleware passes through).
+    // The upgrade endpoint no longer forces a token; the only hard gate is the
+    // X-Requested-With CSRF header. With the header present, the request must
+    // reach the service layer (not be rejected at 403).
     let state = make_state(
         vec![],
         PathBuf::from("/tmp/nonexistent.toml"),
-        String::new(), // no token → forced auth refuses
+        String::new(), // no token → no forced-auth rejection (v1.0.2+)
     );
     let router = test_router(state);
 
@@ -354,12 +358,46 @@ async fn perform_upgrade_without_token_returns_403_token_required() {
         .await
         .unwrap();
 
+    // The request was NOT rejected by the token gate. On a test machine the
+    // platform is typically unsupported (macOS) → 400 UNSUPPORTED_PLATFORM, or
+    // the detached task returns 200 "started". Either way it must NOT be 403
+    // (which would mean the old TOKEN_REQUIRED / CSRF gate fired).
+    assert_ne!(
+        response.status(),
+        StatusCode::FORBIDDEN,
+        "upgrade without token must not be rejected by a forced-auth gate"
+    );
+}
+
+#[tokio::test]
+async fn perform_upgrade_without_csrf_header_returns_403() {
+    // CSRF header is the unconditional hard gate on the upgrade endpoint.
+    // Without X-Requested-With, the request is rejected regardless of token.
+    let state = make_state(
+        vec![],
+        PathBuf::from("/tmp/nonexistent.toml"),
+        String::new(),
+    );
+    let router = test_router(state);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/upgrade")
+                // No X-Requested-With header → CSRF check fails.
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(json["error"]["code"], "TOKEN_REQUIRED");
+    assert_eq!(json["error"]["code"], "FORBIDDEN");
 }
 
 // ── Upgrade check: success (may be cached/empty) ─────────────

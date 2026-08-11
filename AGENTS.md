@@ -253,7 +253,7 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 | `/api/config/log-levels` | GET | Get current log level configuration |
 | `/api/config/log-levels` | POST | Save log level configuration (requires CSRF header when token set) |
 | `/api/upgrade/check` | GET | Check for newer release (read-only; returns `supported` platform flag) |
-| `/api/upgrade` | POST | Download + replace binary + delegate restart. **Forced auth**: requires non-empty token even when global auth is disabled (binary replacement is RCE-class), plus `X-Requested-With` CSRF header |
+| `/api/upgrade` | POST | Trigger detached background upgrade (download + replace binary + delegate restart). Auth follows the global policy (Bearer token when configured); `X-Requested-With` CSRF header required unconditionally. Handler returns immediately with `status:"started"`; the upgrade runs to completion even if the client disconnects |
 | `/api/health` | GET | Status + uptime + version. **Exempt from rate limiter** (read-only, polled by LB probes) |
 | `/api/runtime` | GET | Runtime resource snapshot (process/system CPU+memory, disk, WS connections, uptime). TTL-cached 5s; refresh runs in `spawn_blocking`. **Exempt from rate limiter** (read-only, polled by Runtime panel) |
 | `/api/docs/openapi.json` | GET | OpenAPI 3.0 spec (machine-readable API contract). **Exempt from rate limiter**. Render at editor.swagger.io — no swagger-ui bundled |
