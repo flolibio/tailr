@@ -42,6 +42,12 @@ tokio = { version = "1", features = ["macros", "signal", "time", "sync"] }
 # blocks cross-major upgrades (0.x → 1.0). rustls backend (no OpenSSL).
 self_update = { version = "0.42", default-features = false, features = ["archive-tar", "compression-flate2", "rustls"] }
 
+# HTTP header types for the upgrade download. GitHub asset API URLs need
+# `Accept: application/octet-stream` to return the binary (not JSON metadata);
+# we construct that header via reqwest::header (reqwest is already pulled in
+# by self_update, so this adds no new code to the binary).
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+
 # Atomic self-replacement of the running binary. Re-exported by self_update as
 # `self_update::self_replace`, but depended on directly here for clarity (we
 # call it from our own download+replace logic, not from self_update's).

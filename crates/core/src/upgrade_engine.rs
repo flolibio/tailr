@@ -201,7 +201,28 @@ impl UpgradeEngine {
         let archive_path = tmp_dir.path().join(&asset.name);
         let mut archive_file =
             std::fs::File::create(&archive_path).map_err(|e| format!("create archive file: {e}"))?;
-        self_update::Download::from_url(&asset.download_url)
+
+        // GitHub release asset URLs are API endpoints (api.github.com/.../assets/XXX)
+        // that return JSON metadata unless `Accept: application/octet-stream` is sent.
+        // Without this header, the downloaded "archive" is actually JSON → tar extraction
+        // fails with "Could not find the required path in the archive". This mirrors what
+        // self_update::ReleaseUpdate::update() does internally (api_headers + Accept).
+        let mut download = self_update::Download::from_url(&asset.download_url);
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            reqwest::header::ACCEPT,
+            "application/octet-stream"
+                .parse()
+                .map_err(|e| format!("invalid accept header: {e}"))?,
+        );
+        headers.insert(
+            reqwest::header::USER_AGENT,
+            concat!("tailr-upgrade/", env!("CARGO_PKG_VERSION"))
+                .parse()
+                .map_err(|e| format!("invalid user-agent header: {e}"))?,
+        );
+        download.set_headers(headers);
+        download
             .download_to(&mut archive_file)
             .map_err(|e| format!("download failed: {e}"))?;
 
