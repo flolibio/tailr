@@ -579,20 +579,18 @@ async fn check_upgrade(
 
 /// Perform the upgrade: download + replace binary + delegate restart.
 ///
-/// **Forced auth**: unlike `save_log_levels` (which only checks CSRF when token is
-/// set), this endpoint *requires* a non-empty token. Replacing the running binary
-/// is an RCE-class operation — it must never be reachable when auth is disabled.
-/// When token is empty, the endpoint refuses with an actionable error rather than
-/// silently proceeding.
-/// Perform the upgrade: download + replace binary + delegate restart.
-/// Requires non-empty token (forced auth, RCE-class) + CSRF header.
+/// Auth follows the global policy (same as every other endpoint): when a token
+/// is configured, `auth_middleware` enforces Bearer auth; when no token is set,
+/// auth is disabled and the endpoint is reachable without credentials. The
+/// `X-Requested-With` CSRF header is required unconditionally (defense against
+/// cross-site forgery from a logged-in browser context).
 #[utoipa::path(
     post,
     path = "/api/upgrade",
     responses(
         (status = 200, description = "Upgrade result", body = crate::upgrade::UpgradeResult),
         (status = 400, description = "Unsupported platform", body = crate::error::ErrorBody),
-        (status = 403, description = "Token required / forbidden", body = crate::error::ErrorBody),
+        (status = 403, description = "CSRF check failed", body = crate::error::ErrorBody),
         (status = 409, description = "Upgrade already in progress", body = crate::error::ErrorBody),
         (status = 500, description = "Upgrade failed", body = crate::error::ErrorBody),
     ),
@@ -603,11 +601,7 @@ async fn perform_upgrade(
     Extension(state): Extension<Arc<AppState>>,
     headers: HeaderMap,
 ) -> Result<Json<ApiSuccess<crate::upgrade::UpgradeResult>>, ApiError> {
-    // Forced auth: binary replacement is RCE-class, must require explicit token.
-    if state.token.is_empty() {
-        return Err(ErrorCode::TokenRequired.into());
-    }
-    // CSRF double-check (same pattern as save_log_levels).
+    // CSRF header required unconditionally (the only hard gate on this endpoint).
     if headers.get("X-Requested-With").is_none() {
         return Err(ErrorCode::Forbidden.into());
     }

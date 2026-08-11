@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixes
+
+- **Upgrade engine reported a stale version** — `UpgradeEngine::new()` read `env!("CARGO_PKG_VERSION")` inside `crates/core`, which expands to **core's** crate version (`0.12.2`), not the binary's (`1.0.1`). The upgrade checker therefore compared incoming releases against `0.12.x`, so after an "upgrade" to 1.0.1 the reported current version stayed at `0.12.x`. Fixed by injecting the binary version at the call sites (`UpgradeEngine::with_version(env!("CARGO_PKG_VERSION"))` in both `main.rs` and `crates/server/upgrade.rs`, where `env!` resolves to the binary/server version). Also bumped `tailr-core` to `1.0.1` for consistency.
+- **Web upgrade hung the process if the page was closed mid-upgrade** — the download, cache invalidation, and restart scheduling were all awaited inside the HTTP request future. When the browser tab closed, axum dropped the future: the binary had already been replaced on disk, but `spawn_restart()` never ran and the process was stuck — no restart, and no way to retry. The upgrade is now a fully **detached background task** that survives client disconnect; the handler returns immediately with `status:"started"`. Added a 5-minute timeout around the blocking `self_update` call so a stalled GitHub download can't occupy a blocking-pool thread forever.
+- **Removed the forced-token restriction on WebUI upgrade** — the `/api/upgrade` endpoint used to reject requests with `TOKEN_REQUIRED` when no token was configured, even though global auth was disabled. This gate is removed; upgrade now follows the same auth policy as every other endpoint (Bearer auth when a token is set, open otherwise). The `X-Requested-With` CSRF header remains required unconditionally. `ErrorCode::TokenRequired` is retained (v1.0 add-only contract) but no longer emitted by this endpoint.
+
 ## [v1.0.1] - 2026-08-09
 
 ### Fixes

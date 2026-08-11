@@ -48,9 +48,18 @@ pub struct UpgradeEngine {
 }
 
 impl UpgradeEngine {
-    pub fn new() -> Self {
+    /// Construct with an explicit version string.
+    ///
+    /// Callers should pass **the binary's version** (from `env!("CARGO_PKG_VERSION")`
+    /// in the binary/server crate), NOT this crate's version. `env!` expands to the
+    /// version of the crate whose source the macro appears in — and `tailr-core` is
+    /// versioned independently from the `tailr` binary. Hard-coding `env!` here
+    /// silently made the upgrade engine compare against core's stale version
+    /// (0.12.x) instead of the binary's (1.0.x); injecting the binary version at the
+    /// call site removes that footgun permanently.
+    pub fn with_version(version: impl Into<String>) -> Self {
         Self {
-            current_version: env!("CARGO_PKG_VERSION").to_string(),
+            current_version: version.into(),
         }
     }
 
@@ -152,6 +161,9 @@ impl UpgradeEngine {
 
 impl Default for UpgradeEngine {
     fn default() -> Self {
-        Self::new()
+        // Fallback: uses core's own crate version. Real call sites should prefer
+        // `with_version(env!("CARGO_PKG_VERSION"))` from the binary crate so the
+        // engine tracks the binary's version, not core's.
+        Self::with_version(env!("CARGO_PKG_VERSION"))
     }
 }

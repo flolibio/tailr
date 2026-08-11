@@ -16,6 +16,7 @@
 // `upgrade::UpdateInfo`, `upgrade::UpgradeResult`) keep working.
 pub use tailr_core::upgrade_engine::{UpdateInfo, UpgradeEngine, UpgradeResult};
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -32,10 +33,15 @@ pub struct UpgradeService {
     /// Cached result of the last GitHub check, with its fetch timestamp.
     /// Background polling refreshes this; `check_update` serves from cache when fresh.
     cache: Arc<RwLock<Option<(UpdateInfo, Instant)>>>,
-    /// Serializes concurrent upgrade attempts. Held for the duration of
-    /// `perform_upgrade` (download + replace) so two simultaneous callers can't
-    /// race on the atomic binary replacement. `try_lock` returns busy immediately.
-    upgrade_lock: tokio::sync::Mutex<()>,
+    /// In-progress flag for `perform_upgrade`. Set to `true` when an upgrade
+    /// starts, cleared when the detached upgrade task ends (success / failure /
+    /// timeout / panic). Concurrent callers see `UPGRADE_IN_PROGRESS` while set.
+    ///
+    /// `AtomicBool` (not `Mutex`) so the "held" state can move into a detached
+    /// `'static` task without lifetime issues — a `MutexGuard` borrows the lock
+    /// and can't escape the method body, but an `Arc<AtomicBool>` is freely
+    /// cloneable and `Send`.
+    upgrade_in_progress: Arc<AtomicBool>,
 }
 
 /// Cache lifetime + poll interval. GitHub unauthenticated API allows 60 req/hour
@@ -44,13 +50,24 @@ pub struct UpgradeService {
 const CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 /// Delay the first check after startup so it never blocks initial responsiveness.
 const INITIAL_DELAY: Duration = Duration::from_secs(30);
+/// Hard timeout for the upgrade (download + atomic replace). self_update uses
+/// reqwest's blocking client with no built-in timeout; without this cap a stalled
+/// GitHub download would occupy a blocking-pool thread (only 4 exist) forever,
+/// hanging the upgrade flow and any future upgrade attempts. 5 minutes is ample
+/// for a binary of tailr's size (~10 MB) on any reasonable connection.
+const UPGRADE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
 impl UpgradeService {
     pub fn new() -> Self {
         Self {
-            engine: Arc::new(UpgradeEngine::new()),
+            // Inject the *server crate's* version (= the binary's, both bumped
+            // together at release). Using `UpgradeEngine::default()` would pick up
+            // `tailr-core`'s version, which is versioned independently and lags
+            // behind the binary — that silently broke version comparison (core was
+            // stuck at 0.12.x while the binary shipped 1.0.x).
+            engine: Arc::new(UpgradeEngine::with_version(env!("CARGO_PKG_VERSION"))),
             cache: Arc::new(RwLock::new(None)),
-            upgrade_lock: tokio::sync::Mutex::new(()),
+            upgrade_in_progress: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -73,43 +90,103 @@ impl UpgradeService {
         Ok(info)
     }
 
-    /// Web upgrade: pure upgrade → spawn `tailr restart` after a 1s delay (lets the
-    /// HTTP response flush first). Restart goes through `Commands::Restart`, which
-    /// uses `stop_daemon` (graceful shutdown, PID cleanup) + re-exec — not a raw
-    /// `exit(0)` that would skip cleanup.
+    /// Web upgrade: trigger a fully detached background task that does
+    /// download → atomic replace → restart scheduling. The HTTP handler returns
+    /// immediately after triggering; the upgrade runs to completion **even if the
+    /// client disconnects mid-upgrade**.
+    ///
+    /// Why detached: the previous design awaited the download in the request
+    /// future. If the browser tab closed mid-upgrade, axum dropped the future,
+    /// the post-replace `spawn_restart()` never ran, and the process was left
+    /// with a replaced on-disk binary but no restart — locking out further
+    /// upgrade/restart attempts. Detaching decouples the upgrade lifecycle from
+    /// the connection lifecycle.
+    ///
+    /// Restart goes through `Commands::Restart`, which uses `stop_daemon`
+    /// (graceful shutdown, PID cleanup) + re-exec — not a raw `exit(0)`.
     pub async fn perform_upgrade(&self) -> Result<UpgradeResult, String> {
-        // Reject concurrent upgrade attempts immediately — two simultaneous
-        // binary replacements would race on the atomic rename.
-        let _guard = self
-            .upgrade_lock
-            .try_lock()
-            .map_err(|_| "UPGRADE_IN_PROGRESS".to_string())?;
+        // Atomically claim the upgrade slot. `compare_exchange` ensures only one
+        // caller wins; everyone else gets UPGRADE_IN_PROGRESS immediately.
+        if self
+            .upgrade_in_progress
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
+        {
+            return Err("UPGRADE_IN_PROGRESS".to_string());
+        }
 
-        tracing::info!("upgrade started");
+        tracing::info!("upgrade started (detached task will continue after response)");
         let engine = self.engine.clone();
-        let version =
-            tokio::task::spawn_blocking(move || engine.perform_upgrade())
+        let cache = self.cache.clone();
+        let flag = self.upgrade_in_progress.clone();
+
+        tokio::spawn(async move {
+            // `UpgradeGuard` clears `flag` on drop — runs on every exit path
+            // (success, error, timeout, panic-unwind via the spawn task dying).
+            let _guard = UpgradeGuard(flag);
+
+            // Download + atomic replace, with a hard timeout. self_update uses
+            // reqwest's blocking client; without a timeout a stalled GitHub API
+            // call would occupy a blocking-pool thread (only 4 exist) forever.
+            let upgrade_result =
+                match tokio::time::timeout(UPGRADE_TIMEOUT, tokio::task::spawn_blocking(
+                    move || engine.perform_upgrade(),
+                ))
                 .await
-                .map_err(|e| format!("upgrade task failed: {e}"))??;
-        tracing::info!(version = %version, "binary replaced successfully, scheduling restart");
-        // Invalidate the update cache: it holds the pre-upgrade result
-        // (hasUpdate=true for the version we just installed). Without this, any
-        // check between now and restart serves a stale "update available".
-        *self.cache.write().await = None;
-        tracing::info!("update cache invalidated after upgrade");
-        // Defer restart so the HTTP response is sent before the server shuts down.
-        tokio::spawn(async {
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            tracing::info!("spawning restart subprocess");
-            if let Err(e) = spawn_restart() {
-                tracing::error!("failed to spawn restart after upgrade: {e}");
-            } else {
-                tracing::info!("restart subprocess spawned successfully");
+                {
+                    Ok(Ok(Ok(version))) => {
+                        tracing::info!(
+                            version = %version,
+                            "binary replaced successfully, scheduling restart"
+                        );
+                        Ok(version)
+                    }
+                    Ok(Ok(Err(e))) => {
+                        tracing::error!("upgrade failed: {e}");
+                        Err(e)
+                    }
+                    Ok(Err(join_err)) => {
+                        let e = format!("upgrade task panicked/join failed: {join_err}");
+                        tracing::error!("{e}");
+                        Err(e)
+                    }
+                    Err(_) => {
+                        let e = format!(
+                            "upgrade timed out after {}s",
+                            UPGRADE_TIMEOUT.as_secs()
+                        );
+                        tracing::error!("{e}");
+                        Err(e)
+                    }
+                };
+
+            if let Ok(_version) = upgrade_result {
+                // Invalidate the update cache: it holds the pre-upgrade result
+                // (hasUpdate=true for the version we just installed). Without
+                // this, any check between now and restart serves a stale
+                // "update available".
+                *cache.write().await = None;
+                tracing::info!("update cache invalidated after upgrade");
+                // Defer restart so the HTTP response (already sent) is flushed
+                // and any in-flight requests complete. Detached, so even if the
+                // original client is gone this still fires.
+                tokio::spawn(async {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    tracing::info!("spawning restart subprocess");
+                    if let Err(e) = spawn_restart() {
+                        tracing::error!("failed to spawn restart after upgrade: {e}");
+                    } else {
+                        tracing::info!("restart subprocess spawned successfully");
+                    }
+                });
             }
+            // On failure/timeout the binary is unchanged — no restart, no cache
+            // invalidation. `_guard` drops here, clearing the in-progress flag.
         });
+
         Ok(UpgradeResult {
-            status: "success".to_string(),
-            message: format!("UPGRADE_SUCCESS:{version}"),
+            status: "started".to_string(),
+            message: "upgrade started; restart will follow automatically".to_string(),
         })
     }
 
@@ -164,6 +241,20 @@ impl UpgradeService {
 impl Default for UpgradeService {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// RAII guard that clears the `upgrade_in_progress` flag when dropped.
+///
+/// Moved into the detached upgrade task so the flag is released on every exit
+/// path: success, returned `Err`, timeout, and task cancellation (the runtime
+/// dropping the task future). Without this, a panic or cancellation would leave
+/// the flag stuck at `true`, permanently locking out future upgrades.
+struct UpgradeGuard(Arc<AtomicBool>);
+
+impl Drop for UpgradeGuard {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
     }
 }
 

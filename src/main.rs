@@ -334,7 +334,12 @@ async fn run_serve(cfg: config::Config, config_path: PathBuf) {
 /// function only handles CLI ergonomics: platform error message, printing, and
 /// the post-upgrade hint.
 fn run_upgrade(check: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let engine = tailr_core::upgrade_engine::UpgradeEngine::new();
+    // Inject the binary's version (not core's, which is versioned independently
+    // and lags behind the binary). Without this, the upgrade engine compared
+    // against core's stale version (0.12.x) instead of the binary's (1.0.x).
+    let engine = tailr_core::upgrade_engine::UpgradeEngine::with_version(
+        env!("CARGO_PKG_VERSION"),
+    );
 
     if !engine.supported() {
         return Err(
