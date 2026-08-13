@@ -2329,6 +2329,7 @@ dependencies = [
  "futures",
  "include_dir",
  "mime_guess",
+ "percent-encoding",
  "serde",
  "serde_json",
  "tailr-core",

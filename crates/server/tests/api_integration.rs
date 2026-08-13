@@ -23,6 +23,7 @@ use tailr_core::runtime::RuntimeSampler;
 use tailr_protocol::{LogLevelConfig, LogTimezone};
 use tailr_search_engine::LevelDetector;
 use tailr_server::{api, upgrade, AppState};
+use tailr_server::app as full_app;
 
 /// Construct a minimal AppState for testing. All fields are populated with
 /// sane defaults; the `log_dirs` point at a tempdir so file operations work.
@@ -499,4 +500,110 @@ async fn success_body_shape_is_success_true_data() {
     assert!(json["data"].is_object());
     // No error field on success.
     assert!(json.get("error").is_none() || json["error"].is_null());
+}
+
+// ── WebSocket auth: regression for WS auth bypass ───────────────
+//
+// Before the fix, the /ws router was assembled without the auth middleware,
+// so a configured TAILR_TOKEN protected every REST endpoint but left the live
+// log stream open. These tests build the REAL `app()` router and assert that
+// /ws now goes through `auth_middleware`:
+//   - no token + token set        → 401 (blocked before upgrade)
+//   - wrong token                 → 401
+//   - correct token, URL-encoded  → not 401 (auth passes; upgrade layer then
+//                                            decides based on WS headers)
+//
+// We assert "not 401" rather than "101 Switching Protocols" because a bare
+// oneshot GET without Upgrade/Connection headers won't complete the handshake;
+// the point here is only to prove auth no longer bypasses /ws.
+
+/// Build the production router via `app()`. Spawns detached background loops
+/// (watcher, upgrade check); those are silent in tests and die with the test
+/// runtime. `token` controls whether auth is enforced.
+fn real_app(token: &str) -> axum::Router {
+    full_app(
+        vec![],
+        PathBuf::from("/tmp/nonexistent.toml"),
+        LogLevelConfig {
+            preset: "general".to_string(),
+            levels: vec![],
+        },
+        LogTimezone::default(),
+        token.to_string(),
+        LimitsConfig::default(),
+    )
+}
+
+/// Send a GET through the router and return just the status code.
+async fn get_status(router: &axum::Router, uri: &str) -> StatusCode {
+    router
+        .clone()
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap()
+        .status()
+}
+
+#[tokio::test]
+async fn ws_without_token_is_rejected_when_token_set() {
+    let router = real_app("s3cret-token");
+    // No token query param → auth_middleware must block before the upgrade.
+    let status = get_status(&router, "/ws").await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "WS without token must be 401 when TAILR_TOKEN is set (auth bypass regression)"
+    );
+}
+
+#[tokio::test]
+async fn ws_with_wrong_token_is_rejected() {
+    let router = real_app("s3cret-token");
+    let status = get_status(&router, "/ws?token=wrong").await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "WS with wrong token must be 401"
+    );
+}
+
+#[tokio::test]
+async fn ws_with_correct_alphanumeric_token_passes_auth() {
+    let router = real_app("s3cret-token");
+    let status = get_status(&router, "/ws?token=s3cret-token").await;
+    assert_ne!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "WS with correct token must pass the auth layer"
+    );
+}
+
+#[tokio::test]
+async fn ws_with_url_encoded_token_passes_auth() {
+    // Token contains a space and a '+' — characters the frontend
+    // encodeURIComponent encodes. Before the percent-decode fix, the raw
+    // query string never matched state.token.
+    let raw_token = "my token+key";
+    let encoded = urlencoding::encode(raw_token);
+    let router = real_app(raw_token);
+    let uri = format!("/ws?token={}", encoded);
+    let status = get_status(&router, &uri).await;
+    assert_ne!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "WS with percent-encoded token must pass auth (decode regression)"
+    );
+}
+
+#[tokio::test]
+async fn ws_without_token_allowed_when_no_token_set() {
+    // When TAILR_TOKEN is empty, auth is globally disabled — WS must connect
+    // freely (no regression of the open-by-default mode).
+    let router = real_app("");
+    let status = get_status(&router, "/ws").await;
+    assert_ne!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "WS must not require a token when none is configured"
+    );
 }

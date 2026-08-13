@@ -76,12 +76,17 @@ async fn auth_middleware(
         return next.run(request).await;
     }
 
-    // WebSocket: browsers can't set custom headers, allow token via query param
+    // WebSocket: browsers can't set custom headers, allow token via query param.
+    // The frontend `encodeURIComponent`s the token (websocket.ts), so we must
+    // percent-decode before comparing — otherwise tokens containing +, %,
+    // spaces, or non-ASCII never match.
     if request.uri().path() == "/ws" {
         if let Some(query) = request.uri().query() {
             for pair in query.split('&') {
                 if let Some(t) = pair.strip_prefix("token=") {
-                    if t == state.token {
+                    let decoded = percent_encoding::percent_decode_str(t)
+                        .decode_utf8_lossy();
+                    if decoded == state.token {
                         return next.run(request).await;
                     }
                 }
@@ -206,8 +211,14 @@ pub fn app(
         .finish()
         .expect("governor config: per_second>0 and burst_size>0 guaranteed by LimitsConfig defaults");
 
-    // /ws on its own router, no GovernorLayer.
-    let ws_router = Router::new().merge(ws::routes());
+    // /ws on its own router, no GovernorLayer (WS is a single long-lived
+    // upgrade where per-request rate limiting is meaningless). It still needs
+    // the auth middleware: without it, a set TAILR_TOKEN protects every REST
+    // endpoint but leaves the live log stream wide open — the token query-param
+    // branch in `auth_middleware` would otherwise be dead code.
+    let ws_router = Router::new()
+        .merge(ws::routes())
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
     // Read-only status endpoints (health, runtime) — exempt from governor.
     // Still auth-gated, just not rate-limited (see api::routes_unlimited).

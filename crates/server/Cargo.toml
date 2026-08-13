@@ -35,6 +35,10 @@ arc-swap = "1"
 toml = "0.8"
 uuid = { version = "1", features = ["v4"] }
 futures = "0.3"
+# Percent-decoding for the WebSocket `?token=` query param. Browsers cannot set
+# custom headers on the WS handshake, so auth falls back to a query param that
+# the frontend `encodeURIComponent`s — the backend must decode before comparing.
+percent-encoding = "2"
 include_dir = "0.7"
 mime_guess = "2"
 # OpenAPI spec generation (compile-time, proc-macro based). Only generates the
