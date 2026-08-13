@@ -201,7 +201,7 @@ onBeforeUnmount(() => {
   bottom: 5px;
   margin-top: auto;
   margin-bottom: auto;
-  width: 1px;
+  width: 2px;
   height: 16px;
   background: rgba(0, 0, 0, 0.14);
   pointer-events: none;
