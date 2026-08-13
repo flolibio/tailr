@@ -165,6 +165,7 @@ onBeforeUnmount(() => {
      the full --tabbar-h strip (which left the arrow ~5px higher than the
      tab text). Bottom inset mirrors the tab's 5px content padding. */
   align-self: flex-end;
+  position: relative;
   width: 22px;
   height: 40px;
   padding: 0 0 5px;
@@ -182,24 +183,29 @@ onBeforeUnmount(() => {
   color: var(--text);
 }
 
-/* Vertical separators between the arrows and the tab strip. Left arrow gets
-   a right edge (sits between arrow and tabs); right arrow gets a left edge
-   (divides tabs from the trailing globalbar controls).
-   Each edge is a 2px beveled groove via stacked inset shadows: a dark line
-   then a light line, giving a subtle 3D raised/separated look that tracks
-   light/dark themes automatically via translucent black + white. */
-.tabbar-arrow--left {
-  border-radius: 0;
-  box-shadow:
-    inset -1px 0 0 rgba(0, 0, 0, 0.14),
-    inset -2px 0 0 rgba(255, 255, 255, 0.05);
+/* Vertical separators between the arrows and the tab strip. Drawn as short
+   centered ticks via ::after (not full-height borders) so they read as light
+   dividers rather than slicing the whole bar. Left arrow's tick sits on its
+   right edge; right arrow's on its left edge. Translucent black tracks both
+   themes without hardcoding a color. */
+.tabbar-arrow--left::after,
+.tabbar-arrow--right::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 1px;
+  height: 16px;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.14);
+  pointer-events: none;
 }
 
-.tabbar-arrow--right {
-  border-radius: 0;
-  box-shadow:
-    inset 1px 0 0 rgba(0, 0, 0, 0.14),
-    inset 2px 0 0 rgba(255, 255, 255, 0.05);
+.tabbar-arrow--left::after {
+  right: 0;
+}
+
+.tabbar-arrow--right::after {
+  left: 0;
 }
 
 .tab {
