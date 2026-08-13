@@ -187,15 +187,22 @@ onBeforeUnmount(() => {
    centered ticks via ::after (not full-height borders) so they read as light
    dividers rather than slicing the whole bar. Left arrow's tick sits on its
    right edge; right arrow's on its left edge. Translucent black tracks both
-   themes without hardcoding a color. */
+   themes without hardcoding a color.
+   top/bottom constrain the tick to the button's content region (the button
+   has padding-bottom: 5px but no top padding, so top:0 / bottom:5px matches
+   where the chevron icon lives), and margin:auto centers it within that
+   region — keeping the tick aligned with the icon instead of the full 40px
+   padding box. */
 .tabbar-arrow--left::after,
 .tabbar-arrow--right::after {
   content: '';
   position: absolute;
-  top: 50%;
+  top: 0;
+  bottom: 5px;
+  margin-top: auto;
+  margin-bottom: auto;
   width: 1px;
   height: 16px;
-  transform: translateY(-50%);
   background: rgba(0, 0, 0, 0.14);
   pointer-events: none;
 }
