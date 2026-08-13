@@ -160,9 +160,14 @@ onBeforeUnmount(() => {
 
 .tabbar-arrow {
   flex-shrink: 0;
-  align-self: center;
+  /* Match the tab's geometry (height 40px + flex-end) so the arrow's icon
+     center aligns with the tab content center, rather than centering against
+     the full --tabbar-h strip (which left the arrow ~5px higher than the
+     tab text). Bottom inset mirrors the tab's 5px content padding. */
+  align-self: flex-end;
   width: 22px;
-  height: 28px;
+  height: 40px;
+  padding: 0 0 5px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -172,7 +177,6 @@ onBeforeUnmount(() => {
   cursor: pointer;
   border-radius: var(--radius);
   transition: background .12s, color .12s;
-  padding: 0;
 }
 
 .tabbar-arrow:hover {
