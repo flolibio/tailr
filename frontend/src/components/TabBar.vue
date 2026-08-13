@@ -183,15 +183,23 @@ onBeforeUnmount(() => {
 }
 
 /* Vertical separators between the arrows and the tab strip. Left arrow gets
-   a right border (sits between arrow and tabs); right arrow gets both, since
-   it also divides the tabs from the trailing globalbar controls. */
+   a right edge (sits between arrow and tabs); right arrow gets a left edge
+   (divides tabs from the trailing globalbar controls).
+   Each edge is a 2px beveled groove via stacked inset shadows: a dark line
+   then a light line, giving a subtle 3D raised/separated look that tracks
+   light/dark themes automatically via translucent black + white. */
 .tabbar-arrow--left {
-  border-right: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow:
+    inset -1px 0 0 rgba(0, 0, 0, 0.14),
+    inset -2px 0 0 rgba(255, 255, 255, 0.05);
 }
 
 .tabbar-arrow--right {
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow:
+    inset 1px 0 0 rgba(0, 0, 0, 0.14),
+    inset 2px 0 0 rgba(255, 255, 255, 0.05);
 }
 
 .tab {
