@@ -1,7 +1,13 @@
 <script setup lang="ts">
+import { ref, nextTick, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { useTabs } from '../composables/useTabs'
 
 const { tabs, activeTabPath, switchTo, closeTab } = useTabs()
+
+const scroller = ref<HTMLElement | null>(null)
+const canScrollLeft = ref(false)
+const canScrollRight = ref(false)
 
 function basename(path: string): string {
   const parts = path.split('/')
@@ -19,27 +25,122 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
     closeTab(path)
   }
 }
+
+/** Recompute whether each arrow should be shown. Called on scroll, resize,
+ *  and whenever the tab list / active tab changes. */
+function updateScrollState(): void {
+  const el = scroller.value
+  if (!el) {
+    canScrollLeft.value = false
+    canScrollRight.value = false
+    return
+  }
+  // 1px tolerance: fractional-pixel layouts on hi-DPI can leave a sub-pixel
+  // sliver that flips the arrow on/off jitteringly.
+  canScrollLeft.value = el.scrollLeft > 1
+  canScrollRight.value = el.scrollLeft + el.clientWidth < el.scrollWidth - 1
+}
+
+function scrollBy(direction: 1 | -1): void {
+  const el = scroller.value
+  if (!el) return
+  // Step ~80% of the visible width — enough to move a meaningful chunk of
+  // tabs into view without overshooting past fully-visible tabs.
+  el.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: 'smooth' })
+}
+
+function onScroll(): void {
+  updateScrollState()
+}
+
+/** Bring the active tab fully into view. Called after tab open/switch so the
+ *  active tab is never left scrolled out of sight. */
+function scrollActiveIntoView(): void {
+  const el = scroller.value
+  if (!el) return
+  const active = el.querySelector<HTMLElement>('.tab.active')
+  if (!active) return
+  const margin = 8
+  const left = active.offsetLeft
+  const right = left + active.offsetWidth
+  if (left < el.scrollLeft) {
+    el.scrollTo({ left: Math.max(0, left - margin), behavior: 'smooth' })
+  } else if (right > el.scrollLeft + el.clientWidth) {
+    el.scrollTo({ left: right - el.clientWidth + margin, behavior: 'smooth' })
+  }
+}
+
+watch(
+  () => [tabs.value.length, activeTabPath.value],
+  () => {
+    // Layout must settle before we can measure offsets / scrollWidth.
+    nextTick(() => {
+      updateScrollState()
+      scrollActiveIntoView()
+    })
+  },
+)
+
+let resizeObserver: ResizeObserver | null = null
+onMounted(() => {
+  updateScrollState()
+  if (scroller.value) {
+    resizeObserver = new ResizeObserver(() => updateScrollState())
+    resizeObserver.observe(scroller.value)
+  }
+})
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+})
 </script>
 
 <template>
-  <div class="tabbar">
-    <div
-      v-for="tab in tabs"
-      :key="tab.path"
-      class="tab"
-      :class="{ active: tab.path === activeTabPath }"
-      :title="tab.path"
-      @click="switchTo(tab.path)"
-      @mouseup="handleMiddleClick(tab.path, $event)"
+  <div class="tabbar-wrap">
+    <button
+      v-show="canScrollLeft"
+      class="tabbar-arrow"
+      type="button"
+      aria-label="Scroll tabs left"
+      @click="scrollBy(-1)"
     >
-      <span class="tab-dot" :class="{ 'is-unread': tab.hasUnread && tab.path !== activeTabPath }"></span>
-      <span class="tab-name">{{ basename(tab.path) }}</span>
-      <button class="tab-close" @click="handleClose(tab.path, $event)">✕</button>
+      <ChevronLeft :size="16" :stroke-width="2" />
+    </button>
+    <div ref="scroller" class="tabbar" @scroll.passive="onScroll">
+      <div
+        v-for="tab in tabs"
+        :key="tab.path"
+        class="tab"
+        :class="{ active: tab.path === activeTabPath }"
+        :title="tab.path"
+        @click="switchTo(tab.path)"
+        @mouseup="handleMiddleClick(tab.path, $event)"
+      >
+        <span class="tab-dot" :class="{ 'is-unread': tab.hasUnread && tab.path !== activeTabPath }"></span>
+        <span class="tab-name">{{ basename(tab.path) }}</span>
+        <button class="tab-close" @click="handleClose(tab.path, $event)">✕</button>
+      </div>
     </div>
+    <button
+      v-show="canScrollRight"
+      class="tabbar-arrow"
+      type="button"
+      aria-label="Scroll tabs right"
+      @click="scrollBy(1)"
+    >
+      <ChevronRight :size="16" :stroke-width="2" />
+    </button>
   </div>
 </template>
 
 <style scoped>
+.tabbar-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  height: var(--tabbar-h);
+}
+
 .tabbar {
   flex: 1;
   min-width: 0;
@@ -47,7 +148,7 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
   align-items: flex-end;
   overflow-x: auto;
   scrollbar-width: none;
-  height: var(--tabbar-h);
+  height: 100%;
   /* Accommodate the active tab's outward "ear" pseudo-elements (±--radius).
      Without this, the first/last tab's outer ear is clipped by overflow-x. */
   padding: 0 var(--radius);
@@ -55,6 +156,28 @@ function handleMiddleClick(path: string, event: MouseEvent): void {
 
 .tabbar::-webkit-scrollbar {
   display: none;
+}
+
+.tabbar-arrow {
+  flex-shrink: 0;
+  align-self: center;
+  width: 22px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: background .12s, color .12s;
+  padding: 0;
+}
+
+.tabbar-arrow:hover {
+  background: var(--bg-3);
+  color: var(--text);
 }
 
 .tab {

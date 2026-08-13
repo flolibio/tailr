@@ -683,6 +683,11 @@ mark.kw-mark-5 { --kw-cur: var(--kw-5); }
   align-items: center;
   gap: var(--space-2);
   background: color-mix(in srgb, var(--text) 3%, var(--bg));
+  /* Grid items default to min-width: auto, so the non-shrinkable tab children
+     inside TabBar would inflate this cell past the 1fr column and push the
+     whole app wider than the viewport. Allow shrinking so overflow stays
+     inside TabBar's own scroll container. */
+  min-width: 0;
 }
 
 /* Buttons on the recessed globalbar need a deeper hover surface than --bg-2 */
