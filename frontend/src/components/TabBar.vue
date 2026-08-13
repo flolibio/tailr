@@ -98,7 +98,7 @@ onBeforeUnmount(() => {
   <div class="tabbar-wrap">
     <button
       v-show="canScrollLeft"
-      class="tabbar-arrow"
+      class="tabbar-arrow tabbar-arrow--left"
       type="button"
       aria-label="Scroll tabs left"
       @click="scrollBy(-1)"
@@ -122,7 +122,7 @@ onBeforeUnmount(() => {
     </div>
     <button
       v-show="canScrollRight"
-      class="tabbar-arrow"
+      class="tabbar-arrow tabbar-arrow--right"
       type="button"
       aria-label="Scroll tabs right"
       @click="scrollBy(1)"
@@ -175,13 +175,23 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--text-3);
   cursor: pointer;
-  border-radius: var(--radius);
-  transition: background .12s, color .12s;
+  transition: color .12s;
 }
 
 .tabbar-arrow:hover {
-  background: var(--bg-3);
   color: var(--text);
+}
+
+/* Vertical separators between the arrows and the tab strip. Left arrow gets
+   a right border (sits between arrow and tabs); right arrow gets both, since
+   it also divides the tabs from the trailing globalbar controls. */
+.tabbar-arrow--left {
+  border-right: 1px solid var(--border);
+}
+
+.tabbar-arrow--right {
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
 
 .tab {
