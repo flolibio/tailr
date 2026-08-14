@@ -1,11 +1,15 @@
 # Changelog
 
-## [Unreleased]
+## [v1.0.6] - 2026-08-14
 
 ### Security
 
 - **WebSocket endpoint bypassed token authentication** — the `/ws` router was assembled without the `auth_middleware` layer, so a configured `TAILR_TOKEN` protected every REST endpoint but left the live log stream completely open: anyone able to reach the port could subscribe to all logs over WebSocket with no token. The `?token=` query-param branch in `auth_middleware` was dead code. Fixed by attaching `auth_middleware` to the `/ws` router (matching the REST/static routers).
 - **WebSocket query token was not percent-decoded** — the frontend encodes the token with `encodeURIComponent` when appending it to the WS URL, but the backend compared the raw query string directly against the configured token. Tokens containing `+`, `%`, spaces, or non-ASCII characters therefore never matched, and WS auth silently failed (connect → immediate 401 close). Fixed by percent-decoding before comparison. This only became reachable after the auth-bypass fix above.
+
+### UI
+
+- **Tab bar overflow stretched the page beyond the viewport** — with many tabs open, the non-shrinkable tab children inflated the `.globalbar` grid cell (grid items default to `min-width: auto`) past its `1fr` column, pushing the whole app wider than the screen instead of scrolling within the bar. Fixed by adding `min-width: 0` to `.globalbar` and wrapping the tab strip with scroll-arrow buttons that appear only when that direction overflows. Switching/opening a tab auto-scrolls the active tab into view.
 
 ## [v1.0.3] - 2026-08-11
 
