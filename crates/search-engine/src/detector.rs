@@ -36,9 +36,9 @@ impl LevelDetector {
         self.levels.iter().map(|l| l.name.as_str()).collect()
     }
 
-    /// 检测日志行的级别，返回级别名称。
-    /// 无匹配返回 "UNKNOWN"。
-    pub fn detect(&self, line: &str) -> String {
+    /// 检测日志行的级别，返回级别名称（借用 self，零分配）。
+    /// 无匹配返回 "UNKNOWN"。scanner 的统计热循环用这个变体。
+    pub fn detect_ref(&self, line: &str) -> &str {
         let line_lower_bytes = line.as_bytes();
         let limit = line_lower_bytes.len().min(256);
 
@@ -57,12 +57,18 @@ impl LevelDetector {
                         .zip(keyword_bytes.iter())
                         .all(|(a, b)| a.eq_ignore_ascii_case(b))
                     {
-                        return compiled.name.clone();
+                        return compiled.name.as_str();
                     }
                 }
             }
         }
-        "UNKNOWN".to_string()
+        "UNKNOWN"
+    }
+
+    /// 检测日志行的级别，返回级别名称。
+    /// 无匹配返回 "UNKNOWN"。
+    pub fn detect(&self, line: &str) -> String {
+        self.detect_ref(line).to_string()
     }
 }
 
