@@ -1,5 +1,6 @@
 pub mod api;
 pub(crate) mod error;
+pub mod mcp;
 pub mod openapi;
 pub mod runtime;
 pub mod static_files;
@@ -52,6 +53,12 @@ pub struct AppState {
     /// Runtime metrics sampler (sysinfo + TTL cache).
     /// Powers `GET /api/runtime`. No background thread — samples on demand only.
     pub runtime: Arc<runtime::RuntimeSampler>,
+    /// Log query service (MCP tools): budget-clamped scanner + concurrency gate.
+    pub query: Arc<tailr_core::query::QueryService>,
+    /// Host display name — included in every MCP tool response so AI agents
+    /// can tell multi-server results apart. sysinfo hostname now; configurable
+    /// display name via [mcp] config later.
+    pub host_name: String,
     /// Resource limits (WS connection cap, REST rate limit). User-tunable
     /// via `[limits]` in config.toml.
     pub limits: LimitsConfig,
@@ -120,8 +127,16 @@ pub fn app(
         .into_iter()
         .partition(|p| p.is_dir());
 
+    // 全部 canonicalize：validate_path 会把请求路径 canonicalize 后做前缀
+    // 匹配，两边必须同为规范路径。否则符号链接目录（macOS 的 /tmp →
+    // /private/tmp）下，客户端拿到的原始路径会被自己的 allowlist 拒绝。
     let allowed_dirs: Vec<PathBuf> = {
-        let mut dirs = log_dirs.clone();
+        let mut dirs: Vec<PathBuf> = log_dirs
+            .iter()
+            .map(|d| {
+                std::fs::canonicalize(d).unwrap_or_else(|_| d.to_path_buf())
+            })
+            .collect();
         for file in &log_files {
             if let Some(parent) = file.parent() {
                 let canonical = std::fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
@@ -149,6 +164,11 @@ pub fn app(
     // log_dir's mount point). Clone before `log_dirs` is moved into AppState.
     let runtime_sampler = Arc::new(runtime::RuntimeSampler::new(log_dirs.clone()));
 
+    let query = Arc::new(tailr_core::query::QueryService::new(
+        tailr_core::query::QueryCaps::default(),
+    ));
+    let host_name = runtime::RuntimeSampler::host_name();
+
     let state = Arc::new(AppState {
         watcher: Arc::new(Mutex::new(watcher)),
         line_indices: DashMap::new(),
@@ -166,6 +186,8 @@ pub fn app(
         log_timezone: log_timezone_arc,
         upgrade_service: upgrade::shared_service(),
         runtime: runtime_sampler,
+        query,
+        host_name,
         limits,
     });
 
@@ -226,6 +248,14 @@ pub fn app(
         .merge(api::routes_unlimited())
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
+    // /mcp: auth-gated (Bearer token, same policy as REST/WS) but NOT under
+    // the governor — agent-driven tool-call loops are dense by nature and the
+    // heavy work is already gated by QueryService's scan semaphore. HTTP-level
+    // 429 storms on legitimate agents would be worse than the abuse they'd
+    // prevent (see mcp.rs module docs).
+    let mcp_router = mcp::routes(state.clone())
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
+
     // Everything else gets the auth middleware + governor.
     let api_router = Router::new()
         .merge(api::routes())
@@ -242,6 +272,7 @@ pub fn app(
     let router = Router::new()
         .merge(ws_router)
         .merge(status_router)
+        .merge(mcp_router)
         .merge(api_router);
 
     // CompressionLayer must be the innermost body-transforming layer so it

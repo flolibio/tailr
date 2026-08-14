@@ -40,6 +40,17 @@ futures = "0.3"
 percent-encoding = "2"
 include_dir = "0.7"
 mime_guess = "2"
+# MCP server (official Rust SDK). Locked to 0.5.x — 0.x SDK may break APIs
+# between minor lines; upgrade deliberately with protocol tests, not by cargo
+# update. Stateless streamable HTTP mode (no server-side session affinity).
+# transport-worker is listed manually: 0.5.0's streamable-http-server feature
+# forgot to declare it (fixed on main, not yet released).
+rmcp = { version = "0.5", features = [
+    "server",
+    "transport-streamable-http-server",
+    "transport-worker",
+    "schemars",
+] }
 # OpenAPI spec generation (compile-time, proc-macro based). Only generates the
 # spec JSON — no swagger-ui bundled (keeps the binary lean; users paste the spec
 # URL into editor.swagger.io to render). utoipa core has no axum dependency
