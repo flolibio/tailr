@@ -69,8 +69,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
+
+      # Extract this release's section from CHANGELOG.md: everything between
+      # `## [<tag>]` and the next `## [` header. Falls back to "Full Changelog"
+      # auto-notes if the section is missing (e.g. malformed CHANGELOG).
+      - name: Extract changelog notes
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"   # v1.0.6 → 1.0.6
+          # Match either `## [v1.0.6]` or `## [1.0.6]` (tag has no v, just in case).
+          NOTES=$(awk -v tag="v${VERSION}" '
+            $0 ~ "^## \\[" tag "\\]" { found=1; next }
+            /^## \[/ && found { exit }
+            found { print }
+          ' CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES=$(awk -v tag="${VERSION}" '
+              $0 ~ "^## \\[" tag "\\]" { found=1; next }
+              /^## \[/ && found { exit }
+              found { print }
+            ' CHANGELOG.md)
+          fi
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -79,4 +108,5 @@ jobs:
           files: |
             tailr-x86_64-linux-musl/tailr-x86_64-linux-musl.tar.gz
             tailr-aarch64-linux-musl/tailr-aarch64-linux-musl.tar.gz
-          generate_release_notes: true
+          body: ${{ steps.notes.outputs.notes }}
+          generate_release_notes: false
