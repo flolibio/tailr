@@ -9,9 +9,9 @@ tailr-core = { path = "../core" }
 tailr-protocol = { path = "../protocol" }
 tailr-tail-engine = { path = "../tail-engine" }
 tailr-search-engine = { path = "../search-engine" }
-axum = { version = "0.7", features = ["ws"] }
+axum = { version = "0.8", features = ["ws"] }
 tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.5", features = ["cors", "fs", "compression-gzip"] }
+tower-http = { version = "0.6", features = ["cors", "fs", "compression-gzip"] }
 # Force flate2 to use the pure-Rust miniz_oxide backend instead of the default
 # system zlib. tower-http's compression-gzip pulls flate2; flate2's default
 # links libz.so.1 which would break tailr's "zero user-side install" promise
@@ -23,9 +23,8 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 # extracts TCP peer IP from axum's ConnectInfo<SocketAddr> extension, which
 # requires `into_make_service_with_connect_info::<SocketAddr>()` on the
 # `axum::serve(...)` call site (see src/main.rs).
-# Pinned to 0.5.x: the last release line compatible with axum 0.7.
-# 0.6+ requires axum 0.8.
-tower_governor = "0.5"
+# 0.6.x is the release line for axum 0.8.
+tower_governor = "0.6"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
@@ -43,8 +42,8 @@ include_dir = "0.7"
 mime_guess = "2"
 # OpenAPI spec generation (compile-time, proc-macro based). Only generates the
 # spec JSON — no swagger-ui bundled (keeps the binary lean; users paste the spec
-# URL into editor.swagger.io to render). 5.x is the last line compatible with
-# axum 0.7 (6.x moved to axum 0.8).
+# URL into editor.swagger.io to render). utoipa core has no axum dependency
+# (only derive macros are used here); version is independent of the axum line.
 utoipa = "5"
 
 [dev-dependencies]
