@@ -500,6 +500,7 @@ fn materialize_window(data: &[u8], w: RawWindow, max_line_bytes: usize) -> Conte
 
 /// 文件统计（get_log_stats 的地基）：行数、字节数、按级别计数。
 /// 同样受时间预算与取消约束；未扫完时 `completed=false`（部分计数）。
+#[derive(Debug, Clone)]
 pub struct FileStats {
     pub total_lines: u64,
     pub total_bytes: u64,

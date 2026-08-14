@@ -12,5 +12,6 @@ pub mod config;
 pub mod daemon;
 pub mod error;
 pub mod limits;
+pub mod query;
 pub mod runtime;
 pub mod upgrade_engine;

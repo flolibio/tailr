@@ -2251,6 +2251,7 @@ dependencies = [
  "serde_json",
  "sysinfo",
  "tailr-protocol",
+ "tailr-search-engine",
  "tempfile",
  "tokio",
  "toml",

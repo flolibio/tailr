@@ -13,6 +13,9 @@ schema = ["dep:utoipa"]
 [dependencies]
 # Base capability layer (core depends on these, never the reverse).
 tailr-protocol = { path = "../protocol" }
+# Scanner (keyword search / file stats) for the query service. Base capability
+# layer — core wraps it with budget clamping and the concurrency gate.
+tailr-search-engine = { path = "../search-engine" }
 
 # Config loading.
 figment = { version = "0.10", features = ["toml", "env"] }
@@ -73,3 +76,4 @@ dirs = "5.0"
 utoipa = { version = "5", optional = true }
 
 [dev-dependencies]
+tempfile = "3"
