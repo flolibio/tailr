@@ -257,6 +257,7 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 | `/api/health` | GET | Status + uptime + version. **Exempt from rate limiter** (read-only, polled by LB probes) |
 | `/api/runtime` | GET | Runtime resource snapshot (process/system CPU+memory, disk, WS connections, uptime). TTL-cached 5s; refresh runs in `spawn_blocking`. **Exempt from rate limiter** (read-only, polled by Runtime panel) |
 | `/api/docs/openapi.json` | GET | OpenAPI 3.0 spec (machine-readable API contract). **Exempt from rate limiter**. Render at editor.swagger.io — no swagger-ui bundled |
+| `/mcp` | POST | MCP server for AI agents (rmcp 0.5, stateless streamable HTTP — see `crates/server/src/mcp.rs`). Same Bearer token auth as REST; **not** under the governor (agent tool-call loops are dense; heavy work gated by QueryService semaphore). Tools: list_log_files / tail_log / search_logs (count_only) / read_log_range / get_log_stats. `[mcp] enabled=false` in config disables it (explicit 404). Setup guide: `docs/mcp.md` |
 | `/ws` | WS | Subscribe/unsubscribe to live file tail (batched entries) |
 
 ### Error response format (v0.12+)

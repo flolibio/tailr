@@ -42,6 +42,7 @@
 ## Features
 
 - **Real-time tail** — WebSocket-based live log streaming
+- **MCP server for AI agents** — Built-in `/mcp` endpoint lets Claude Code / Cursor search and analyze your logs directly (2 GB scans in under a second); see [docs/mcp.md](docs/mcp.md)
 - **Multi-keyword filter** — AND logic with case-insensitive substring matching, like `grep -i kw1 | grep -i kw2`
 - **Memory-mapped line index** — Large files (hundreds of MB) open in milliseconds via mmap
 - **Multi-file tabs** — Open multiple log files side by side, each with independent filter state
@@ -278,6 +279,7 @@ tailr restart
 | `/api/runtime` | GET | Runtime resource snapshot (process/system CPU+memory, disk, WS connections, uptime). TTL-cached 5s |
 | `/api/docs/openapi.json` | GET | OpenAPI 3.0 spec (machine-readable API contract) |
 | `/ws` | WS | Real-time log streaming |
+| `/mcp` | POST | MCP server for AI agents (streamable HTTP; same Bearer token auth; 5 log-search tools) — see [docs/mcp.md](docs/mcp.md) |
 
 ### WebSocket Protocol
 
