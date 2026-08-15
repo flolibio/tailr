@@ -129,7 +129,12 @@ async function copyText(text: string, id: string): Promise<void> {
     </div>
 
     <p v-if="configPath" class="mcp-path">
-      {{ t('settings.mcpConfigPath') }}: <code>{{ configPath }}</code>
+      {{ t('settings.mcpConfigPath') }}:
+      <code>{{ configPath }}</code>
+      <button class="mcp-copy-btn" :title="t('settings.mcpCopy')" @click="copyText(configPath, 'path')">
+        <Check v-if="copiedId === 'path'" :size="13" />
+        <Copy v-else :size="13" />
+      </button>
     </p>
 
     <div class="mcp-snippet">
@@ -180,7 +185,7 @@ async function copyText(text: string, id: string): Promise<void> {
   gap: 6px;
   min-width: 90px;
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text);
 }
 
 .mcp-value {
