@@ -6,6 +6,7 @@ import { healthCheck } from '../services/api'
 import { useLogLevels } from '../composables/useLogLevels'
 import LogLevelSettings from './settings/LogLevelSettings.vue'
 import AboutSection from './settings/AboutSection.vue'
+import McpSection from './settings/McpSection.vue'
 import RuntimeSection from './settings/RuntimeSection.vue'
 import type { Settings } from './SettingsPanel.vue'
 import { X, Settings as SettingsIcon, Info, Check, ChartNoAxesGantt, Activity } from 'lucide-vue-next'
@@ -25,7 +26,7 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 
 // ── Navigation ──
-type NavSection = 'general' | 'logLevels' | 'runtime' | 'about'
+type NavSection = 'general' | 'logLevels' | 'mcp' | 'runtime' | 'about'
 const activeNav = ref<NavSection>(props.initialSection ?? 'general')
 
 const navItems = computed<{ key: NavSection; label: string; icon: string; section: string }[]>(() => [
@@ -40,6 +41,12 @@ const navItems = computed<{ key: NavSection; label: string; icon: string; sectio
     label: t('settings.logLevels'),
     icon: 'edit',
     section: t('settings.general'),
+  },
+  {
+    key: 'mcp',
+    label: t('settings.mcp'),
+    icon: 'bot',
+    section: t('settings.integration'),
   },
   {
     key: 'runtime',
@@ -453,6 +460,12 @@ onUnmounted(() => {
           <template v-else-if="activeNav === 'logLevels'">
             <div class="section-title">{{ t('settings.logLevels') }}</div>
             <LogLevelSettings ref="logLevelsRef" />
+          </template>
+
+          <!-- MCP -->
+          <template v-else-if="activeNav === 'mcp'">
+            <div class="section-title">{{ t('settings.mcp') }}</div>
+            <McpSection />
           </template>
 
           <!-- Runtime -->
