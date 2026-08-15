@@ -535,6 +535,7 @@ fn real_app(token: &str) -> axum::Router {
         LogTimezone::default(),
         token.to_string(),
         LimitsConfig::default(),
+        tailr_core::config::McpConfig::default(),
     )
 }
 

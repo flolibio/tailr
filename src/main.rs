@@ -311,6 +311,7 @@ async fn run_serve(cfg: config::Config, config_path: PathBuf) {
             log_timezone,
             cfg.token.clone(),
             cfg.limits.clone(),
+            cfg.mcp.clone(),
         )
         // Enable ConnectInfo<SocketAddr> in request extensions. Required by
         // tower_governor's PeerIpKeyExtractor to obtain the TCP peer IP for

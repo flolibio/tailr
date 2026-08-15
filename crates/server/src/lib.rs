@@ -64,6 +64,21 @@ pub struct AppState {
     pub limits: LimitsConfig,
 }
 
+/// 常数时间字符串比较（防时序侧信道）。逐字节累积差异、无提前退出；
+/// 长度不等直接返回（只泄露长度相等性，内容比较仍恒时）。
+/// MCP 让机器客户端高频撞 token，简单 `==` 的短路行为值得堵上。
+fn ct_eq(a: &str, b: &str) -> bool {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for i in 0..a.len() {
+        diff |= a[i] ^ b[i];
+    }
+    diff == 0
+}
+
 async fn auth_middleware(
     State(state): State<Arc<AppState>>,
     request: Request,
@@ -79,7 +94,7 @@ async fn auth_middleware(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
 
-    if auth == format!("Bearer {}", state.token) {
+    if ct_eq(auth, &format!("Bearer {}", state.token)) {
         return next.run(request).await;
     }
 
@@ -93,7 +108,7 @@ async fn auth_middleware(
                 if let Some(t) = pair.strip_prefix("token=") {
                     let decoded = percent_encoding::percent_decode_str(t)
                         .decode_utf8_lossy();
-                    if decoded == state.token {
+                    if ct_eq(&decoded, &state.token) {
                         return next.run(request).await;
                     }
                 }
@@ -111,6 +126,7 @@ pub fn app(
     log_timezone: LogTimezone,
     token: String,
     limits: LimitsConfig,
+    mcp: tailr_core::config::McpConfig,
 ) -> Router {
     let level_detector = LevelDetector::from_config(&level_config);
     let level_detector_arc = Arc::new(ArcSwap::from_pointee(level_detector));
@@ -167,7 +183,11 @@ pub fn app(
     let query = Arc::new(tailr_core::query::QueryService::new(
         tailr_core::query::QueryCaps::default(),
     ));
-    let host_name = runtime::RuntimeSampler::host_name();
+    // 展示名优先用 [mcp] host_name 配置，缺省取系统主机名。
+    let host_name = mcp
+        .host_name
+        .clone()
+        .unwrap_or_else(runtime::RuntimeSampler::host_name);
 
     let state = Arc::new(AppState {
         watcher: Arc::new(Mutex::new(watcher)),
@@ -252,9 +272,13 @@ pub fn app(
     // the governor — agent-driven tool-call loops are dense by nature and the
     // heavy work is already gated by QueryService's scan semaphore. HTTP-level
     // 429 storms on legitimate agents would be worse than the abuse they'd
-    // prevent (see mcp.rs module docs).
-    let mcp_router = mcp::routes(state.clone())
-        .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
+    // prevent (see mcp.rs module docs). Optionally disabled via [mcp] enabled=false.
+    let mcp_router = if mcp.enabled {
+        mcp::routes(state.clone())
+            .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+    } else {
+        Router::new()
+    };
 
     // Everything else gets the auth middleware + governor.
     let api_router = Router::new()
