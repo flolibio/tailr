@@ -239,6 +239,9 @@ async function copyText(text: string, id: string): Promise<void> {
   margin: 0;
   font-size: 12px;
   color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .mcp-path code {
