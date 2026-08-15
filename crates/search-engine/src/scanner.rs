@@ -44,8 +44,9 @@ pub struct ScanParams {
     pub context_after: usize,
     pub max_line_bytes: usize,
     /// 只计数不输出：跳过上下文窗口/环形缓冲/文本物化，纯匹配循环。
-    /// 「这个关键字有多少行」类问题在密集匹配下靠翻页数完不可行，
-    /// count 模式让单页吞吐更高、返回体只有几百字节。
+    /// 「这个关键字有多少行」类问题在密集匹配下靠翻页数完不可行；
+    /// count 模式只由时间预算与取消封顶，不受 max_matches/max_bytes
+    /// 输出预算约束（输出体固定几百字节）。
     pub count_only: bool,
 }
 
@@ -375,12 +376,11 @@ fn scan_bytes(data: &[u8], params: &ScanParams, cancel: Option<&AtomicBool>) -> 
         let is_match = matcher.matches(line);
 
         if params.count_only {
+            // 统计模式：只受时间预算与取消约束，不受 max_matches/max_bytes
+            // 输出预算约束——count 的输出体固定几百字节，密集匹配下靠
+            // max_matches 翻页数完不可行（698 万行 ≈ 3.5 万页）。
             if is_match {
                 matched += 1;
-                if matched as usize >= params.max_matches {
-                    truncated = true;
-                    break;
-                }
             }
             continue;
         }
@@ -764,30 +764,22 @@ mod tests {
     }
 
     #[test]
-    fn count_only_counts_without_windows_and_pages() {
+    fn count_only_ignores_match_budget_and_counts_to_eof() {
         let content: String = (0..30)
             .map(|i| format!("line {i:02} {}\n", if i % 3 == 0 { "HIT" } else { "ok" }))
             .collect();
         let (_f, path) = write_log(&content);
 
-        // 第一页：数到 max_matches=5 截断，无窗口输出
+        // max_matches 远小于实际命中数：count 模式不受输出预算约束，
+        // 单页数到 EOF（时间预算是唯一停机条件）。
         let mut p = params(&["HIT"]);
         p.count_only = true;
         p.max_matches = 5;
-        let r1 = scan_file(&path, &p, None).unwrap();
-        assert!(r1.truncated);
-        assert_eq!(r1.matched_lines, 5);
-        assert!(r1.windows.is_empty());
-
-        // 续页数完：30 行 / 3 = 10 个命中
-        let mut p2 = params(&["HIT"]);
-        p2.count_only = true;
-        p2.max_matches = 1000;
-        p2.start_offset = r1.resume_offset;
-        p2.start_line = r1.resume_line;
-        let r2 = scan_file(&path, &p2, None).unwrap();
-        assert!(r2.eof_reached);
-        assert_eq!(r1.matched_lines + r2.matched_lines, 10);
+        let r = scan_file(&path, &p, None).unwrap();
+        assert_eq!(r.matched_lines, 10);
+        assert!(r.eof_reached);
+        assert!(!r.truncated);
+        assert!(r.windows.is_empty());
     }
 
     #[test]
