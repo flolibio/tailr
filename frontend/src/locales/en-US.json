@@ -101,7 +101,9 @@
     "mcpConfigPath": "Config file",
     "mcpCopy": "Copy",
     "mcpCopied": "Copied",
-    "mcpTokenHint": "No token auth is enabled on this server, so the snippet omits headers; re-open this page after enabling auth for a complete config."
+    "mcpTokenHint": "No token auth is enabled on this server, so the snippet omits headers; re-open this page after enabling auth for a complete config.",
+    "mcpToken": "Token",
+    "mcpGenericClient": "Generic"
   },
   "toast": {
     "close": "Close"

@@ -10,33 +10,71 @@ const { copiedId, copy } = useCopyFeedbackId<string>()
 
 const endpoint = computed(() => `${window.location.origin}/mcp`)
 
-// The user's own token (already in their browser via the auth dialog) —
-// embedded into the copy snippet so the config works out of the box.
+// The user's own token (already entered in this browser via the auth dialog).
+// Showing it here is safe: anyone who can see this page already authenticated
+// with it — and without it the snippet isn't actionable.
 const token = useAuth().getToken()
-const authHeaders = computed(() => (token ? { Authorization: `Bearer ${token}` } : null))
 
-type Client = 'claudeCode' | 'cursor'
+type Client = 'claudeCode' | 'cursor' | 'codex' | 'opencode' | 'generic'
 const client = ref<Client>('claudeCode')
 
-function mcpConfig(withType: boolean): string {
-  const entry: Record<string, unknown> = {
-    ...(withType ? { type: 'http' } : {}),
-    url: endpoint.value,
-    ...(authHeaders.value ? { headers: authHeaders.value } : {}),
+const clients: { key: Client; label: string; path: string }[] = [
+  { key: 'claudeCode', label: 'Claude Code', path: '~/.claude.json' },
+  { key: 'cursor', label: 'Cursor', path: '~/.cursor/mcp.json' },
+  { key: 'codex', label: 'Codex', path: '~/.codex/config.toml' },
+  { key: 'opencode', label: 'OpenCode', path: '~/.config/opencode/opencode.json' },
+  { key: 'generic', label: t('settings.mcpGenericClient'), path: '' },
+]
+
+const configPath = computed(
+  () => clients.find((c) => c.key === client.value)?.path ?? '',
+)
+
+const snippet = computed(() => {
+  const url = endpoint.value
+  const auth = token ? { Authorization: `Bearer ${token}` } : null
+  switch (client.value) {
+    case 'claudeCode':
+      // Claude Code requires type:"http" — a bare url entry is skipped.
+      return JSON.stringify(
+        { mcpServers: { tailr: { type: 'http', url, ...(auth ? { headers: auth } : {}) } } },
+        null,
+        2,
+      )
+    case 'cursor':
+      return JSON.stringify(
+        { mcpServers: { tailr: { url, ...(auth ? { headers: auth } : {}) } } },
+        null,
+        2,
+      )
+    case 'codex':
+      return [
+        '[mcp_servers.tailr]',
+        `url = "${url}"`,
+        ...(auth
+          ? ['# Streamable-HTTP auth (recent Codex versions):', 'http_headers = { Authorization = "Bearer ' + token + '" }']
+          : []),
+      ].join('\n')
+    case 'opencode':
+      return JSON.stringify(
+        { mcp: { tailr: { type: 'http', url, ...(auth ? { headers: auth } : {}) } } },
+        null,
+        2,
+      )
+    case 'generic':
+      // Standard mcpServers shape accepted by most MCP-capable clients
+      // (zcode, DeepSeek harness, ...); consult your client's docs for the
+      // config file location.
+      return JSON.stringify(
+        { mcpServers: { tailr: { type: 'http', url, ...(auth ? { headers: auth } : {}) } } },
+        null,
+        2,
+      )
   }
-  return JSON.stringify({ mcpServers: { tailr: entry } }, null, 2)
-}
+})
 
-const snippet = computed(() =>
-  client.value === 'claudeCode' ? mcpConfig(true) : mcpConfig(false),
-)
-// Claude Code requires type:"http"; Cursor takes a bare url.
-const configPath = computed(() =>
-  client.value === 'claudeCode' ? '~/.claude.json' : '~/.cursor/mcp.json',
-)
-
-async function copySnippet(): Promise<void> {
-  await copy(snippet.value, client.value)
+async function copyText(text: string, id: string): Promise<void> {
+  await copy(text, id)
 }
 </script>
 
@@ -55,37 +93,50 @@ async function copySnippet(): Promise<void> {
       </a>
     </p>
 
-    <div class="mcp-endpoint">
-      <Bot :size="16" />
-      <code>{{ endpoint }}</code>
+    <div class="mcp-row">
+      <div class="mcp-label"><Bot :size="15" /> Endpoint</div>
+      <div class="mcp-value">
+        <code>{{ endpoint }}</code>
+        <button class="mcp-copy-btn" :title="t('settings.mcpCopy')" @click="copyText(endpoint, 'endpoint')">
+          <Check v-if="copiedId === 'endpoint'" :size="13" />
+          <Copy v-else :size="13" />
+        </button>
+      </div>
+    </div>
+
+    <div v-if="token" class="mcp-row">
+      <div class="mcp-label">Token</div>
+      <div class="mcp-value">
+        <code>{{ token }}</code>
+        <button class="mcp-copy-btn" :title="t('settings.mcpCopy')" @click="copyText(token, 'token')">
+          <Check v-if="copiedId === 'token'" :size="13" />
+          <Copy v-else :size="13" />
+        </button>
+      </div>
     </div>
 
     <div class="mcp-clients" role="tablist">
       <button
-        :class="['mcp-client-tab', { active: client === 'claudeCode' }]"
+        v-for="c in clients"
+        :key="c.key"
+        :class="['mcp-client-tab', { active: client === c.key }]"
         role="tab"
-        :aria-selected="client === 'claudeCode'"
-        @click="client = 'claudeCode'"
+        :aria-selected="client === c.key"
+        @click="client = c.key"
       >
-        Claude Code
-      </button>
-      <button
-        :class="['mcp-client-tab', { active: client === 'cursor' }]"
-        role="tab"
-        :aria-selected="client === 'cursor'"
-        @click="client = 'cursor'"
-      >
-        Cursor
+        {{ c.label }}
       </button>
     </div>
 
-    <p class="mcp-path">{{ t('settings.mcpConfigPath') }}: <code>{{ configPath }}</code></p>
+    <p v-if="configPath" class="mcp-path">
+      {{ t('settings.mcpConfigPath') }}: <code>{{ configPath }}</code>
+    </p>
 
     <div class="mcp-snippet">
       <pre>{{ snippet }}</pre>
-      <button class="mcp-copy-btn" :title="t('settings.mcpCopy')" @click="copySnippet()">
-        <Check v-if="copiedId === client" :size="14" />
-        <Copy v-else :size="14" />
+      <button class="mcp-copy-btn mcp-copy-snippet" @click="copyText(snippet, client)">
+        <Check v-if="copiedId === client" :size="13" />
+        <Copy v-else :size="13" />
         {{ copiedId === client ? t('settings.mcpCopied') : t('settings.mcpCopy') }}
       </button>
     </div>
@@ -98,14 +149,14 @@ async function copySnippet(): Promise<void> {
 .mcp-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .mcp-desc {
   margin: 0;
   font-size: 13px;
   line-height: 1.6;
-  color: var(--text-secondary, #888);
+  color: var(--text-2);
 }
 
 .mcp-docs-link {
@@ -113,51 +164,87 @@ async function copySnippet(): Promise<void> {
   align-items: center;
   gap: 3px;
   margin-left: 4px;
-  color: var(--accent, #4a9eff);
+  color: var(--accent);
   text-decoration: none;
 }
 
-.mcp-endpoint {
+.mcp-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  background: var(--bg-secondary, #1e1e1e);
-  border: 1px solid var(--border, #333);
-  font-size: 13px;
+  gap: var(--space-3);
 }
 
-.mcp-endpoint code {
+.mcp-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 90px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.mcp-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+}
+
+.mcp-value code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
   user-select: all;
 }
 
 .mcp-clients {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 
 .mcp-client-tab {
-  padding: 5px 14px;
-  border: 1px solid var(--border, #333);
-  border-radius: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-secondary, #888);
+  color: var(--text-2);
   font-size: 12px;
   cursor: pointer;
 }
 
+.mcp-client-tab:hover {
+  border-color: var(--border-2);
+}
+
 .mcp-client-tab.active {
-  background: var(--accent, #4a9eff);
-  border-color: var(--accent, #4a9eff);
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
 
 .mcp-path {
   margin: 0;
   font-size: 12px;
-  color: var(--text-secondary, #888);
+  color: var(--text-3);
+}
+
+.mcp-path code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-2);
+  user-select: all;
 }
 
 .mcp-snippet {
@@ -166,40 +253,47 @@ async function copySnippet(): Promise<void> {
 
 .mcp-snippet pre {
   margin: 0;
-  padding: 12px 14px;
-  border-radius: 6px;
-  background: var(--bg-secondary, #1a1a1a);
-  border: 1px solid var(--border, #333);
+  padding: var(--space-3);
+  padding-right: 70px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.6;
   overflow-x: auto;
+  color: var(--text);
   user-select: all;
 }
 
 .mcp-copy-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 4px 10px;
-  border: 1px solid var(--border, #333);
-  border-radius: 5px;
-  background: var(--bg-primary, #252525);
-  color: var(--text-primary, #ddd);
-  font-size: 11px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-2);
   cursor: pointer;
 }
 
 .mcp-copy-btn:hover {
-  border-color: var(--accent, #4a9eff);
-  color: var(--accent, #4a9eff);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mcp-copy-snippet {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  font-size: 11px;
 }
 
 .mcp-token-hint {
   margin: 0;
   font-size: 12px;
-  color: var(--warn, #e0a800);
+  color: var(--text-3);
 }
 </style>
