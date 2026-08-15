@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCopyFeedbackId } from '../../composables/useClipboard'
 import { useAuth } from '../../composables/useAuth'
-import { Copy, Check, Bot, BookOpen } from 'lucide-vue-next'
+import { Copy, Check, BookOpen } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const { copiedId, copy } = useCopyFeedbackId<string>()
@@ -94,7 +94,7 @@ async function copyText(text: string, id: string): Promise<void> {
     </p>
 
     <div class="mcp-row">
-      <div class="mcp-label"><Bot :size="15" /> Endpoint</div>
+      <div class="mcp-label">Endpoint</div>
       <div class="mcp-value">
         <code>{{ endpoint }}</code>
         <button class="mcp-copy-btn" :title="t('settings.mcpCopy')" @click="copyText(endpoint, 'endpoint')">
@@ -189,10 +189,6 @@ async function copyText(text: string, id: string): Promise<void> {
   gap: var(--space-1);
   flex: 1;
   min-width: 0;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-2);
-  border: 1px solid var(--border);
 }
 
 .mcp-value code {
@@ -271,16 +267,14 @@ async function copyText(text: string, id: string): Promise<void> {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--text-2);
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
   cursor: pointer;
 }
 
 .mcp-copy-btn:hover {
-  border-color: var(--accent);
   color: var(--accent);
 }
 

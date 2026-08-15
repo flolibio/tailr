@@ -9,7 +9,7 @@ import AboutSection from './settings/AboutSection.vue'
 import McpSection from './settings/McpSection.vue'
 import RuntimeSection from './settings/RuntimeSection.vue'
 import type { Settings } from './SettingsPanel.vue'
-import { X, Settings as SettingsIcon, Info, Check, ChartNoAxesGantt, Activity } from 'lucide-vue-next'
+import { X, Settings as SettingsIcon, Info, Check, ChartNoAxesGantt, Activity, Bot } from 'lucide-vue-next'
 
 const props = defineProps<{
   settings: Settings
@@ -265,6 +265,8 @@ onUnmounted(() => {
               <Info v-else-if="item.icon === 'info'" class="nav-icon" :size="16" :stroke-width="2" />
               <!-- Activity icon (runtime) -->
               <Activity v-else-if="item.icon === 'activity'" class="nav-icon" :size="16" :stroke-width="2" />
+              <!-- Bot icon (MCP) -->
+              <Bot v-else-if="item.icon === 'bot'" class="nav-icon" :size="16" :stroke-width="2" />
               {{ item.label }}
             </button>
           </template>
