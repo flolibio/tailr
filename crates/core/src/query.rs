@@ -65,6 +65,8 @@ pub struct SearchRequest {
     pub time_budget_ms: Option<u64>,
     pub context_before: Option<usize>,
     pub context_after: Option<usize>,
+    /// 只计数不输出行内容（计数型查询；密集匹配时唯一可行的方式）。
+    pub count_only: bool,
 }
 
 /// 查询失败。core 只陈述事实（基线英文描述），表现层决定如何呈现
@@ -167,6 +169,7 @@ impl QueryService {
                 .unwrap_or(DEFAULT_CONTEXT)
                 .min(self.caps.max_context),
             max_line_bytes: self.caps.max_line_bytes,
+            count_only: request.count_only,
         };
 
         let _permit = self

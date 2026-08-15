@@ -43,6 +43,10 @@ pub struct ScanParams {
     pub context_before: usize,
     pub context_after: usize,
     pub max_line_bytes: usize,
+    /// 只计数不输出：跳过上下文窗口/环形缓冲/文本物化，纯匹配循环。
+    /// 「这个关键字有多少行」类问题在密集匹配下靠翻页数完不可行，
+    /// count 模式让单页吞吐更高、返回体只有几百字节。
+    pub count_only: bool,
 }
 
 impl Default for ScanParams {
@@ -57,6 +61,7 @@ impl Default for ScanParams {
             context_before: DEFAULT_CONTEXT,
             context_after: DEFAULT_CONTEXT,
             max_line_bytes: DEFAULT_MAX_LINE_BYTES,
+            count_only: false,
         }
     }
 }
@@ -368,6 +373,17 @@ fn scan_bytes(data: &[u8], params: &ScanParams, cancel: Option<&AtomicBool>) -> 
     while let Some((line_no, offset, line)) = cursor.next_line() {
         let len = line.len();
         let is_match = matcher.matches(line);
+
+        if params.count_only {
+            if is_match {
+                matched += 1;
+                if matched as usize >= params.max_matches {
+                    truncated = true;
+                    break;
+                }
+            }
+            continue;
+        }
 
         if is_match {
             matched += 1;
@@ -745,6 +761,33 @@ mod tests {
         assert_eq!(m.len(), 1);
         assert_eq!(m[0].line_no, 7); // "line 6 ERR"
         assert_eq!(r.lines_scanned, 7); // line 4..10
+    }
+
+    #[test]
+    fn count_only_counts_without_windows_and_pages() {
+        let content: String = (0..30)
+            .map(|i| format!("line {i:02} {}\n", if i % 3 == 0 { "HIT" } else { "ok" }))
+            .collect();
+        let (_f, path) = write_log(&content);
+
+        // 第一页：数到 max_matches=5 截断，无窗口输出
+        let mut p = params(&["HIT"]);
+        p.count_only = true;
+        p.max_matches = 5;
+        let r1 = scan_file(&path, &p, None).unwrap();
+        assert!(r1.truncated);
+        assert_eq!(r1.matched_lines, 5);
+        assert!(r1.windows.is_empty());
+
+        // 续页数完：30 行 / 3 = 10 个命中
+        let mut p2 = params(&["HIT"]);
+        p2.count_only = true;
+        p2.max_matches = 1000;
+        p2.start_offset = r1.resume_offset;
+        p2.start_line = r1.resume_line;
+        let r2 = scan_file(&path, &p2, None).unwrap();
+        assert!(r2.eof_reached);
+        assert_eq!(r1.matched_lines + r2.matched_lines, 10);
     }
 
     #[test]

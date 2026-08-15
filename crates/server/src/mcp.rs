@@ -160,6 +160,8 @@ pub struct SearchLogsArgs {
     pub path: String,
     /// Keywords that must ALL appear in a line (AND, case-insensitive). Use 2-3 specific ones to keep matches low.
     pub keywords: Vec<String>,
+    /// true = only COUNT matching lines, no line content returned. Much faster per page and near-zero output tokens — use this for any "how many" question, especially when matches are dense.
+    pub count_only: Option<bool>,
     /// Context lines before/after each match (default 2, max 10)
     pub context_lines: Option<usize>,
     /// Max matched lines to return per page (default 50, server caps it)
@@ -329,13 +331,14 @@ impl McpTools {
         )]))
     }
 
-    #[tool(description = "Search a log file for lines containing ALL keywords (AND, case-insensitive). Returns matching lines merged into context windows (± context_lines). Recommended workflow: get_log_stats first, then search with 2-3 specific keywords. Logs can be huge — keep keywords specific and don't request huge max_matches. If more/truncated is true, continue with resumeCursor (never restart from the beginning). A timeout also returns partial results + resumeCursor, so just continue.")]
+    #[tool(description = "Search a log file for lines containing ALL keywords (AND, case-insensitive). For 'how many/how often' questions set count_only=true (fast, counts without content). For inspection, returns matching lines merged into context windows (± context_lines). Workflow: get_log_stats first, then search with 2-3 specific keywords. If more/truncated is true, continue with resumeCursor (never restart); a timeout also returns partial results + resumeCursor — just continue. When reporting results, state the raw matched LINE count first, then any higher-level grouping you derive (e.g. request-pairs) — users usually think in lines.")]
     async fn search_logs(
         &self,
         Parameters(args): Parameters<SearchLogsArgs>,
     ) -> Result<CallToolResult, McpError> {
         let request = SearchRequest {
             keywords: args.keywords,
+            count_only: args.count_only.unwrap_or(false),
             max_matches: args.max_matches,
             time_budget_ms: args.timeout_ms,
             context_before: args.context_lines,
