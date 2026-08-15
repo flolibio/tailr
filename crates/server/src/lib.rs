@@ -277,7 +277,12 @@ pub fn app(
         mcp::routes(state.clone())
             .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
     } else {
-        Router::new()
+        // 显式 404（而非落进 SPA fallback）：禁用的端点对外应表现为"不存在"，
+        // 不受前端 dist 是否构建影响。
+        Router::new().route(
+            "/mcp",
+            axum::routing::any(|| async { axum::http::StatusCode::NOT_FOUND }),
+        )
     };
 
     // Everything else gets the auth middleware + governor.

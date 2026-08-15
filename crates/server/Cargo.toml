@@ -63,3 +63,12 @@ tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
 # URL-encoding helper for constructing query strings in integration tests.
 urlencoding = "2"
+# MCP protocol-level integration tests: real streamable-HTTP round trip via
+# the official client (reqwest-backed). Lib feature set stays server-only;
+# the union (client + reqwest) applies to test builds only.
+rmcp = { version = "0.5", features = [
+    "client",
+    "transport-streamable-http-client",
+    "reqwest",
+] }
+reqwest = { version = "0.12", default-features = false }
