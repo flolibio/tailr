@@ -229,7 +229,7 @@ async function copyText(text: string, id: string): Promise<void> {
 }
 
 .mcp-client-tab.active {
-  background: transparent;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-color: var(--accent);
   color: var(--accent);
 }
