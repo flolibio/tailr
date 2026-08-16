@@ -20,6 +20,10 @@ use std::time::{Duration, Instant};
 /// 避免每行一次 `Instant::now()` 的开销。
 const CHUNK_SIZE: usize = 4 * 1024 * 1024;
 
+/// 单次换行搜索的窗口上限。行可能横跨整个文件（病态单行日志），
+/// 窗口化保证超长行内也有预算/取消检查点。
+const NEWLINE_SCAN_WINDOW: usize = 1024 * 1024;
+
 pub const DEFAULT_MAX_MATCHES: usize = 50;
 pub const DEFAULT_MAX_BYTES: usize = 128 * 1024;
 pub const DEFAULT_TIME_BUDGET: Duration = Duration::from_secs(10);
@@ -176,16 +180,40 @@ impl<'a> LineCursor<'a> {
         let offset = self.pos;
         let line_no = self.line_no;
         let rest = &self.data[self.pos..];
-        let mut end = match memchr(b'\n', rest) {
-            Some(nl) => {
-                self.pos += nl + 1;
-                nl
+        // 窗口化找换行：预算/取消检查按行推进，而"行"可能横跨整个文件
+        // （压缩 JSON 单行日志）。每个扫描窗口边界检查一次，保证病态
+        // 单行文件也不会让时间预算与取消失效。
+        let mut end;
+        let mut scanned = 0usize;
+        loop {
+            let window = &rest[scanned..(scanned + NEWLINE_SCAN_WINDOW).min(rest.len())];
+            match memchr(b'\n', window) {
+                Some(nl) => {
+                    end = scanned + nl;
+                    self.pos += end + 1;
+                    break;
+                }
+                None => {
+                    scanned += window.len();
+                    if scanned >= rest.len() {
+                        // 文件尾（无换行的末行）
+                        self.pos = len;
+                        end = rest.len();
+                        break;
+                    }
+                    if Instant::now() >= self.deadline {
+                        self.stop = Some(Stop::Deadline);
+                        return None;
+                    }
+                    if let Some(c) = self.cancel {
+                        if c.load(Ordering::Relaxed) {
+                            self.stop = Some(Stop::Cancelled);
+                            return None;
+                        }
+                    }
+                }
             }
-            None => {
-                self.pos = len;
-                rest.len()
-            }
-        };
+        }
         if end > 0 && rest[end - 1] == b'\r' {
             end -= 1;
         }
@@ -270,12 +298,16 @@ struct RawWindow {
     entries: Vec<RawEntry>,
     end_line: u64,
     after_left: usize,
+    /// 输出字节预算的记账值。物化时单行会截断到 max_line_bytes，
+    /// 所以按 min(原始行长, 截断长度) 记账——否则一个 2GB 的命中行
+    /// （实际输出 4KB）会瞬间耗尽任何输出预算。
     bytes_out: usize,
+    line_cap: usize,
 }
 
 impl RawWindow {
     fn push(&mut self, line_no: u64, offset: u64, len: usize, is_match: bool) {
-        self.bytes_out += len + 1;
+        self.bytes_out += (len + 1).min(self.line_cap + LINE_TRUNCATION_MARKER.len() + 1);
         self.end_line = line_no;
         self.entries.push(RawEntry {
             line_no,
@@ -419,6 +451,7 @@ fn scan_bytes(data: &[u8], params: &ScanParams, cancel: Option<&AtomicBool>) -> 
                         end_line: 0,
                         after_left: params.context_after,
                         bytes_out: 0,
+                        line_cap: params.max_line_bytes,
                     };
                     for (bn, bo, bl) in ring.iter().copied() {
                         w.push(bn, bo, bl, false);
@@ -780,6 +813,29 @@ mod tests {
         assert!(r.eof_reached);
         assert!(!r.truncated);
         assert!(r.windows.is_empty());
+    }
+
+    #[test]
+    fn line_longer_than_scan_window_is_parsed_correctly() {
+        // 构造一个 >1MB 的单行（跨多个 NEWLINE_SCAN_WINDOW），命中关键字
+        // 在长行末尾 + 后续短行——验证窗口化找换行不破坏行边界/行号。
+        let mut content = String::with_capacity(3 * 1024 * 1024);
+        content.push_str("start ");
+        content.push_str(&"x".repeat(3 * 1024 * 1024));
+        content.push_str(" NEEDLE\n");
+        content.push_str("after ok\n");
+        content.push_str("tail NEEDLE\n");
+        let (_f, path) = write_log(&content);
+
+        let r = scan_file(&path, &params(&["NEEDLE"]), None).unwrap();
+        assert_eq!(r.matched_lines, 2);
+        assert!(r.eof_reached);
+        let texts: Vec<&str> = flat_entries(&r).iter().map(|e| e.text.as_str()).collect();
+        // 长行被 max_line_bytes 截断但命中保留
+        assert!(texts[0].contains("NEEDLE") || r.windows[0].entries[0].line_truncated);
+        assert_eq!(r.windows[0].entries.iter().filter(|e| e.is_match).count(), 2);
+        // 3 行文件：行号 1..=3
+        assert_eq!(r.windows[0].end_line, 3);
     }
 
     #[test]

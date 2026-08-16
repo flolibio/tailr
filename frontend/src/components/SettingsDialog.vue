@@ -46,7 +46,7 @@ const navItems = computed<{ key: NavSection; label: string; icon: string; sectio
     key: 'mcp',
     label: t('settings.mcp'),
     icon: 'bot',
-    section: t('settings.integration'),
+    section: t('settings.labs'),
   },
   {
     key: 'runtime',

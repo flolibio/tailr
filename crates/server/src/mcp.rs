@@ -43,6 +43,8 @@ use crate::AppState;
 const MAX_LINE_BYTES: usize = 4 * 1024;
 const LINE_TRUNCATION_MARKER: &str = "…[line truncated]";
 const MAX_TAIL_LINES: usize = 5000;
+/// 尾部读取的字节上限（5000 行 × 平均 13KB 以上才可能触到）。
+const TAIL_READ_CAP: u64 = 64 * 1024 * 1024;
 /// MCP 列文件的递归深度：浏览器约定 ≤2，AI 不需要更深的树。
 const MCP_LIST_DEPTH: u32 = 2;
 
@@ -261,7 +263,7 @@ impl McpTools {
         )]))
     }
 
-    #[tool(description = "Read the LAST N lines of a log file (default 100, max 5000) with absolute line numbers. Good for a quick look at recent activity; prefer get_log_stats + search_logs for anything bigger.")]
+    #[tool(description = "Read the LAST N lines of a log file (default 100, max 5000) with absolute line numbers. Good for a quick look at recent activity; prefer get_log_stats + search_logs for anything bigger. If truncated is true, the tail exceeded the byte cap — request fewer lines.")]
     async fn tail_log(
         &self,
         Parameters(args): Parameters<TailLogArgs>,
@@ -291,11 +293,18 @@ impl McpTools {
             }
             let start_line = total_lines.saturating_sub(n as u64) + 1;
             // 只读尾部窗口（seek + read），多 GB 文件也只占 N 行内存。
+            // 64MB 读取上限：尾部 N 行超出时【显式标记截断】——静默少行
+            // 会让 AI 以为拿到了完整数据。
             let mut file = std::fs::File::open(&path_buf).map_err(query_io)?;
             use std::io::{Read, Seek, SeekFrom};
             let mut buf = Vec::new();
             file.seek(SeekFrom::Start(tail.start_byte)).map_err(query_io)?;
-            file.take(64 * 1024 * 1024).read_to_end(&mut buf).map_err(query_io)?;
+            let read = file
+                .take(TAIL_READ_CAP)
+                .read_to_end(&mut buf)
+                .map_err(query_io)?;
+            let file_len = std::fs::metadata(&path_buf).map(|m| m.len()).unwrap_or(0);
+            let tail_truncated = file_len.saturating_sub(tail.start_byte) > read as u64;
             let mut line_no = start_line;
             let lines: Vec<serde_json::Value> = buf
                 .split(|&b| b == b'\n')
@@ -315,6 +324,7 @@ impl McpTools {
                 "lines": lines,
                 "totalLines": total_lines,
                 "sizeBytes": stats.total_bytes,
+                "truncated": tail_truncated,
             }))
         })
         .await
