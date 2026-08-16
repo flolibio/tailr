@@ -47,8 +47,10 @@ pub struct AppState {
     pub level_detector: Arc<ArcSwap<LevelDetector>>,
     pub config_path: PathBuf,
     pub token: String,
-    /// `[mcp] token`（独立于全局 token）。None = 未配置（/mcp 回落到全局）。
+    /// `[mcp] token`（独立于全局 token，不继承）。未设置/空 = /mcp 免认证。
     pub mcp_token: Option<String>,
+    /// `[mcp] enabled`（/mcp 是否挂载）。
+    pub mcp_enabled: bool,
     pub allowed_dirs: Vec<PathBuf>,
     pub log_timezone: Arc<LogTimezone>,
     pub upgrade_service: Arc<upgrade::UpgradeService>,
@@ -86,10 +88,10 @@ async fn auth_middleware(
     request: Request,
     next: Next,
 ) -> Response {
-    // `/mcp` 用独立 token（[mcp] token）——None 时回落到全局 token，
-    // 保证升级到 v1.1 的存量部署行为不变；Some("") 是显式放开 MCP 认证。
+    // `/mcp` 用独立 token（[mcp] token），完全不继承全局 token：
+    // 设置了（非空）才要求认证，未设置/空串 = 无需认证。
     let effective_token: &str = if request.uri().path() == "/mcp" {
-        state.mcp_token.as_deref().unwrap_or(&state.token)
+        state.mcp_token.as_deref().unwrap_or("")
     } else {
         &state.token
     };
@@ -199,12 +201,9 @@ pub fn app(
         .clone()
         .unwrap_or_else(runtime::RuntimeSampler::host_name);
 
-    if mcp.enabled
-        && mcp.token.as_deref() == Some("")
-        && !token.is_empty()
-    {
+    if mcp.enabled && mcp.token.as_deref().unwrap_or("").is_empty() && !token.is_empty() {
         tracing::warn!(
-            "[mcp] token is empty while the global token is set — /mcp is              UNAUTHENTICATED while the web UI stays locked; this is an              explicit opt-in, make sure it is intended"
+            "[mcp] token is not set while the global token is — /mcp is              UNAUTHENTICATED while the web UI stays locked; set [mcp] token              to lock it down"
         );
     }
 
@@ -222,6 +221,7 @@ pub fn app(
         config_path,
         token,
         mcp_token: mcp.token.clone(),
+        mcp_enabled: mcp.enabled,
         allowed_dirs,
         log_timezone: log_timezone_arc,
         upgrade_service: upgrade::shared_service(),

@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCopyFeedbackId } from '../../composables/useClipboard'
-import { useAuth } from '../../composables/useAuth'
 import { healthCheck } from '../../services/api'
 import { Copy, Check, BookOpen } from 'lucide-vue-next'
 
@@ -11,33 +10,25 @@ const { copiedId, copy } = useCopyFeedbackId<string>()
 
 const endpoint = computed(() => `${window.location.origin}/mcp`)
 
-// 探测服务端真实认证状态：不带凭证请求 /api/health（免限流只读端点），
-// 401 = 需要认证。不能只看 localStorage——那是上一次登录的残留，服务端
-// 关掉认证后页面仍会误显示 token。
-const authRequired = ref(true)
+// 服务端 MCP 自身的认证/启用状态（来自 /api/health，与全局 token 无关）：
+// - mcpAuthRequired：[mcp] token 已设置（非空）→ /mcp 需要该专用 token
+// - mcpEnabled：[mcp] enabled（默认 true）
+// token 值永不回传前端，专用认证时片段使用占位符由用户手动替换。
+const mcpAuthRequired = ref(false)
+const mcpEnabled = ref(true)
 const probing = ref(true)
-const mcpDedicated = ref(false)
 onMounted(async () => {
   try {
-    // 原生 fetch（不经 api.ts，避免自动附带 localStorage 的 token）
-    const res = await fetch('/api/health')
-    authRequired.value = res.status === 401
-    // 认证开启时再取专用 token 标志（api.ts 会自动附带登录凭证）
-    if (authRequired.value) {
-      const health = await healthCheck()
-      mcpDedicated.value = health.mcpTokenDedicated ?? false
-    }
+    const health = await healthCheck()
+    mcpAuthRequired.value = health.mcpAuthRequired ?? false
+    mcpEnabled.value = health.mcpEnabled ?? true
   } catch {
-    authRequired.value = true
+    mcpAuthRequired.value = false
+    mcpEnabled.value = true
   } finally {
     probing.value = false
   }
 })
-
-// 只读展示登录 token（填进片段便于开箱即用）。token 只能在服务端
-// config.toml 设置，页面不提供修改入口；服务端配置了独立 [mcp] token 时，
-// 由 mcp_dedicated 标志给出替换提示（值本身永不回传前端）。
-const token = useAuth().getToken()
 
 type Client = 'claudeCode' | 'cursor' | 'codex' | 'opencode' | 'generic'
 const client = ref<Client>('claudeCode')
@@ -56,8 +47,10 @@ const configPath = computed(
 
 const snippet = computed(() => {
   const url = endpoint.value
-  const tk = token
-  const auth = authRequired.value && tk ? { Authorization: `Bearer ${tk}` } : null
+  const auth = mcpAuthRequired.value
+    ? { Authorization: 'Bearer <MCP_TOKEN>' }
+    : null
+  const tk = '<MCP_TOKEN>'
   switch (client.value) {
     case 'claudeCode':
       // Claude Code requires type:"http" — a bare url entry is skipped.
@@ -129,17 +122,6 @@ async function copyText(text: string, id: string): Promise<void> {
       </div>
     </div>
 
-    <div v-if="authRequired && !probing" class="mcp-row">
-      <div class="mcp-label">Token</div>
-      <div class="mcp-value">
-        <code>{{ token }}</code>
-        <button class="mcp-copy-btn" :title="t('settings.mcpCopy')" @click="copyText(token, 'token')">
-          <Check v-if="copiedId === 'token'" :size="13" />
-          <Copy v-else :size="13" />
-        </button>
-      </div>
-    </div>
-
     <div class="mcp-clients" role="tablist">
       <button
         v-for="c in clients"
@@ -171,8 +153,9 @@ async function copyText(text: string, id: string): Promise<void> {
       </button>
     </div>
 
-    <p v-if="!probing && !authRequired" class="mcp-token-hint">{{ t('settings.mcpTokenHint') }}</p>
-    <p v-else-if="!probing && mcpDedicated" class="mcp-token-hint">{{ t('settings.mcpDedicatedHint') }}</p>
+    <p v-if="!probing && !mcpEnabled" class="mcp-warn-hint">{{ t('settings.mcpDisabledHint') }}</p>
+    <p v-else-if="!probing && mcpAuthRequired" class="mcp-token-hint">{{ t('settings.mcpDedicatedHint') }}</p>
+    <p v-else-if="!probing" class="mcp-token-hint">{{ t('settings.mcpTokenHint') }}</p>
   </div>
 </template>
 
@@ -320,6 +303,12 @@ async function copyText(text: string, id: string): Promise<void> {
   margin: 0;
   font-size: 12px;
   color: var(--text-3);
+}
+
+.mcp-warn-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--warn, #e0a800);
 }
 
 </style>

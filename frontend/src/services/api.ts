@@ -143,8 +143,10 @@ export interface HealthData {
   version: string
   uptimeSeconds: number
   upgradeInProgress: boolean
-  /** True when a dedicated [mcp] token is configured server-side. */
-  mcpTokenDedicated?: boolean
+  /** True when a dedicated [mcp] token (non-empty) is configured — /mcp requires it. */
+  mcpAuthRequired?: boolean
+  /** True when the /mcp endpoint is mounted ([mcp] enabled, default true). */
+  mcpEnabled?: boolean
 }
 
 export async function healthCheck(): Promise<HealthData> {

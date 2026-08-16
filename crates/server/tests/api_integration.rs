@@ -56,6 +56,7 @@ fn make_state(log_dirs: Vec<PathBuf>, config_path: PathBuf, token: String) -> Ar
         config_path,
         token,
         mcp_token: None,
+        mcp_enabled: true,
         allowed_dirs: log_dirs,
         log_timezone: Arc::new(LogTimezone::default()),
         upgrade_service: Arc::new(upgrade::UpgradeService::new()),

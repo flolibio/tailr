@@ -194,25 +194,23 @@ async fn full_protocol_roundtrip() {
 }
 
 #[tokio::test]
-async fn unauthenticated_client_is_rejected() {
+async fn rest_locked_but_mcp_open_when_token_unset() {
     let dir = fixture_dir();
     let url = spawn_app(McpConfig::default(), dir).await;
 
-    // 原始 HTTP：无 token 401
+    // REST：全局 token 锁着（无凭证 401）
+    let base = url.trim_end_matches("/mcp");
     let status = reqwest::Client::new()
-        .post(&url)
-        .header("Content-Type", "application/json")
-        .header("Accept", "application/json, text/event-stream")
-        .body(r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}"#)
+        .get(format!("{base}/api/health"))
         .send()
         .await
         .unwrap()
         .status();
     assert_eq!(status, 401);
 
-    // rmcp 客户端：握手失败（服务端拒绝未认证请求）
-    let result = connect(&url, None).await;
-    assert!(result.is_err(), "unauthenticated handshake must fail");
+    // MCP：[mcp] token 未设置 = 免认证（不继承全局 token）
+    let client = connect(&url, None).await.expect("open mcp handshake");
+    let _ = client.list_all_tools().await.unwrap();
 }
 
 #[tokio::test]
@@ -305,19 +303,19 @@ async fn mcp_empty_token_opens_mcp_while_global_still_locks_rest() {
 }
 
 #[tokio::test]
-async fn mcp_token_unset_falls_back_to_global() {
+async fn mcp_empty_token_is_open_same_as_unset() {
     let dir = fixture_dir();
-    // token: None → 回落全局 token（升级安全的默认）
+    // token: Some("") 与 unset 等价：开放
     let url = spawn_app_with_token(
         McpConfig {
             enabled: true,
             host_name: None,
-            token: None,
+            token: Some(String::new()),
         },
         dir.clone(),
         TOKEN,
     )
     .await;
-    let client = connect(&url, Some(TOKEN)).await.expect("global token fallback");
+    let client = connect(&url, None).await.expect("open mcp handshake");
     let _ = client.list_all_tools().await.unwrap();
 }

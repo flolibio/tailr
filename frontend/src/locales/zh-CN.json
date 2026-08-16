@@ -101,10 +101,11 @@
     "mcpConfigPath": "配置文件",
     "mcpCopy": "复制",
     "mcpCopied": "已复制",
-    "mcpTokenHint": "当前服务未启用 token 认证，配置片段中已省略 headers；启用认证后重新打开此页可获取完整配置。",
+    "mcpTokenHint": "此服务器的 /mcp 当前无需认证，配置片段中已省略 Authorization。",
     "mcpToken": "Token",
     "mcpGenericClient": "通用",
-    "mcpDedicatedHint": "服务端已配置独立的 [mcp] token——片段中的登录 token 无法解锁 /mcp，请把客户端配置里的 Authorization 替换为该专用值。"
+    "mcpDedicatedHint": "服务端已启用 MCP 专用认证——请把片段中的 MCP_TOKEN 占位值替换为 config.toml 里 [mcp] token 的实际值。",
+    "mcpDisabledHint": "/mcp 端点已在服务端禁用（[mcp] enabled = false），以下配置当前不可用。"
   },
   "toast": {
     "close": "关闭"
