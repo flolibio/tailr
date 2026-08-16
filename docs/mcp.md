@@ -91,11 +91,11 @@ Everything is budget-capped server-side (matches, output bytes, scan time), so e
 # Display name in tool responses (defaults to the system hostname).
 # host_name = "web1-prod"
 
-# Dedicated Bearer token for /mcp, independent of the global `token`:
-# - unset  → /mcp requires the global token (default; upgrade-safe)
-# - set    → only this token unlocks /mcp; the global one is refused
-# - ""     → /mcp is open even when the web UI requires a token (explicit
-#            opt-in; logs a startup warning)
+# Dedicated Bearer token for /mcp — fully independent of the global
+# `token` above (the global token NEVER unlocks /mcp):
+# - set    → only this token unlocks /mcp
+# - unset  → /mcp is unauthenticated; a startup warning is logged when
+#            the web UI is locked by the global token while /mcp is open
 # token = "mcp-specific-secret"
 ```
 
@@ -106,7 +106,7 @@ All keys are optional; existing configs work unchanged.
 | Symptom | Cause / fix |
 |---|---|
 | Claude Code logs `has a "url" but no "type"` | Add `"type": "http"` to the entry |
-| 401 on connect | Token mismatch — whichever of `[mcp] token` / global `token` applies to `/mcp` (see above) |
+| 401 on connect | A `[mcp] token` is set and yours differs — `/mcp` never accepts the global token |
 | 404 on connect | `[mcp] enabled = false` on that server |
 | Client can't reach the server | Check `bind` address and firewall; the port is the same as the web UI |
 | Search returns partial results | That's the timeout budget paging — the agent continues via `resumeCursor` automatically; final answers use `more: false` |
