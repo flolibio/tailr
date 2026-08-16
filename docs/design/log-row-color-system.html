@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>日志行配色体系 · v0.7.0 设计图谱</title>
+<title>Log Row Color System · v0.7.0 Design Map</title>
 <style>
   :root {
-    /* ── 浅色主题：与项目 style.css 对齐 ── */
+    /* ── Light theme: aligned with the project style.css ── */
     --bg: #ffffff;
     --bg-2: #f6f6f5;
     --bg-3: #efeeec;
@@ -16,7 +16,7 @@
     --border: rgba(23,23,23,0.09);
     --border-2: rgba(23,23,23,0.18);
 
-    /* level 语义色（text 色是同色系的本源） */
+    /* Level semantic colors (the text color is the root of each family) */
     --lv-alert:  #CC2D26;
     --lv-error:  #A32D2D;
     --lv-warn:   #854F0B;
@@ -81,10 +81,10 @@
   .toolbar-label { font-size: 11px; color: var(--text-3); margin-right: 2px; text-transform: uppercase; letter-spacing: .04em; align-self: center; }
   .toolbar-group { display: flex; align-items: center; gap: 6px; }
 
-  /* 页面背景：纯净（--bg），与卡片无色差，靠边框/间距分隔 */
+  /* Page background: pure (--bg), no delta against cards; separation via borders/spacing */
   body.bg-pure { background: var(--bg); }
 
-  /* ── 设计原则 ── */
+  /* ── Design principles ── */
   .principles {
     background: var(--bg); border: 1px solid var(--border);
     border-radius: 12px; padding: 28px 32px; margin-bottom: 40px;
@@ -112,7 +112,7 @@
   }
   section .desc { font-size: 13px; color: var(--text-3); margin-bottom: 20px; margin-left: 32px; }
 
-  /* ── 图谱表格 ── */
+  /* ── Map tables ── */
   table {
     width: 100%; border-collapse: collapse;
     background: var(--bg); border: 1px solid var(--border);
@@ -134,8 +134,8 @@
   .badge-info  { color: var(--lv-info); }
   .badge-debug { color: var(--lv-debug); }
 
-  /* ── 色源表格行：本身即交互演示 ── */
-  /* 每个演示行声明自己的 --lv-cur，背景按状态透明度合成 */
+  /* ── Color-source table rows: the rows themselves are the interactive demo ── */
+  /* Each demo row declares its own --lv-cur; backgrounds composite by state opacity */
   table.demo tr.lv-row { cursor: pointer; transition: background .18s ease; }
   table.demo tr.lv-row:hover {
     background: color-mix(in srgb, var(--lv-cur) 10%, var(--bg));
@@ -152,7 +152,7 @@
   table.demo tr.lv-row.is-marked:hover {
     background: color-mix(in srgb, var(--lv-cur) 18%, var(--bg));
   }
-  /* 行内操作图标 */
+  /* In-row action icons */
   table.demo .row-star {
     cursor: pointer; font-size: 15px; line-height: 1;
     color: var(--c-star, #D4A017); opacity: .25;
@@ -185,18 +185,19 @@
   .compare li { margin-bottom: 6px; line-height: 1.6; }
   .compare li code { font-family: var(--font-mono); font-size: 11px; background: var(--bg-3); padding: 1px 5px; border-radius: 3px; }
 
-  /* ── chip 色系 ── */
-  /* 关键词区分色板：5 个和谐色相，固定色相值（深浅主题共用），
-     透明度按主题调节（浅色浓、深色淡），保证可读性。 */
+  /* ── Chip palette ── */
+  /* Keyword accent palette: 5 harmonious hues with fixed hue values
+     (shared across themes); opacity is tuned per theme (denser on light,
+     lighter on dark) for readability. */
   :root {
-    --kw-1: 43  96%  50%;  /* 琥珀 amber */
-    --kw-2: 200 95%  55%;  /* 天蓝 sky */
-    --kw-3: 280 75%  60%;  /* 紫罗兰 violet */
-    --kw-4: 150 65%  45%;  /* 翡翠 emerald */
-    --kw-5: 20  90%  55%;  /* 橘红 tangerine */
+    --kw-1: 43  96%  50%;  /* amber */
+    --kw-2: 200 95%  55%;  /* sky */
+    --kw-3: 280 75%  60%;  /* violet */
+    --kw-4: 150 65%  45%;  /* emerald */
+    --kw-5: 20  90%  55%;  /* tangerine */
   }
   body.dark {
-    /* 深色主题：降低亮度，提高饱和度，暗底上更鲜亮 */
+    /* Dark theme: lower lightness, higher saturation — brighter on dark backgrounds */
     --kw-1: 43  100% 60%;
     --kw-2: 200 100% 65%;
     --kw-3: 280 80%  68%;
@@ -204,7 +205,7 @@
     --kw-5: 20  100% 62%;
   }
 
-  /* chip 组件演示 */
+  /* Chip component demo */
   .chip-demo {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 3px 6px 3px 10px;
@@ -220,7 +221,7 @@
   }
   .chip-demo .chip-x:hover { background: hsl(var(--kw-cur) / 20%); color: hsl(var(--kw-cur)); }
 
-  /* chip 默认态（浅底） */
+  /* Chip default state (tinted background) */
   .chip-demo.kw-bg {
     background: hsl(var(--kw-cur) / 14%);
     color: hsl(var(--kw-cur) / 90%);
@@ -230,7 +231,7 @@
     color: hsl(var(--kw-cur) / 85%);
   }
 
-  /* chip hover 态（略加深） */
+  /* Chip hover state (slightly deeper) */
   .chip-demo.kw-bg-hover {
     background: hsl(var(--kw-cur) / 22%);
     color: hsl(var(--kw-cur));
@@ -239,7 +240,7 @@
     background: hsl(var(--kw-cur) / 26%);
   }
 
-  /* 搜索框 mock */
+  /* Searchbar mock */
   .searchbar-mock {
     display: flex; align-items: center; gap: 4px;
     height: 36px; border: 1px solid var(--border); border-radius: 8px;
@@ -253,7 +254,7 @@
   .searchbar-mock .mock-ph { color: var(--text-3); }
   .searchbar-mock.focused { border-color: var(--border-2); background: var(--bg); }
 
-  /* 日志行内 <mark> 高亮演示（与 chip 同色） */
+  /* In-log-line <mark> highlight demo (same color as chips) */
   .mark-demo {
     font-family: var(--font-mono); font-size: 12px; color: var(--text-2);
     padding: 8px 12px; background: var(--bg);
@@ -269,8 +270,8 @@
   .chip-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
   .chip-row .row-label { font-size: 12px; color: var(--text-3); min-width: 60px; }
 
-  /* ── 应用框架 mock：凹陷侧栏方案 ── */
-  /* 三层背景：sidebar 最深(bg-2) > globalbar 极浅凹陷(text 3%) > content/statusbar 最亮(bg) */
+  /* ── App frame mock: recessed-sidebar scheme ── */
+  /* Three background layers: sidebar deepest (bg-2) > globalbar slightly recessed (text 3%) > content/statusbar brightest (bg) */
   .app-mock {
     --m-globalbar: color-mix(in srgb, var(--text) 3%, var(--bg));
     --m-statusbar: var(--bg);
@@ -319,13 +320,13 @@
     color: var(--text-3); cursor: pointer; white-space: nowrap;
     transition: background .12s, color .12s;
   }
-  /* hover：药丸效果（与真实 TabBar 一致） */
+  /* hover: pill effect (matches the real TabBar) */
   .app-mock .m-tab:hover:not(.active) {
     background: color-mix(in srgb, var(--text) 5%, var(--m-globalbar));
     color: var(--text-2);
     border-radius: 6px;
   }
-  /* active：填充内容区底色（--bg），从工具栏"浮出" */
+  /* active: filled with the content background (--bg), "floating" out of the toolbar */
   .app-mock .m-tab.active {
     background: var(--bg); color: var(--text); font-weight: 600;
     border-radius: 6px 6px 0 0;
@@ -369,35 +370,35 @@
 <div class="wrap">
 
 <header>
-  <h1>日志行配色体系</h1>
-  <p>v0.7.0 设计图谱 · 同色系 · 透明度分层 · 图标识</p>
+  <h1>Log Row Color System</h1>
+  <p>v0.7.0 design map · monochromatic families · opacity layering · icon identifiers</p>
 </header>
 
 <div class="toolbar">
   <div class="toolbar-group">
-    <span class="toolbar-label">主题</span>
-    <button class="active" onclick="setTheme('light', this)">浅色</button>
-    <button onclick="setTheme('dark', this)">深色</button>
+    <span class="toolbar-label">Theme</span>
+    <button class="active" onclick="setTheme('light', this)">Light</button>
+    <button onclick="setTheme('dark', this)">Dark</button>
   </div>
 </div>
 
-<!-- ───────── 设计原则 ───────── -->
+<!-- ───────── Design principles ───────── -->
 <div class="principles">
-  <h2>设计原则</h2>
+  <h2>Design Principles</h2>
   <ol>
-    <li><b>level 色是唯一语义色源</b>。alert/error/warn/info/debug/trace 的 text 色（<code>--c-*-text</code>）是整个体系的"根色"。所有行状态——hover、marked（点击选中）、bookmarked——都从所属 level 的根色派生，而非另起固定色。这样一行 ERROR 无论在什么状态下都"看起来是红的"，语义不丢。</li>
-    <li><b>状态用透明度区分，不用色相</b>。同一 level 色的不同透明度代表不同状态强度：hover ≈ 10%、marked ≈ 14%（加左侧条）、bookmarked ≈ 8%（加图标）。透明度越高 = 用户介入越深。这样色相统一、层次清晰。</li>
-    <li><b>图标承担状态识别，颜色不背这个锅</b>。bookmarked 用 <code>★</code> 书签图标，marked 用左侧色条 + 选中图标。靠图标一眼区分"我收藏的"和"我点的"，而非靠两个相近的青蓝色去猜。</li>
-    <li><b>消除硬编码色</b>。当前 <code>is-copied</code>(rgba(24,95,165))、<code>is-highlighted</code>(rgba(255,220,0))、<code>is-marked</code>(rgba(100,210,255)) 都是硬编码，不随主题变化。新体系统一用 <code>color-mix(in srgb, var(--lv-*), var(--bg))</code>，自动适配深浅主题。</li>
+    <li><b>Level colors are the only semantic color source.</b> The text colors of alert/error/warn/info/debug/trace (<code>--c-*-text</code>) are the "root colors" of the whole system. Every row state — hover, marked (click-selected), bookmarked — derives from the owning level's root color instead of introducing fixed colors. An ERROR row "looks red" in any state; the semantics never get lost.</li>
+    <li><b>States differ by opacity, not hue.</b> Different opacities of the same level color encode state intensity: hover ≈ 10%, marked ≈ 14% (plus a left bar), bookmarked ≈ 8% (plus an icon). Higher opacity = deeper user involvement. Hues stay unified and the hierarchy stays legible.</li>
+    <li><b>Icons carry state identification; color does not.</b> Bookmarked rows use the <code>★</code> icon, marked rows use a left color bar + selection icon. Distinguishing "saved by me" from "clicked by me" is a one-glance icon read, not a guess between two similar cyans.</li>
+    <li><b>No hardcoded colors.</b> Today <code>is-copied</code> (rgba(24,95,165)), <code>is-highlighted</code> (rgba(255,220,0)) and <code>is-marked</code> (rgba(100,210,255)) are hardcoded and ignore the theme. The new system uniformly uses <code>color-mix(in srgb, var(--lv-*), var(--bg))</code>, adapting to light/dark automatically.</li>
   </ol>
 </div>
 
-<!-- ───────── 1. 色源：level 根色（可交互） ───────── -->
+<!-- ───────── 1. Color source: level root colors (interactive) ───────── -->
 <section>
-  <h2><span class="num">1</span> 色源：level 根色</h2>
-  <p class="desc">整个体系从这里派生。根色 = 现有 <code>--c-*-text</code>，保持与 badge 文字、filterbar 标签一致。<b>每行可直接交互</b>：悬停看 hover 色，点击行切换 marked（选中），点击 ★ 切换 bookmarked。</p>
+  <h2><span class="num">1</span> Color source: level root colors</h2>
+  <p class="desc">Everything derives from here. Root color = the existing <code>--c-*-text</code>, staying consistent with badge text and filterbar labels. <b>Every row is interactive</b>: hover to see the hover color, click a row to toggle marked (selected), click ★ to toggle bookmarked.</p>
   <table class="demo">
-    <thead><tr><th>Level</th><th>浅色根色</th><th>深色根色</th><th>CSS 变量</th><th>操作</th></tr></thead>
+    <thead><tr><th>Level</th><th>Light root</th><th>Dark root</th><th>CSS variable</th><th>Action</th></tr></thead>
     <tbody>
       <tr class="lv-row" style="--lv-cur: var(--lv-alert)">
         <td><span class="badge badge-alert">ALERT</span><span class="row-dot"></span></td>
@@ -445,70 +446,70 @@
   </table>
 </section>
 
-<!-- ───────── 2. 透明度分层 ───────── -->
+<!-- ───────── 2. Opacity layering ───────── -->
 <section>
-  <h2><span class="num">2</span> 透明度分层</h2>
-  <p class="desc">同一 level 根色，不同透明度 = 不同状态。强度递增：默认(0%) → bookmarked(8%) → hover(10%) → marked(14%)。用户介入越深，底色越浓。</p>
+  <h2><span class="num">2</span> Opacity layering</h2>
+  <p class="desc">Same level root color, different opacity = different state. Intensity ladder: default (0%) → bookmarked (8%) → hover (10%) → marked (14%). The deeper the user involvement, the denser the background.</p>
 
   <div class="token-strip" id="tokenStrip">
-    <div class="tok" style="background:var(--bg)"><span class="pct">0%</span><span class="lbl">默认</span><code>--bg</code></div>
-    <div class="tok" style="background:color-mix(in srgb, var(--lv-info) 8%, var(--bg))"><span class="pct">8%</span><span class="lbl">书签行</span><code>+ ★ 图标</code></div>
+    <div class="tok" style="background:var(--bg)"><span class="pct">0%</span><span class="lbl">default</span><code>--bg</code></div>
+    <div class="tok" style="background:color-mix(in srgb, var(--lv-info) 8%, var(--bg))"><span class="pct">8%</span><span class="lbl">bookmarked</span><code>+ ★ icon</code></div>
     <div class="tok" style="background:color-mix(in srgb, var(--lv-info) 10%, var(--bg))"><span class="pct">10%</span><span class="lbl">hover</span><code>level:hover</code></div>
-    <div class="tok" style="background:color-mix(in srgb, var(--lv-info) 14%, var(--bg))"><span class="pct">14%</span><span class="lbl">选中行</span><code>+ 左侧条</code></div>
+    <div class="tok" style="background:color-mix(in srgb, var(--lv-info) 14%, var(--bg))"><span class="pct">14%</span><span class="lbl">marked</span><code>+ left bar</code></div>
   </div>
 
   <table>
-    <thead><tr><th>状态</th><th>透明度</th><th>公式</th><th>附加标识</th><th>语义</th></tr></thead>
+    <thead><tr><th>State</th><th>Opacity</th><th>Formula</th><th>Extra identifier</th><th>Semantics</th></tr></thead>
     <tbody>
-      <tr><td>默认</td><td>0%</td><td><code>var(--bg)</code></td><td>—</td><td>未交互</td></tr>
-      <tr><td>bookmarked</td><td>8%</td><td><code>color-mix(lv, 8%, bg)</code></td><td>★ 书签图标（金色）</td><td>持久收藏</td></tr>
-      <tr><td>hover</td><td>10%</td><td><code>color-mix(lv, 10%, bg)</code></td><td>—</td><td>临时聚焦</td></tr>
-      <tr><td>marked（点击）</td><td>14%</td><td><code>color-mix(lv, 14%, bg)</code></td><td>左侧 3px 色条</td><td>当前选中</td></tr>
-      <tr><td>跳转高亮</td><td>14% + 动画</td><td><code>color-mix(lv, 14%, bg)</code></td><td>3s 渐隐脉冲</td><td>书签跳转着陆</td></tr>
-      <tr><td>复制反馈</td><td>10%</td><td><code>color-mix(accent, 10%, bg)</code></td><td>✓ 图标变 accent</td><td>操作确认</td></tr>
+      <tr><td>default</td><td>0%</td><td><code>var(--bg)</code></td><td>—</td><td>untouched</td></tr>
+      <tr><td>bookmarked</td><td>8%</td><td><code>color-mix(lv, 8%, bg)</code></td><td>★ bookmark icon (gold)</td><td>persistent save</td></tr>
+      <tr><td>hover</td><td>10%</td><td><code>color-mix(lv, 10%, bg)</code></td><td>—</td><td>transient focus</td></tr>
+      <tr><td>marked (click)</td><td>14%</td><td><code>color-mix(lv, 14%, bg)</code></td><td>3px left color bar</td><td>current selection</td></tr>
+      <tr><td>jump highlight</td><td>14% + animation</td><td><code>color-mix(lv, 14%, bg)</code></td><td>3s fade-out pulse</td><td>bookmark-jump landing</td></tr>
+      <tr><td>copy feedback</td><td>10%</td><td><code>color-mix(accent, 10%, bg)</code></td><td>✓ icon turns accent</td><td>operation confirmation</td></tr>
     </tbody>
   </table>
 </section>
 
-<!-- ───────── 3. 新旧对比 ───────── -->
+<!-- ───────── 3. Before / after ───────── -->
 <section>
-  <h2><span class="num">3</span> 新旧对比</h2>
-  <p class="desc">当前实现的核心问题：marked/bookmarked 用固定青蓝色，丢失 level 语义；多状态叠加时 hover 被覆盖。</p>
+  <h2><span class="num">3</span> Before / after</h2>
+  <p class="desc">Core problems of the current implementation: marked/bookmarked use a fixed cyan that loses level semantics; hover is overridden when states stack.</p>
   <div class="compare">
     <div>
-      <h4>现状（v0.6）<span class="tag bad">问题</span></h4>
+      <h4>Current (v0.6)<span class="tag bad">problems</span></h4>
       <ul>
-        <li>hover 按 level 区分色 <code>--c-*-bg</code> ✓ 有意义</li>
-        <li>但 marked 用 <code>rgba(100,210,255,0.3)</code> 固定青蓝 ✗</li>
-        <li>bookmarked 用 <code>rgba(100,210,255,0.15)</code> 同色系青蓝 ✗</li>
-        <li>→ ERROR 行被选中后变成青蓝色，"错误感"消失</li>
-        <li>→ marked 和 bookmarked 都是青蓝，难以区分</li>
-        <li>→ <code>is-bookmarked</code> 写在 CSS 最后，盖住 hover，书签行 hover 无反馈</li>
-        <li>→ <code>--c-marked-bg</code> 根本没定义，永远走 fallback</li>
-        <li>→ copied(蓝)/highlighted(黄) 硬编码，不随主题变</li>
+        <li>hover varies per level via <code>--c-*-bg</code> ✓ meaningful</li>
+        <li>but marked uses the fixed cyan <code>rgba(100,210,255,0.3)</code> ✗</li>
+        <li>bookmarked uses the same-family cyan <code>rgba(100,210,255,0.15)</code> ✗</li>
+        <li>→ a selected ERROR row turns cyan; the "error feel" vanishes</li>
+        <li>→ marked and bookmarked are both cyan and hard to tell apart</li>
+        <li>→ <code>is-bookmarked</code> is last in the CSS and covers hover, so bookmarked rows give no hover feedback</li>
+        <li>→ <code>--c-marked-bg</code> is never defined and always falls back</li>
+        <li>→ copied (blue) / highlighted (yellow) are hardcoded and theme-blind</li>
       </ul>
     </div>
     <div>
-      <h4>新方案（v0.7）<span class="tag good">解决</span></h4>
+      <h4>Proposed (v0.7)<span class="tag good">solved</span></h4>
       <ul>
-        <li>所有状态都从 level 根色派生 <code>color-mix(lv-*, %, bg)</code></li>
-        <li>→ ERROR 行无论选中/书签，始终是红色系，语义保留</li>
-        <li>marked 14% + 左侧色条，bookmarked 8% + ★ 图标</li>
-        <li>→ 靠透明度+图标区分，不靠两个相近色</li>
-        <li>hover 用复合选择器 <code>.is-bookmarked:hover</code> 叠加加深，反馈不丢</li>
-        <li>统一 <code>color-mix</code>，深浅主题自动适配，零硬编码</li>
-        <li>跳转高亮改用 level 根色脉冲，融入色系</li>
+        <li>every state derives from the level root color via <code>color-mix(lv-*, %, bg)</code></li>
+        <li>→ an ERROR row stays red in every state; semantics preserved</li>
+        <li>marked 14% + left color bar; bookmarked 8% + ★ icon</li>
+        <li>→ states are told apart by opacity + icons, not by two similar colors</li>
+        <li>hover uses the compound selector <code>.is-bookmarked:hover</code> to stack and deepen; feedback is never lost</li>
+        <li>uniform <code>color-mix</code>: themes adapt automatically, zero hardcoding</li>
+        <li>jump highlight becomes a level-root pulse that fits the family</li>
       </ul>
     </div>
   </div>
 </section>
 
-<!-- ───────── 4. CSS 映射 ───────── -->
+<!-- ───────── 4. CSS mapping ───────── -->
 <section>
-  <h2><span class="num">4</span> CSS 映射（实现参考）</h2>
-  <p class="desc">用 <code>color-mix(in srgb, ...)</code> 替代硬编码 rgba，无需为每个 level 重复声明。</p>
+  <h2><span class="num">4</span> CSS mapping (implementation reference)</h2>
+  <p class="desc">Replace hardcoded rgba with <code>color-mix(in srgb, ...)</code>; no per-level repetition needed.</p>
   <table>
-    <thead><tr><th>选择器</th><th>旧值</th><th>新值</th></tr></thead>
+    <thead><tr><th>Selector</th><th>Old value</th><th>New value</th></tr></thead>
     <tbody>
       <tr>
         <td><code>.log-row.level-error:hover</code></td>
@@ -517,76 +518,76 @@
       </tr>
       <tr>
         <td><code>.log-row.is-marked</code></td>
-        <td><code>var(--c-marked-bg, rgba(100,210,255,.3))</code><br><span class="label-tag">固定青蓝</span></td>
-        <td><b>删除此规则</b>，改为按 level 动态着色：<br><code>.is-marked.level-error { background: color-mix(...,error 14%); }</code></td>
+        <td><code>var(--c-marked-bg, rgba(100,210,255,.3))</code><br><span class="label-tag">fixed cyan</span></td>
+        <td><b>Delete this rule</b> and color dynamically per level:<br><code>.is-marked.level-error { background: color-mix(...,error 14%); }</code></td>
       </tr>
       <tr>
         <td><code>.log-row.is-bookmarked</code></td>
-        <td><code>var(--c-bookmark-bg, rgba(100,210,255,.3))</code><br><span class="label-tag">固定青蓝</span></td>
-        <td>同上，按 level：<code>color-mix(...,X 8%)</code> + ★ 图标</td>
+        <td><code>var(--c-bookmark-bg, rgba(100,210,255,.3))</code><br><span class="label-tag">fixed cyan</span></td>
+        <td>same approach per level: <code>color-mix(...,X 8%)</code> + ★ icon</td>
       </tr>
       <tr>
         <td><code>.log-row.is-copied</code></td>
-        <td><code>rgba(24,95,165,0.1)</code> <span class="label-tag">硬编码</span></td>
+        <td><code>rgba(24,95,165,0.1)</code> <span class="label-tag">hardcoded</span></td>
         <td><code>color-mix(in srgb, var(--accent) 10%, var(--bg))</code></td>
       </tr>
       <tr>
         <td><code>.log-row.is-highlighted</code></td>
-        <td><code>rgba(255,220,0,0.25)</code> <span class="label-tag">硬编码黄</span></td>
-        <td>按 level：<code>color-mix(...,X 14%)</code> + 脉冲动画</td>
+        <td><code>rgba(255,220,0,0.25)</code> <span class="label-tag">hardcoded yellow</span></td>
+        <td>per level: <code>color-mix(...,X 14%)</code> + pulse animation</td>
       </tr>
       <tr>
-        <td>叠加态 hover</td>
-        <td><span class="label-tag">被覆盖，无反馈</span></td>
+        <td>stacked-state hover</td>
+        <td><span class="label-tag">overridden, no feedback</span></td>
         <td><code>.is-bookmarked:hover</code> { background: color-mix(...,X 16%); }</td>
       </tr>
     </tbody>
   </table>
   <p style="font-size:13px;color:var(--text-3);margin-top:16px;">
-    <b>注</b>：<code>color-mix()</code> 浏览器支持率 96%+（2024 起），Safari 16.2+/Chrome 111+/Firefox 113+。项目无 legacy 浏览器需求，可直接用。
-    也可用 CSS 变量预计算（<code>--lv-cur</code>）+ rgba 作为兜底。
+    <b>Note</b>: <code>color-mix()</code> is supported by 96%+ of browsers (since 2024) — Safari 16.2+/Chrome 111+/Firefox 113+. The project has no legacy-browser requirement, so it can be used directly.
+    A CSS-variable precompute (<code>--lv-cur</code>) + rgba fallback is also viable.
   </p>
 </section>
 
-<!-- ───────── 5. 搜索框 chip 色系 ───────── -->
+<!-- ───────── 5. Search chip palette ───────── -->
 <section>
-  <h2><span class="num">5</span> 搜索框 chip 色系</h2>
+  <h2><span class="num">5</span> Search chip palette</h2>
   <p class="desc">
-    搜索关键词 chip 和日志行内 <code>&lt;mark&gt;</code> 高亮<b>共用同一套色</b>。
-    现状是 5 个硬编码 rgba 彩虹色（黄/青/品红/绿/橙），与 level 色系无关、不随主题变化。
-    新方案：用 <b>HSL 色相分离</b>保证多关键词可区分，透明度按主题调节保证可读。
+    Keyword chips and the in-line <code>&lt;mark&gt;</code> highlights <b>share one palette</b>.
+    Today there are 5 hardcoded rgba rainbow colors (yellow/cyan/magenta/green/orange), unrelated to the level families and theme-blind.
+    Proposed: <b>HSL hue separation</b> keeps multiple keywords distinguishable; per-theme opacity tuning keeps them readable.
   </p>
 
-  <h3 style="font-size:14px;margin:20px 0 12px;">色板：5 个关键词区分色</h3>
+  <h3 style="font-size:14px;margin:20px 0 12px;">Palette: 5 keyword accent colors</h3>
   <table class="demo" style="margin-bottom:24px;">
-    <thead><tr><th>#</th><th>名称</th><th>色相 HSL</th><th>浅色</th><th>深色</th><th>chip 预览</th></tr></thead>
+    <thead><tr><th>#</th><th>Name</th><th>HSL hue</th><th>Light</th><th>Dark</th><th>Chip preview</th></tr></thead>
     <tbody>
       <tr class="lv-row" style="--lv-cur: hsl(43 96% 50%)">
-        <td>1</td><td>琥珀 amber</td><td><code>43 96% 50%</code></td>
+        <td>1</td><td>amber</td><td><code>43 96% 50%</code></td>
         <td><span class="swatch" style="background:hsl(43 96% 50%)"></span></td>
         <td><span class="swatch" style="background:hsl(43 100% 60%)"></span></td>
         <td><span class="chip-demo kw-bg" style="--kw-cur: var(--kw-1)">timeout <span class="chip-x">✕</span></span></td>
       </tr>
       <tr class="lv-row" style="--lv-cur: hsl(200 95% 55%)">
-        <td>2</td><td>天蓝 sky</td><td><code>200 95% 55%</code></td>
+        <td>2</td><td>sky</td><td><code>200 95% 55%</code></td>
         <td><span class="swatch" style="background:hsl(200 95% 55%)"></span></td>
         <td><span class="swatch" style="background:hsl(200 100% 65%)"></span></td>
         <td><span class="chip-demo kw-bg" style="--kw-cur: var(--kw-2)">connection <span class="chip-x">✕</span></span></td>
       </tr>
       <tr class="lv-row" style="--lv-cur: hsl(280 75% 60%)">
-        <td>3</td><td>紫罗兰 violet</td><td><code>280 75% 60%</code></td>
+        <td>3</td><td>violet</td><td><code>280 75% 60%</code></td>
         <td><span class="swatch" style="background:hsl(280 75% 60%)"></span></td>
         <td><span class="swatch" style="background:hsl(280 80% 68%)"></span></td>
         <td><span class="chip-demo kw-bg" style="--kw-cur: var(--kw-3)">panicked <span class="chip-x">✕</span></span></td>
       </tr>
       <tr class="lv-row" style="--lv-cur: hsl(150 65% 45%)">
-        <td>4</td><td>翡翠 emerald</td><td><code>150 65% 45%</code></td>
+        <td>4</td><td>emerald</td><td><code>150 65% 45%</code></td>
         <td><span class="swatch" style="background:hsl(150 65% 45%)"></span></td>
         <td><span class="swatch" style="background:hsl(150 70% 55%)"></span></td>
         <td><span class="chip-demo kw-bg" style="--kw-cur: var(--kw-4)">success <span class="chip-x">✕</span></span></td>
       </tr>
       <tr class="lv-row" style="--lv-cur: hsl(20 90% 55%)">
-        <td>5</td><td>橘红 tangerine</td><td><code>20 90% 55%</code></td>
+        <td>5</td><td>tangerine</td><td><code>20 90% 55%</code></td>
         <td><span class="swatch" style="background:hsl(20 90% 55%)"></span></td>
         <td><span class="swatch" style="background:hsl(20 100% 62%)"></span></td>
         <td><span class="chip-demo kw-bg" style="--kw-cur: var(--kw-5)">retry <span class="chip-x">✕</span></span></td>
@@ -594,17 +595,17 @@
     </tbody>
   </table>
 
-  <h3 style="font-size:14px;margin:8px 0 12px;">搜索框状态：非激活 / 激活</h3>
-  <p style="font-size:13px;color:var(--text-3);margin-bottom:12px;">非激活时背景凹陷（<code>--bg-2</code>），与 globalbar 层次一致；激活时"浮起"到 <code>--bg</code>，边框加深（<code>--border-2</code>），表示输入焦点。<b>点击搜索框切换状态</b>。</p>
+  <h3 style="font-size:14px;margin:8px 0 12px;">Searchbar states: inactive / active</h3>
+  <p style="font-size:13px;color:var(--text-3);margin-bottom:12px;">Inactive: recessed background (<code>--bg-2</code>), on the same layer as the globalbar. Active: "floats up" to <code>--bg</code> with a deeper border (<code>--border-2</code>) marking input focus. <b>Click the searchbar to toggle the state.</b></p>
 
   <div class="chip-row">
-    <span class="row-label">非激活</span>
+    <span class="row-label">inactive</span>
     <div class="searchbar-mock" onclick="this.classList.remove('focused')" style="cursor:pointer;flex:1;max-width:400px;">
-      <span class="mock-ph">筛选日志…</span>
+      <span class="mock-ph">Filter logs…</span>
     </div>
   </div>
   <div class="chip-row">
-    <span class="row-label">激活</span>
+    <span class="row-label">active</span>
     <div class="searchbar-mock focused" onclick="this.classList.remove('focused')" style="cursor:pointer;flex:1;max-width:400px;">
       <span class="chip-demo kw-bg" style="--kw-cur: var(--kw-1)">timeout <span class="chip-x">✕</span></span>
       <span style="color:var(--text);min-width:1px;flex:1;"></span>
@@ -612,41 +613,41 @@
   </div>
 
   <table style="margin:12px 0 24px;">
-    <thead><tr><th>状态</th><th>背景</th><th>浅色值</th><th>深色值</th><th>边框</th><th>说明</th></tr></thead>
+    <thead><tr><th>State</th><th>Background</th><th>Light value</th><th>Dark value</th><th>Border</th><th>Notes</th></tr></thead>
     <tbody>
       <tr>
-        <td>非激活</td>
+        <td>inactive</td>
         <td><code>--bg-2</code></td>
         <td><span class="swatch" style="background:#f6f6f5"></span>#f6f6f5</td>
         <td><span class="swatch" style="background:#1c1c1c"></span>#1c1c1c</td>
         <td><code>--border</code></td>
-        <td>凹陷，与 globalbar 同层</td>
+        <td>recessed, same layer as the globalbar</td>
       </tr>
       <tr>
-        <td>激活（focus）</td>
+        <td>active (focus)</td>
         <td><code>--bg</code></td>
         <td><span class="swatch" style="background:#fff"></span>#ffffff</td>
         <td><span class="swatch" style="background:#141414"></span>#141414</td>
         <td><code>--border-2</code></td>
-        <td>浮起到主区域，边框加深</td>
+        <td>floats to the main area, deeper border</td>
       </tr>
     </tbody>
   </table>
 
-  <h3 style="font-size:14px;margin:8px 0 12px;">实际场景：搜索框 + 日志高亮</h3>
-  <p style="font-size:13px;color:var(--text-3);margin-bottom:12px;">chip 底色（14%/16%）与日志行内 <code>&lt;mark&gt;</code> 高亮（30%）使用同一色相，视觉上"搜的词 = 高亮的词"一目了然。第 6 个关键词起循环复用。</p>
+  <h3 style="font-size:14px;margin:8px 0 12px;">Real scenario: searchbar + log highlight</h3>
+  <p style="font-size:13px;color:var(--text-3);margin-bottom:12px;">Chip backgrounds (14%/16%) and in-line <code>&lt;mark&gt;</code> highlights (30%) share the same hue, so "the word I searched = the word highlighted" reads at a glance. The 6th keyword onward cycles the palette.</p>
 
   <div class="chip-row">
-    <span class="row-label">搜索框</span>
+    <span class="row-label">searchbar</span>
     <div class="searchbar-mock focused">
       <span class="chip-demo kw-bg" style="--kw-cur: var(--kw-1)">timeout <span class="chip-x">✕</span></span>
       <span class="chip-demo kw-bg" style="--kw-cur: var(--kw-3)">panicked <span class="chip-x">✕</span></span>
-      <span class="mock-ph">添加关键词…</span>
+      <span class="mock-ph">add keyword…</span>
     </div>
   </div>
 
   <div class="chip-row">
-    <span class="row-label">日志高亮</span>
+    <span class="row-label">log highlight</span>
     <div class="mark-demo">
       <span style="--kw-cur: var(--kw-1)">12:00:03 ERROR </span>
       <mark style="--kw-cur: var(--kw-1)">Connection</mark> <mark style="--kw-cur: var(--kw-1)">timeout</mark>
@@ -661,55 +662,55 @@
     </div>
   </div>
 
-  <h3 style="font-size:14px;margin:24px 0 12px;">透明度规则</h3>
+  <h3 style="font-size:14px;margin:24px 0 12px;">Opacity rules</h3>
   <table>
-    <thead><tr><th>场景</th><th>浅色透明度</th><th>深色透明度</th><th>说明</th></tr></thead>
+    <thead><tr><th>Use</th><th>Light opacity</th><th>Dark opacity</th><th>Notes</th></tr></thead>
     <tbody>
-      <tr><td>chip 背景</td><td>14%</td><td>16%</td><td>底色淡，文字用色相原色保证可读</td></tr>
-      <tr><td>chip 边框</td><td>30%</td><td>30%</td><td>同色相，界定 chip 边界</td></tr>
-      <tr><td>chip hover</td><td>22%</td><td>26%</td><td>悬停加深，反馈交互</td></tr>
-      <tr><td><code>&lt;mark&gt;</code> 高亮</td><td>30%</td><td>28%</td><td>日志行内比 chip 略浓，突出命中</td></tr>
-      <tr><td><code>&lt;mark&gt;</code> 文字</td><td>原色</td><td>原色</td><td>直接用色相值，不降透明</td></tr>
+      <tr><td>chip background</td><td>14%</td><td>16%</td><td>faint fill; text uses the full hue for readability</td></tr>
+      <tr><td>chip border</td><td>30%</td><td>30%</td><td>same hue, defines the chip boundary</td></tr>
+      <tr><td>chip hover</td><td>22%</td><td>26%</td><td>deepens on hover for interaction feedback</td></tr>
+      <tr><td><code>&lt;mark&gt;</code> highlight</td><td>30%</td><td>28%</td><td>slightly denser than chips to pop hits inside log lines</td></tr>
+      <tr><td><code>&lt;mark&gt;</code> text</td><td>full hue</td><td>full hue</td><td>uses the hue value directly, no transparency</td></tr>
     </tbody>
   </table>
 
-  <h3 style="font-size:14px;margin:24px 0 12px;">新旧对比</h3>
+  <h3 style="font-size:14px;margin:24px 0 12px;">Before / after</h3>
   <div class="compare">
     <div>
-      <h4>现状（v0.6）<span class="tag bad">问题</span></h4>
+      <h4>Current (v0.6)<span class="tag bad">problems</span></h4>
       <ul>
-        <li>5 个硬编码 <code>rgba()</code>：黄/青/品红/绿/橙</li>
-        <li>颜色定义在 App.vue 的 <code>highlightColors</code> 数组里，非 CSS 变量</li>
-        <li>深色主题下饱和度不足，高亮偏灰</li>
-        <li>与 level 色系完全脱节</li>
-        <li>chip 和 <code>&lt;mark&gt;</code> 各用一份透明度，不一致</li>
+        <li>5 hardcoded <code>rgba()</code> values: yellow/cyan/magenta/green/orange</li>
+        <li>colors live in the <code>highlightColors</code> array in App.vue, not CSS variables</li>
+        <li>undersaturated on dark theme; highlights look grayish</li>
+        <li>completely detached from the level families</li>
+        <li>chips and <code>&lt;mark&gt;</code> use separate opacity sets, inconsistent</li>
       </ul>
     </div>
     <div>
-      <h4>新方案（v0.7）<span class="tag good">解决</span></h4>
+      <h4>Proposed (v0.7)<span class="tag good">solved</span></h4>
       <ul>
-        <li>HSL 变量化：<code>--kw-1</code> ~ <code>--kw-5</code>，色相值固定</li>
-        <li>深浅主题各自调亮度/饱和度，暗底更鲜亮</li>
-        <li>chip 与 <code>&lt;mark&gt;</code> 共用同一 <code>--kw-*</code>，视觉统一</li>
-        <li>透明度规则化（chip 14% / mark 30%），单一来源</li>
-        <li>色相均匀分布在色环上（43°/200°/280°/150°/20°），多关键词易区分</li>
+        <li>HSL as variables: <code>--kw-1</code> ~ <code>--kw-5</code> with fixed hue values</li>
+        <li>each theme tunes lightness/saturation — brighter on dark backgrounds</li>
+        <li>chips and <code>&lt;mark&gt;</code> share the same <code>--kw-*</code>; visually unified</li>
+        <li>opacity is rule-based (chip 14% / mark 30%), single source of truth</li>
+        <li>hues spread evenly on the color wheel (43°/200°/280°/150°/20°); multiple keywords stay distinguishable</li>
       </ul>
     </div>
   </div>
 </section>
 
-<!-- ───────── 6. 应用框架配色 ───────── -->
+<!-- ───────── 6. App frame colors ───────── -->
 <section>
-  <h2><span class="num">6</span> 应用框架配色</h2>
-  <p class="desc">globalbar / statusbar / sidebar 三个区域的背景层次采用<b>凹陷侧栏</b>方案：sidebar 最深（<code>--bg-2</code>）、globalbar 极浅凹陷（<code>text 3%</code>）衬托 tab、主区域最亮（<code>--bg</code>）。<b>鼠标移到侧边栏文件项看 hover，移到 tab 看 hover/active</b>。</p>
+  <h2><span class="num">6</span> App frame colors</h2>
+  <p class="desc">The background hierarchy of globalbar / statusbar / sidebar follows the <b>recessed-sidebar</b> scheme: sidebar deepest (<code>--bg-2</code>), globalbar slightly recessed (<code>text 3%</code>) to back the tabs, main area brightest (<code>--bg</code>). <b>Hover the sidebar file items to see their hover state; hover the tabs to see hover/active.</b></p>
 
   <div class="app-mock" id="appMock">
     <div class="m-sidebar">
-      <div class="m-side-section">最近</div>
+      <div class="m-side-section">Recent</div>
       <div class="m-item"><span class="m-dot"></span>app.log</div>
       <div class="m-item active"><span class="m-dot"></span>nginx.log</div>
       <div class="m-item"><span class="m-dot"></span>db.log</div>
-      <div class="m-side-section">文件</div>
+      <div class="m-side-section">Files</div>
       <div class="m-item"><span class="m-dot"></span>system.log</div>
       <div class="m-item"><span class="m-dot"></span>auth.log</div>
       <div class="m-item"><span class="m-dot"></span>cache.log</div>
@@ -736,42 +737,42 @@
   </div>
 
   <table>
-    <thead><tr><th>区域</th><th>背景色</th><th>浅色值</th><th>深色值</th><th>说明</th></tr></thead>
+    <thead><tr><th>Region</th><th>Background</th><th>Light value</th><th>Dark value</th><th>Notes</th></tr></thead>
     <tbody>
       <tr>
         <td><b>sidebar</b></td>
         <td><code>--bg-2</code></td>
         <td><span class="swatch" style="background:#f6f6f5"></span>#f6f6f5</td>
         <td><span class="swatch" style="background:#1c1c1c"></span>#1c1c1c</td>
-        <td>最深层，侧栏凹陷</td>
+        <td>deepest layer; recessed sidebar</td>
       </tr>
       <tr>
         <td><b>globalbar</b></td>
         <td><code>text 3% + bg</code></td>
         <td><span class="swatch" style="background:color-mix(in srgb,#171717 3%,#fff)"></span>#f7f7f7</td>
         <td><span class="swatch" style="background:color-mix(in srgb,#ededec 3%,#141414)"></span>#181818</td>
-        <td>极浅凹陷，衬托 tab hover/active</td>
+        <td>faint recess that backs the tab hover/active</td>
       </tr>
       <tr>
         <td><b>statusbar</b></td>
         <td><code>--bg</code></td>
         <td><span class="swatch" style="background:#fff"></span>#ffffff</td>
         <td><span class="swatch" style="background:#141414"></span>#141414</td>
-        <td>与内容区同色，最亮层</td>
+        <td>same color as the content area; brightest layer</td>
       </tr>
       <tr>
         <td><b>content</b></td>
         <td><code>--bg</code></td>
         <td><span class="swatch" style="background:#fff"></span>#ffffff</td>
         <td><span class="swatch" style="background:#141414"></span>#141414</td>
-        <td>主区域，浮起</td>
+        <td>main area, floating</td>
       </tr>
     </tbody>
   </table>
 </section>
 
 <footer>
-  tailr v0.7.0 · 日志行配色体系设计图谱 · 生成于 2026-07
+  tailr v0.7.0 · Log row color system design map · generated 2026-07
 </footer>
 
 </div>
@@ -783,14 +784,14 @@ function setTheme(theme, btn) {
   btn.classList.add('active');
 }
 
-// ── 色源表格行交互 ──
+// ── Color-source table row interactions ──
 document.querySelectorAll('tr.lv-row').forEach(row => {
-  // 点击行体 → 切换 marked（选中）
+  // click the row body → toggle marked (selected)
   row.addEventListener('click', (e) => {
     if (e.target.dataset.toggle === 'bookmark') return;
     row.classList.toggle('is-marked');
   });
-  // 点击 ★ → 切换 bookmarked
+  // click ★ → toggle bookmarked
   const star = row.querySelector('[data-toggle="bookmark"]');
   if (star) {
     star.addEventListener('click', (e) => {
