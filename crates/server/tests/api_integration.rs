@@ -55,9 +55,14 @@ fn make_state(log_dirs: Vec<PathBuf>, config_path: PathBuf, token: String) -> Ar
         }))),
         config_path,
         token,
+        mcp_enabled: true,
         allowed_dirs: log_dirs,
         log_timezone: Arc::new(LogTimezone::default()),
         upgrade_service: Arc::new(upgrade::UpgradeService::new()),
+        query: Arc::new(tailr_core::query::QueryService::new(
+            tailr_core::query::QueryCaps::default(),
+        )),
+        host_name: "test-host".to_string(),
         runtime: Arc::new(RuntimeSampler::new(vec![])),
         limits: LimitsConfig::default(),
     })
@@ -531,6 +536,7 @@ fn real_app(token: &str) -> axum::Router {
         LogTimezone::default(),
         token.to_string(),
         LimitsConfig::default(),
+        tailr_core::config::McpConfig::default(),
     )
 }
 

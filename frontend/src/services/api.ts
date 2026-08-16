@@ -143,6 +143,8 @@ export interface HealthData {
   version: string
   uptimeSeconds: number
   upgradeInProgress: boolean
+  /** True when the /mcp endpoint is mounted ([mcp] enabled, default true). */
+  mcpEnabled?: boolean
 }
 
 export async function healthCheck(): Promise<HealthData> {

@@ -75,6 +75,17 @@ log_timezone = "local"
 # Raise to 4+ if many users connect simultaneously or UI feels sluggish.
 # Lower to 1 for memory-constrained containers.
 # workers = 2
+
+# MCP server for AI agents (optional — exposes /mcp over streamable HTTP,
+# same Bearer token auth as the web UI). See docs/mcp.md for client setup.
+[mcp]
+# Expose the /mcp endpoint (default true). Set false to disable AI access.
+# enabled = true
+#
+# Display name in MCP tool responses — lets agents tell multi-server
+# results apart when you configure several tailr instances in one client.
+# Defaults to the system hostname.
+# host_name = "web1-prod"
 "#;
 
 /// Main configuration for tailr.
@@ -95,6 +106,29 @@ pub struct Config {
     pub log_timezone: String,
     /// Resource limits for production hardening.
     pub limits: LimitsConfig,
+    /// MCP server settings ([mcp] section).
+    pub mcp: McpConfig,
+}
+
+/// MCP server settings. Additive (v1.1.0): old configs without `[mcp]` load
+/// fine via serde defaults — endpoint on, host name from system hostname.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct McpConfig {
+    /// Expose the `/mcp` endpoint for AI agents (default true).
+    pub enabled: bool,
+    /// Display name in MCP tool responses so agents can tell multi-server
+    /// results apart. Defaults to the system hostname when unset.
+    pub host_name: Option<String>,
+}
+
+impl Default for McpConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            host_name: None,
+        }
+    }
 }
 
 /// Daemon-specific configuration.
@@ -115,6 +149,7 @@ impl Default for Config {
             token: String::new(),
             log_timezone: "local".to_string(),
             limits: LimitsConfig::default(),
+            mcp: McpConfig::default(),
         }
     }
 }
@@ -486,6 +521,52 @@ workers = 4
         assert_eq!(config.limits.rate_limit_rps, 50);
         assert!(config.limits.enable_compression);
         assert_eq!(config.limits.workers, 4);
+    }
+
+    #[test]
+    fn test_mcp_defaults_when_section_missing() {
+        // v1.0 老配置（无 [mcp] 段）必须原样加载：端点默认开启、host 用系统主机名。
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+        let mut f = fs::File::create(&config_path).unwrap();
+        write!(f, r#"token = "t""#).unwrap();
+
+        let config = load_config(&config_path, None, None, false, None, None).unwrap();
+        assert!(config.mcp.enabled);
+        assert!(config.mcp.host_name.is_none());
+    }
+
+    #[test]
+    fn test_mcp_custom_values() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+        let mut f = fs::File::create(&config_path).unwrap();
+        write!(
+            f,
+            r#"
+[mcp]
+enabled = false
+host_name = "web1-prod"
+"#
+        )
+        .unwrap();
+
+        let config = load_config(&config_path, None, None, false, None, None).unwrap();
+        assert!(!config.mcp.enabled);
+        assert_eq!(config.mcp.host_name.as_deref(), Some("web1-prod"));
+    }
+
+    #[test]
+    fn test_mcp_partial_section_uses_defaults() {
+        // 只写 host_name 不写 enabled：enabled 保持默认 true。
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+        let mut f = fs::File::create(&config_path).unwrap();
+        write!(f, "[mcp]\nhost_name = \"db\"\n").unwrap();
+
+        let config = load_config(&config_path, None, None, false, None, None).unwrap();
+        assert!(config.mcp.enabled);
+        assert_eq!(config.mcp.host_name.as_deref(), Some("db"));
     }
 
     #[test]

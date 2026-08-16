@@ -53,7 +53,7 @@ struct FileListParams {
 const MAX_LIST_DEPTH: u32 = 4;
 /// Hard cap on total entries returned by a single recursive listing, to bound
 /// latency and payload size on huge directory trees.
-const MAX_LIST_ENTRIES: usize = 5000;
+pub(crate) const MAX_LIST_ENTRIES: usize = 5000;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -81,6 +81,8 @@ pub(crate) struct HealthData {
     /// restart). Frontend polls this to show a spinner and disable the upgrade
     /// button — survives page refresh because the flag lives in the process.
     upgrade_in_progress: bool,
+    /// True when the /mcp endpoint is mounted ([mcp] enabled, default true).
+    mcp_enabled: bool,
 }
 
 /// Runtime metrics snapshot returned by `GET /api/runtime`.
@@ -377,7 +379,7 @@ fn dir_has_text_files_inner(dir: &std::path::Path, depth: u32) -> std::pin::Pin<
     })
 }
 
-async fn is_text_file(path: &std::path::Path, _name: &str) -> bool {
+pub(crate) async fn is_text_file(path: &std::path::Path, _name: &str) -> bool {
     let text_extensions: &[&str] = &[
         "log", "txt", "text", "out", "err", "stdout", "stderr",
         "json", "xml", "yaml", "yml", "toml", "ini", "conf", "cfg",
@@ -427,6 +429,36 @@ async fn is_likely_text(path: &std::path::Path) -> bool {
         return true;
     }
     !buf[..n].contains(&0)
+}
+
+/// `is_text_file` 的同步版本（MCP 列表在 `spawn_blocking` 里跑，不能驱动
+/// tokio future）。判断逻辑逐字节一致：扩展名表 + 头 512 字节 null 嗅探。
+pub(crate) fn is_text_file_blocking(path: &std::path::Path) -> bool {
+    use std::io::Read;
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        // 复用 is_text_file 内的两张表：这里做一次轻量委托 —— 扩展名命中
+        // 文本/二进制表可直接判定，否则嗅探。为避免复制表，直接内联嗅探。
+        let lower = ext.to_ascii_lowercase();
+        if matches!(
+            lower.as_str(),
+            "log" | "txt" | "text" | "out" | "err" | "stdout" | "stderr" | "json" | "xml"
+                | "yaml" | "yml" | "toml" | "ini" | "conf" | "cfg" | "csv" | "tsv" | "md"
+                | "rst" | "py" | "rb" | "js" | "ts" | "go" | "rs" | "java" | "c" | "cpp"
+                | "h" | "hpp" | "sh" | "bash" | "zsh" | "fish" | "sql" | "html" | "css"
+                | "scss" | "bak" | "old" | "prev" | "save"
+        ) {
+            return true;
+        }
+    }
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let mut buf = [0u8; 512];
+    let n = match file.read(&mut buf) {
+        Ok(n) => n,
+        Err(_) => return false,
+    };
+    n == 0 || !buf[..n].contains(&0)
 }
 
 /// Get the last N lines of a log file (default 200, max 5000).
@@ -507,6 +539,7 @@ async fn health(
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds: state.start_time.elapsed().as_secs(),
         upgrade_in_progress: state.upgrade_service.is_upgrade_in_progress(),
+        mcp_enabled: state.mcp_enabled,
     }))
 }
 

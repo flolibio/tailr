@@ -6,9 +6,10 @@ import { healthCheck } from '../services/api'
 import { useLogLevels } from '../composables/useLogLevels'
 import LogLevelSettings from './settings/LogLevelSettings.vue'
 import AboutSection from './settings/AboutSection.vue'
+import McpSection from './settings/McpSection.vue'
 import RuntimeSection from './settings/RuntimeSection.vue'
 import type { Settings } from './SettingsPanel.vue'
-import { X, Settings as SettingsIcon, Info, Check, ChartNoAxesGantt, Activity } from 'lucide-vue-next'
+import { X, Settings as SettingsIcon, Info, Check, ChartNoAxesGantt, Activity, Bot } from 'lucide-vue-next'
 
 const props = defineProps<{
   settings: Settings
@@ -25,7 +26,7 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 
 // ── Navigation ──
-type NavSection = 'general' | 'logLevels' | 'runtime' | 'about'
+type NavSection = 'general' | 'logLevels' | 'mcp' | 'runtime' | 'about'
 const activeNav = ref<NavSection>(props.initialSection ?? 'general')
 
 const navItems = computed<{ key: NavSection; label: string; icon: string; section: string }[]>(() => [
@@ -40,6 +41,12 @@ const navItems = computed<{ key: NavSection; label: string; icon: string; sectio
     label: t('settings.logLevels'),
     icon: 'edit',
     section: t('settings.general'),
+  },
+  {
+    key: 'mcp',
+    label: t('settings.mcp'),
+    icon: 'bot',
+    section: t('settings.labs'),
   },
   {
     key: 'runtime',
@@ -258,6 +265,8 @@ onUnmounted(() => {
               <Info v-else-if="item.icon === 'info'" class="nav-icon" :size="16" :stroke-width="2" />
               <!-- Activity icon (runtime) -->
               <Activity v-else-if="item.icon === 'activity'" class="nav-icon" :size="16" :stroke-width="2" />
+              <!-- Bot icon (MCP) -->
+              <Bot v-else-if="item.icon === 'bot'" class="nav-icon" :size="16" :stroke-width="2" />
               {{ item.label }}
             </button>
           </template>
@@ -453,6 +462,12 @@ onUnmounted(() => {
           <template v-else-if="activeNav === 'logLevels'">
             <div class="section-title">{{ t('settings.logLevels') }}</div>
             <LogLevelSettings ref="logLevelsRef" />
+          </template>
+
+          <!-- MCP -->
+          <template v-else-if="activeNav === 'mcp'">
+            <div class="section-title">{{ t('settings.mcp') }}</div>
+            <McpSection />
           </template>
 
           <!-- Runtime -->

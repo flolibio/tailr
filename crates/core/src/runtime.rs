@@ -101,6 +101,12 @@ pub struct RuntimeSampler {
 }
 
 impl RuntimeSampler {
+    /// Host machine name (for the MCP `host` field so AI agents can tell
+    /// multi-server results apart). Falls back to "unknown".
+    pub fn host_name() -> String {
+        sysinfo::System::host_name().unwrap_or_else(|| "unknown".to_string())
+    }
+
     /// Construct and do an initial full refresh to seed the CPU-usage baseline.
     ///
     /// CPU% requires two samples spaced in time, so the very first

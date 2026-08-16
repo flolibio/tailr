@@ -232,6 +232,17 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 - File browser filters non-text files by extension + null-byte detection; skips empty directories (recursion depth ≤ 2).
 - Frontend uses `useAuth` composable for token management (localStorage key: `tailr-token`).
 
+### Frontend design rules (layout & color) — 踩坑记录
+
+Two UI bug classes keep recurring: **page width blown out past the viewport** (被元素撑出屏幕) and **mis-centered rows/icons** (不居中). Full guidelines with historical incidents and code patterns: **`docs/frontend-design-guidelines.md`**. The critical rules, in short:
+
+- **Every flex/grid item holding variable-width content needs `min-width: 0`** — the default `min-width: auto` lets non-shrinkable children (nowrap tabs, long paths) inflate ancestors and stretch the whole app wider than the viewport. This exact bug: `34772a6`, `2f30739`, `5a35822`, `dec2df7`.
+- **The page never scrolls horizontally.** Overflow is contained in a dedicated scroll/fold/ellipsis container (tab strip, chip fold, log table), with `min-width: 0` on the chain up to it.
+- **Ellipsize at the text child** (`min-width: 0` + `nowrap` + `hidden` + `text-overflow: ellipsis`), not the flex item — see `.tree-item .item-label`.
+- **Center via the parent** (`display: flex; align-items: center` / `place-items: center`), never margin-tuned or `top: Npx` offsets on icons — that broke tab-arrow alignment twice.
+- **Zero hardcoded colors.** Use the tokens in `style.css` (`--bg*`, `--text*`, `--c-{level}-*`, `--kw-*`, `--accent`). Row states derive from the level root color via `color-mix(... N%, var(--bg))` — alpha ladder 8/10/14%, never a second hue. New tokens go into all three blocks (`:root`, `:root.dark`, `:root[data-theme="light"]`).
+- Interactive color-system reference (light/dark demos): `docs/design/log-row-color-system.html`.
+
 ### i18n: 加 key 后必须做的事(踩坑记录)
 
 `@intlify/unplugin-vue-i18n` 的 Vite HMR 对 `src/locales/*.json` 的改动**不可靠**——新增 key 后,dev server 经常不刷新消息表,运行时 `t()` 返回 key 原文(如页面显示 `settings.updateDetected` 而非翻译)。此问题已反复出现(`invalidToken`、`systemFontLabel`、`updateDetected` 等)。
@@ -257,6 +268,7 @@ Tests use `tempfile::NamedTempFile` for fixtures. No external services required.
 | `/api/health` | GET | Status + uptime + version. **Exempt from rate limiter** (read-only, polled by LB probes) |
 | `/api/runtime` | GET | Runtime resource snapshot (process/system CPU+memory, disk, WS connections, uptime). TTL-cached 5s; refresh runs in `spawn_blocking`. **Exempt from rate limiter** (read-only, polled by Runtime panel) |
 | `/api/docs/openapi.json` | GET | OpenAPI 3.0 spec (machine-readable API contract). **Exempt from rate limiter**. Render at editor.swagger.io — no swagger-ui bundled |
+| `/mcp` | POST | MCP server for AI agents (rmcp 0.5, stateless streamable HTTP — see `crates/server/src/mcp.rs`). Same Bearer token auth as REST; **not** under the governor (agent tool-call loops are dense; heavy work gated by QueryService semaphore). Tools: list_log_files / tail_log / search_logs (count_only) / read_log_range / get_log_stats. `[mcp] enabled=false` in config disables it (explicit 404). Setup guide: `docs/mcp.md` |
 | `/ws` | WS | Subscribe/unsubscribe to live file tail (batched entries) |
 
 ### Error response format (v0.12+)
@@ -325,6 +337,8 @@ GitHub Actions creates draft release automatically. **DO NOT** use `gh release c
 ## Knowledge Base
 
 Project documentation and planning:
+- Frontend design guidelines: `docs/frontend-design-guidelines.md`
+- Log-row color system prototype (interactive, light/dark): `docs/design/log-row-color-system.html`
 - Security audit: `docs/安全审计与修复方案.md`
 - Feature brainstorm: `docs/功能与体验头脑风暴.md`
 - Web UI upgrade plan: `docs/Web-UI自升级功能规划.md`

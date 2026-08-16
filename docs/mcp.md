@@ -1,0 +1,106 @@
+# MCP — let AI agents read your logs
+
+tailr ships a built-in [Model Context Protocol](https://modelcontextprotocol.io) server. AI agents (Claude Code, Cursor, and any MCP-capable client) can list, search, and analyze your server logs directly — no SSH, no copy-pasting.
+
+The endpoint is **streamable HTTP** at `http://<your-server>:7700/mcp`, protected by the same Bearer token as the web UI (when one is configured).
+
+## Quick start
+
+### Claude Code
+
+Add to your MCP configuration (`~/.claude.json` or project `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "tailr": {
+      "type": "http",
+      "url": "http://your-server:7700/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+> `"type": "http"` is required by Claude Code — a bare `"url"` entry is skipped.
+
+### Cursor
+
+Add to `~/.cursor/mcp.json` (same shape):
+
+```json
+{
+  "mcpServers": {
+    "tailr": {
+      "url": "http://your-server:7700/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+If tailr runs without a token (`token = ""` in config), omit the `headers` block.
+
+### Multiple servers
+
+Configure one entry per machine — agents distinguish results by the `host` field in every response:
+
+```json
+{
+  "mcpServers": {
+    "tailr-web1": { "type": "http", "url": "http://web1:7700/mcp", "headers": { "Authorization": "Bearer TOKEN" } },
+    "tailr-web2": { "type": "http", "url": "http://web2:7700/mcp", "headers": { "Authorization": "Bearer TOKEN" } },
+    "tailr-db":   { "type": "http", "url": "http://db:7700/mcp",   "headers": { "Authorization": "Bearer TOKEN" } }
+  }
+}
+```
+
+Set a friendly display name per instance so agents can tell them apart:
+
+```toml
+# ~/.tailr/config.toml on web1
+[mcp]
+host_name = "web1-prod"
+```
+
+## Tools
+
+| Tool | What it does |
+|---|---|
+| `list_log_files` | Files available on this server (start here) |
+| `get_log_stats` | Line count, size, per-level counts — understand a file before searching it |
+| `search_logs` | AND keyword search with context windows; `count_only=true` for "how many" questions; paginated via `resumeCursor` |
+| `read_log_range` | Sequential reading from a cursor |
+| `tail_log` | Last N lines with absolute line numbers |
+
+Everything is budget-capped server-side (matches, output bytes, scan time), so even multi-GB files can't blow up your context window — oversized results page through `resumeCursor`.
+
+## Configuration
+
+```toml
+# ~/.tailr/config.toml
+[mcp]
+# Expose the /mcp endpoint (default true). Set false to disable AI access —
+# the endpoint then returns 404 as if it never existed.
+# enabled = true
+
+# Display name in tool responses (defaults to the system hostname).
+# host_name = "web1-prod"
+
+```
+
+All keys are optional; existing configs work unchanged.
+
+## Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| Claude Code logs `has a "url" but no "type"` | Add `"type": "http"` to the entry |
+| 401 on connect | Token mismatch — same token as the web UI (`token` in config.toml, or `TAILR_TOKEN` env) |
+| 404 on connect | `[mcp] enabled = false` on that server |
+| Client can't reach the server | Check `bind` address and firewall; the port is the same as the web UI |
+| Search returns partial results | That's the timeout budget paging — the agent continues via `resumeCursor` automatically; final answers use `more: false` |

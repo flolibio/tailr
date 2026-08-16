@@ -1,5 +1,6 @@
 pub mod api;
 pub(crate) mod error;
+pub mod mcp;
 pub mod openapi;
 pub mod runtime;
 pub mod static_files;
@@ -46,15 +47,38 @@ pub struct AppState {
     pub level_detector: Arc<ArcSwap<LevelDetector>>,
     pub config_path: PathBuf,
     pub token: String,
+    /// `[mcp] enabled`（/mcp 是否挂载）。
+    pub mcp_enabled: bool,
     pub allowed_dirs: Vec<PathBuf>,
     pub log_timezone: Arc<LogTimezone>,
     pub upgrade_service: Arc<upgrade::UpgradeService>,
     /// Runtime metrics sampler (sysinfo + TTL cache).
     /// Powers `GET /api/runtime`. No background thread — samples on demand only.
     pub runtime: Arc<runtime::RuntimeSampler>,
+    /// Log query service (MCP tools): budget-clamped scanner + concurrency gate.
+    pub query: Arc<tailr_core::query::QueryService>,
+    /// Host display name — included in every MCP tool response so AI agents
+    /// can tell multi-server results apart. sysinfo hostname now; configurable
+    /// display name via [mcp] config later.
+    pub host_name: String,
     /// Resource limits (WS connection cap, REST rate limit). User-tunable
     /// via `[limits]` in config.toml.
     pub limits: LimitsConfig,
+}
+
+/// 常数时间字符串比较（防时序侧信道）。逐字节累积差异、无提前退出；
+/// 长度不等直接返回（只泄露长度相等性，内容比较仍恒时）。
+/// MCP 让机器客户端高频撞 token，简单 `==` 的短路行为值得堵上。
+fn ct_eq(a: &str, b: &str) -> bool {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for i in 0..a.len() {
+        diff |= a[i] ^ b[i];
+    }
+    diff == 0
 }
 
 async fn auth_middleware(
@@ -62,6 +86,7 @@ async fn auth_middleware(
     request: Request,
     next: Next,
 ) -> Response {
+
     if state.token.is_empty() {
         return next.run(request).await;
     }
@@ -72,7 +97,7 @@ async fn auth_middleware(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
 
-    if auth == format!("Bearer {}", state.token) {
+    if ct_eq(auth, &format!("Bearer {}", state.token)) {
         return next.run(request).await;
     }
 
@@ -86,7 +111,7 @@ async fn auth_middleware(
                 if let Some(t) = pair.strip_prefix("token=") {
                     let decoded = percent_encoding::percent_decode_str(t)
                         .decode_utf8_lossy();
-                    if decoded == state.token {
+                    if ct_eq(&decoded, &state.token) {
                         return next.run(request).await;
                     }
                 }
@@ -104,6 +129,7 @@ pub fn app(
     log_timezone: LogTimezone,
     token: String,
     limits: LimitsConfig,
+    mcp: tailr_core::config::McpConfig,
 ) -> Router {
     let level_detector = LevelDetector::from_config(&level_config);
     let level_detector_arc = Arc::new(ArcSwap::from_pointee(level_detector));
@@ -120,8 +146,16 @@ pub fn app(
         .into_iter()
         .partition(|p| p.is_dir());
 
+    // 全部 canonicalize：validate_path 会把请求路径 canonicalize 后做前缀
+    // 匹配，两边必须同为规范路径。否则符号链接目录（macOS 的 /tmp →
+    // /private/tmp）下，客户端拿到的原始路径会被自己的 allowlist 拒绝。
     let allowed_dirs: Vec<PathBuf> = {
-        let mut dirs = log_dirs.clone();
+        let mut dirs: Vec<PathBuf> = log_dirs
+            .iter()
+            .map(|d| {
+                std::fs::canonicalize(d).unwrap_or_else(|_| d.to_path_buf())
+            })
+            .collect();
         for file in &log_files {
             if let Some(parent) = file.parent() {
                 let canonical = std::fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
@@ -149,6 +183,16 @@ pub fn app(
     // log_dir's mount point). Clone before `log_dirs` is moved into AppState.
     let runtime_sampler = Arc::new(runtime::RuntimeSampler::new(log_dirs.clone()));
 
+    let query = Arc::new(tailr_core::query::QueryService::new(
+        tailr_core::query::QueryCaps::default(),
+    ));
+    // 展示名优先用 [mcp] host_name 配置，缺省取系统主机名。
+    let host_name = mcp
+        .host_name
+        .clone()
+        .unwrap_or_else(runtime::RuntimeSampler::host_name);
+
+
     let state = Arc::new(AppState {
         watcher: Arc::new(Mutex::new(watcher)),
         line_indices: DashMap::new(),
@@ -162,10 +206,13 @@ pub fn app(
         level_detector: level_detector_arc,
         config_path,
         token,
+        mcp_enabled: mcp.enabled,
         allowed_dirs,
         log_timezone: log_timezone_arc,
         upgrade_service: upgrade::shared_service(),
         runtime: runtime_sampler,
+        query,
+        host_name,
         limits,
     });
 
@@ -226,6 +273,23 @@ pub fn app(
         .merge(api::routes_unlimited())
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
+    // /mcp: auth-gated (Bearer token, same policy as REST/WS) but NOT under
+    // the governor — agent-driven tool-call loops are dense by nature and the
+    // heavy work is already gated by QueryService's scan semaphore. HTTP-level
+    // 429 storms on legitimate agents would be worse than the abuse they'd
+    // prevent (see mcp.rs module docs). Optionally disabled via [mcp] enabled=false.
+    let mcp_router = if mcp.enabled {
+        mcp::routes(state.clone())
+            .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+    } else {
+        // 显式 404（而非落进 SPA fallback）：禁用的端点对外应表现为"不存在"，
+        // 不受前端 dist 是否构建影响。
+        Router::new().route(
+            "/mcp",
+            axum::routing::any(|| async { axum::http::StatusCode::NOT_FOUND }),
+        )
+    };
+
     // Everything else gets the auth middleware + governor.
     let api_router = Router::new()
         .merge(api::routes())
@@ -242,6 +306,7 @@ pub fn app(
     let router = Router::new()
         .merge(ws_router)
         .merge(status_router)
+        .merge(mcp_router)
         .merge(api_router);
 
     // CompressionLayer must be the innermost body-transforming layer so it

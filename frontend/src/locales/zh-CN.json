@@ -93,7 +93,18 @@
     "updateToastTitle": "新版本 v{version} 可用",
     "view": "查看",
     "viewReleaseNotes": "查看完整发布说明",
-    "upgradeRequiresToken": "升级功能需要先配置访问令牌（Token）。请在「通用设置」中设置后重试。"
+    "upgradeRequiresToken": "升级功能需要先配置访问令牌（Token）。请在「通用设置」中设置后重试。",
+    "mcp": "MCP",
+    "mcpDesc": "把 tailr 接入你的 AI 客户端（Claude Code、Cursor 等），让 AI 直接检索和分析本服务器的日志。",
+    "mcpDocs": "接入文档",
+    "mcpConfigPath": "配置文件",
+    "mcpCopy": "复制",
+    "mcpCopied": "已复制",
+    "mcpTokenHint": "此服务器的 /mcp 当前无需认证，配置片段中已省略 Authorization。",
+    "mcpToken": "Token",
+    "mcpGenericClient": "通用",
+    "mcpDisabledHint": "/mcp 端点已在服务端禁用（[mcp] enabled = false），以下配置当前不可用。",
+    "labs": "实验室"
   },
   "toast": {
     "close": "关闭"

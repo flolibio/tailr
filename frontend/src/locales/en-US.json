@@ -93,7 +93,18 @@
     "updateToastTitle": "New version v{version} available",
     "view": "View",
     "viewReleaseNotes": "View full release notes",
-    "upgradeRequiresToken": "Upgrade requires an access token. Please set one in General settings and try again."
+    "upgradeRequiresToken": "Upgrade requires an access token. Please set one in General settings and try again.",
+    "mcp": "MCP",
+    "mcpDesc": "Connect tailr to your AI client (Claude Code, Cursor, ...) so agents can search and analyze this server's logs directly.",
+    "mcpDocs": "Setup guide",
+    "mcpConfigPath": "Config file",
+    "mcpCopy": "Copy",
+    "mcpCopied": "Copied",
+    "mcpTokenHint": "/mcp requires no authentication on this server; the snippet omits Authorization.",
+    "mcpToken": "Token",
+    "mcpGenericClient": "Generic",
+    "mcpDisabledHint": "The /mcp endpoint is disabled server-side ([mcp] enabled = false); the config below will not work until enabled.",
+    "labs": "Labs"
   },
   "toast": {
     "close": "Close"

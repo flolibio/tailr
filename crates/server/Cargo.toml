@@ -1,6 +1,6 @@
 [package]
 name = "tailr-server"
-version = "1.0.6"
+version = "1.1.0"
 edition = "2021"
 
 [dependencies]
@@ -9,9 +9,9 @@ tailr-core = { path = "../core" }
 tailr-protocol = { path = "../protocol" }
 tailr-tail-engine = { path = "../tail-engine" }
 tailr-search-engine = { path = "../search-engine" }
-axum = { version = "0.7", features = ["ws"] }
+axum = { version = "0.8", features = ["ws"] }
 tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.5", features = ["cors", "fs", "compression-gzip"] }
+tower-http = { version = "0.6", features = ["cors", "fs", "compression-gzip"] }
 # Force flate2 to use the pure-Rust miniz_oxide backend instead of the default
 # system zlib. tower-http's compression-gzip pulls flate2; flate2's default
 # links libz.so.1 which would break tailr's "zero user-side install" promise
@@ -23,9 +23,8 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 # extracts TCP peer IP from axum's ConnectInfo<SocketAddr> extension, which
 # requires `into_make_service_with_connect_info::<SocketAddr>()` on the
 # `axum::serve(...)` call site (see src/main.rs).
-# Pinned to 0.5.x: the last release line compatible with axum 0.7.
-# 0.6+ requires axum 0.8.
-tower_governor = "0.5"
+# 0.6.x is the release line for axum 0.8.
+tower_governor = "0.6"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
@@ -41,10 +40,21 @@ futures = "0.3"
 percent-encoding = "2"
 include_dir = "0.7"
 mime_guess = "2"
+# MCP server (official Rust SDK). Locked to 0.5.x — 0.x SDK may break APIs
+# between minor lines; upgrade deliberately with protocol tests, not by cargo
+# update. Stateless streamable HTTP mode (no server-side session affinity).
+# transport-worker is listed manually: 0.5.0's streamable-http-server feature
+# forgot to declare it (fixed on main, not yet released).
+rmcp = { version = "0.5", features = [
+    "server",
+    "transport-streamable-http-server",
+    "transport-worker",
+    "schemars",
+] }
 # OpenAPI spec generation (compile-time, proc-macro based). Only generates the
 # spec JSON — no swagger-ui bundled (keeps the binary lean; users paste the spec
-# URL into editor.swagger.io to render). 5.x is the last line compatible with
-# axum 0.7 (6.x moved to axum 0.8).
+# URL into editor.swagger.io to render). utoipa core has no axum dependency
+# (only derive macros are used here); version is independent of the axum line.
 utoipa = "5"
 
 [dev-dependencies]
@@ -53,3 +63,12 @@ tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
 # URL-encoding helper for constructing query strings in integration tests.
 urlencoding = "2"
+# MCP protocol-level integration tests: real streamable-HTTP round trip via
+# the official client (reqwest-backed). Lib feature set stays server-only;
+# the union (client + reqwest) applies to test builds only.
+rmcp = { version = "0.5", features = [
+    "client",
+    "transport-streamable-http-client",
+    "reqwest",
+] }
+reqwest = { version = "0.12", default-features = false }
