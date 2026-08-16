@@ -81,9 +81,12 @@ pub(crate) struct HealthData {
     /// restart). Frontend polls this to show a spinner and disable the upgrade
     /// button — survives page refresh because the flag lives in the process.
     upgrade_in_progress: bool,
-    /// True when a dedicated `[mcp] token` is configured (non-empty), i.e.
-    /// /mcp requires that token. Boolean only — the value is never exposed.
+    /// True when /mcp effectively requires a token: a dedicated [mcp] token
+    /// is set, or none is set and the global token applies (inheritance).
     mcp_auth_required: bool,
+    /// True when a dedicated (non-empty) `[mcp] token` is set — the login
+    /// token does NOT unlock /mcp in that case. Value never exposed.
+    mcp_token_dedicated: bool,
     /// True when the /mcp endpoint is mounted ([mcp] enabled, default true).
     mcp_enabled: bool,
 }
@@ -542,7 +545,11 @@ async fn health(
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds: state.start_time.elapsed().as_secs(),
         upgrade_in_progress: state.upgrade_service.is_upgrade_in_progress(),
-        mcp_auth_required: state
+        mcp_auth_required: match state.mcp_token.as_deref() {
+            Some(t) => !t.is_empty(),
+            None => !state.token.is_empty(),
+        },
+        mcp_token_dedicated: state
             .mcp_token
             .as_deref()
             .is_some_and(|t| !t.is_empty()),

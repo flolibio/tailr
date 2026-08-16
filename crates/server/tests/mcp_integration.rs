@@ -194,7 +194,7 @@ async fn full_protocol_roundtrip() {
 }
 
 #[tokio::test]
-async fn rest_locked_but_mcp_open_when_token_unset() {
+async fn unauthenticated_client_is_rejected_until_token_given() {
     let dir = fixture_dir();
     let url = spawn_app(McpConfig::default(), dir).await;
 
@@ -208,8 +208,10 @@ async fn rest_locked_but_mcp_open_when_token_unset() {
         .status();
     assert_eq!(status, 401);
 
-    // MCP：[mcp] token 未设置 = 免认证（不继承全局 token）
-    let client = connect(&url, None).await.expect("open mcp handshake");
+    // MCP：token 未设置 → 继承全局 token（无凭证握手失败，全局 token 可用）
+    let result = connect(&url, None).await;
+    assert!(result.is_err(), "unauthenticated handshake must fail");
+    let client = connect(&url, Some(TOKEN)).await.expect("inherited global token");
     let _ = client.list_all_tools().await.unwrap();
 }
 

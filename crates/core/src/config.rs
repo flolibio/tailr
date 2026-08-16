@@ -87,10 +87,13 @@ log_timezone = "local"
 # Defaults to the system hostname.
 # host_name = "web1-prod"
 #
-# Dedicated auth token for /mcp — fully independent of the global `token`
-# above (the global token NEVER unlocks /mcp).
-# Set: only this token unlocks /mcp. Unset: /mcp is unauthenticated
-# (a startup warning is logged when the web UI is locked but /mcp is open).
+# Dedicated auth token for /mcp, layered on the global `token` above:
+# - Unset: /mcp requires the global token (default — keeps a locked
+#   server locked).
+# - Set: only this token unlocks /mcp (agent credentials can be rotated
+#   independently of your web login).
+# - Empty string: /mcp is open even when the web UI requires a token
+#   (explicit opt-in; logs a startup warning).
 # token = "mcp-specific-secret"
 "#;
 
@@ -126,12 +129,12 @@ pub struct McpConfig {
     /// Display name in MCP tool responses so agents can tell multi-server
     /// results apart. Defaults to the system hostname when unset.
     pub host_name: Option<String>,
-    /// Dedicated Bearer token for `/mcp` — fully independent of the global
-    /// `token` (no inheritance):
-    /// - set (non-empty) → only this token unlocks `/mcp`
-    /// - unset / ""      → `/mcp` is unauthenticated, even when the web UI
-    ///   is locked by the global token (startup warning is logged for that
-    ///   combination)
+    /// Dedicated Bearer token for `/mcp`:
+    /// - unset  → `/mcp` requires the global `token` (safe default: a locked
+    ///   web UI never silently opens a machine interface)
+    /// - set    → only this token unlocks `/mcp` (the global one is refused)
+    /// - ""     → `/mcp` is unauthenticated even when the global token is set
+    ///   (explicit opt-in; logs a startup warning)
     pub token: Option<String>,
 }
 

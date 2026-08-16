@@ -47,7 +47,7 @@ pub struct AppState {
     pub level_detector: Arc<ArcSwap<LevelDetector>>,
     pub config_path: PathBuf,
     pub token: String,
-    /// `[mcp] token`（独立于全局 token，不继承）。未设置/空 = /mcp 免认证。
+    /// `[mcp] token`。None = 未配置（/mcp 继承全局 token）。
     pub mcp_token: Option<String>,
     /// `[mcp] enabled`（/mcp 是否挂载）。
     pub mcp_enabled: bool,
@@ -88,10 +88,11 @@ async fn auth_middleware(
     request: Request,
     next: Next,
 ) -> Response {
-    // `/mcp` 用独立 token（[mcp] token），完全不继承全局 token：
-    // 设置了（非空）才要求认证，未设置/空串 = 无需认证。
+    // `/mcp` 的 token 分层：[mcp] token 未设置 → 继承全局 token（锁着的
+    // 服务器不会静默多出开放的机器接口）；设置了 → 只认专用值；显式空串
+    // → 放开 MCP 认证（启动时对「全局锁着 + MCP 开放」打警告）。
     let effective_token: &str = if request.uri().path() == "/mcp" {
-        state.mcp_token.as_deref().unwrap_or("")
+        state.mcp_token.as_deref().unwrap_or(&state.token)
     } else {
         &state.token
     };
@@ -201,9 +202,9 @@ pub fn app(
         .clone()
         .unwrap_or_else(runtime::RuntimeSampler::host_name);
 
-    if mcp.enabled && mcp.token.as_deref().unwrap_or("").is_empty() && !token.is_empty() {
+    if mcp.enabled && mcp.token.as_deref() == Some("") && !token.is_empty() {
         tracing::warn!(
-            "[mcp] token is not set while the global token is — /mcp is              UNAUTHENTICATED while the web UI stays locked; set [mcp] token              to lock it down"
+            "[mcp] token is empty while the global token is set — /mcp is              UNAUTHENTICATED while the web UI stays locked; this is an              explicit opt-in, make sure it is intended"
         );
     }
 

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCopyFeedbackId } from '../../composables/useClipboard'
+import { useAuth } from '../../composables/useAuth'
 import { healthCheck } from '../../services/api'
 import { Copy, Check, BookOpen } from 'lucide-vue-next'
 
@@ -10,25 +11,33 @@ const { copiedId, copy } = useCopyFeedbackId<string>()
 
 const endpoint = computed(() => `${window.location.origin}/mcp`)
 
-// 服务端 MCP 自身的认证/启用状态（来自 /api/health，与全局 token 无关）：
-// - mcpAuthRequired：[mcp] token 已设置（非空）→ /mcp 需要该专用 token
+// 服务端 MCP 的认证/启用状态（来自 /api/health）：
+// - mcpAuthRequired：/mcp 实际需要认证（专用 token 已设置，或继承全局）
+// - mcpTokenDedicated：设置了专用 [mcp] token → 登录 token 无效，用占位符
 // - mcpEnabled：[mcp] enabled（默认 true）
-// token 值永不回传前端，专用认证时片段使用占位符由用户手动替换。
+// 继承全局时登录 token 就是有效凭证（只读展示 + 填进片段）；专用 token
+// 的值永不回传前端，只能由用户在服务端查看后手动替换占位符。
 const mcpAuthRequired = ref(false)
+const mcpTokenDedicated = ref(false)
 const mcpEnabled = ref(true)
 const probing = ref(true)
 onMounted(async () => {
   try {
     const health = await healthCheck()
     mcpAuthRequired.value = health.mcpAuthRequired ?? false
+    mcpTokenDedicated.value = health.mcpTokenDedicated ?? false
     mcpEnabled.value = health.mcpEnabled ?? true
   } catch {
     mcpAuthRequired.value = false
+    mcpTokenDedicated.value = false
     mcpEnabled.value = true
   } finally {
     probing.value = false
   }
 })
+
+// 继承全局时的有效凭证 = 登录 token（只读展示）。
+const loginToken = useAuth().getToken()
 
 type Client = 'claudeCode' | 'cursor' | 'codex' | 'opencode' | 'generic'
 const client = ref<Client>('claudeCode')
@@ -47,10 +56,10 @@ const configPath = computed(
 
 const snippet = computed(() => {
   const url = endpoint.value
-  const auth = mcpAuthRequired.value
-    ? { Authorization: 'Bearer <MCP_TOKEN>' }
-    : null
-  const tk = '<MCP_TOKEN>'
+  const auth = !mcpAuthRequired.value
+    ? null
+    : { Authorization: `Bearer ${mcpTokenDedicated.value ? '<MCP_TOKEN>' : loginToken}` }
+  const tk = mcpTokenDedicated.value ? '<MCP_TOKEN>' : loginToken
   switch (client.value) {
     case 'claudeCode':
       // Claude Code requires type:"http" — a bare url entry is skipped.
@@ -117,6 +126,17 @@ async function copyText(text: string, id: string): Promise<void> {
         <code>{{ endpoint }}</code>
         <button class="mcp-copy-btn" :title="t('settings.mcpCopy')" @click="copyText(endpoint, 'endpoint')">
           <Check v-if="copiedId === 'endpoint'" :size="13" />
+          <Copy v-else :size="13" />
+        </button>
+      </div>
+    </div>
+
+    <div v-if="!probing && mcpAuthRequired && !mcpTokenDedicated" class="mcp-row">
+      <div class="mcp-label">Token</div>
+      <div class="mcp-value">
+        <code>{{ loginToken }}</code>
+        <button class="mcp-copy-btn" :title="t('settings.mcpCopy')" @click="copyText(loginToken, 'token')">
+          <Check v-if="copiedId === 'token'" :size="13" />
           <Copy v-else :size="13" />
         </button>
       </div>
