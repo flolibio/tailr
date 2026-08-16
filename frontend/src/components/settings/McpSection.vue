@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCopyFeedbackId } from '../../composables/useClipboard'
 import { useAuth } from '../../composables/useAuth'
+import { healthCheck } from '../../services/api'
 import { Copy, Check, BookOpen } from 'lucide-vue-next'
 
 const { t } = useI18n()
@@ -15,11 +16,17 @@ const endpoint = computed(() => `${window.location.origin}/mcp`)
 // 关掉认证后页面仍会误显示 token。
 const authRequired = ref(true)
 const probing = ref(true)
+const mcpDedicated = ref(false)
 onMounted(async () => {
   try {
     // 原生 fetch（不经 api.ts，避免自动附带 localStorage 的 token）
     const res = await fetch('/api/health')
     authRequired.value = res.status === 401
+    // 认证开启时再取专用 token 标志（api.ts 会自动附带登录凭证）
+    if (authRequired.value) {
+      const health = await healthCheck()
+      mcpDedicated.value = health.mcpTokenDedicated ?? false
+    }
   } catch {
     authRequired.value = true
   } finally {
@@ -27,9 +34,10 @@ onMounted(async () => {
   }
 })
 
-// 可编辑的 token：默认带出登录时输入的值；配置了独立的 [mcp] token 时，
-// 用户在此填入专用值，片段随之更新（前端无从得知服务端的独立 token）。
-const token = ref(useAuth().getToken())
+// 只读展示登录 token（填进片段便于开箱即用）。token 只能在服务端
+// config.toml 设置，页面不提供修改入口；服务端配置了独立 [mcp] token 时，
+// 由 mcp_dedicated 标志给出替换提示（值本身永不回传前端）。
+const token = useAuth().getToken()
 
 type Client = 'claudeCode' | 'cursor' | 'codex' | 'opencode' | 'generic'
 const client = ref<Client>('claudeCode')
@@ -48,7 +56,7 @@ const configPath = computed(
 
 const snippet = computed(() => {
   const url = endpoint.value
-  const tk = token.value
+  const tk = token
   const auth = authRequired.value && tk ? { Authorization: `Bearer ${tk}` } : null
   switch (client.value) {
     case 'claudeCode':
@@ -124,14 +132,7 @@ async function copyText(text: string, id: string): Promise<void> {
     <div v-if="authRequired && !probing" class="mcp-row">
       <div class="mcp-label">Token</div>
       <div class="mcp-value">
-        <input
-          v-model="token"
-          class="token-edit"
-          type="text"
-          spellcheck="false"
-          autocomplete="off"
-          :placeholder="t('settings.mcpTokenPlaceholder')"
-        />
+        <code>{{ token }}</code>
         <button class="mcp-copy-btn" :title="t('settings.mcpCopy')" @click="copyText(token, 'token')">
           <Check v-if="copiedId === 'token'" :size="13" />
           <Copy v-else :size="13" />
@@ -171,7 +172,7 @@ async function copyText(text: string, id: string): Promise<void> {
     </div>
 
     <p v-if="!probing && !authRequired" class="mcp-token-hint">{{ t('settings.mcpTokenHint') }}</p>
-    <p v-else-if="!probing" class="mcp-token-hint">{{ t('settings.mcpTokenEditHint') }}</p>
+    <p v-else-if="!probing && mcpDedicated" class="mcp-token-hint">{{ t('settings.mcpDedicatedHint') }}</p>
   </div>
 </template>
 
@@ -321,20 +322,4 @@ async function copyText(text: string, id: string): Promise<void> {
   color: var(--text-3);
 }
 
-.token-edit {
-  flex: 1;
-  min-width: 0;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-2);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text);
-}
-
-.token-edit:focus {
-  outline: none;
-  border-color: var(--accent);
-}
 </style>

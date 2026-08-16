@@ -104,8 +104,7 @@
     "mcpTokenHint": "No token auth is enabled on this server, so the snippet omits headers; re-open this page after enabling auth for a complete config.",
     "mcpToken": "Token",
     "mcpGenericClient": "Generic",
-    "mcpTokenPlaceholder": "token for /mcp",
-    "mcpTokenEditHint": "Defaults to your login token; if a dedicated [mcp] token is set in config.toml, enter that value instead."
+    "mcpDedicatedHint": "A dedicated [mcp] token is configured server-side — the login token in this snippet will NOT unlock /mcp; replace the Authorization value in your client config with that dedicated token."
   },
   "toast": {
     "close": "Close"
