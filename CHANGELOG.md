@@ -1,5 +1,39 @@
 # Changelog
 
+## [v1.1.0] - 2026-08-16
+
+**MCP — the AI log access layer.** tailr is now both a human log viewer and an MCP server: AI agents (Claude Code, Cursor, Codex, OpenCode, any MCP client) can list, search, count, and read server logs directly over `/mcp` — no SSH, no copy-paste. Single binary, zero new runtime dependencies.
+
+### MCP server (`/mcp`, streamable HTTP)
+
+- **Five tools**: `list_log_files`, `get_log_stats` (line/size/per-level counts), `search_logs` (AND keywords + context windows + `count_only` counting mode), `read_log_range` (cursor-based sequential reading), `tail_log` (last N lines with exact line numbers). Every response carries a `host` field so agents can tell multi-server results apart.
+- **Cursor-based pagination, no prebuilt index.** Scans are byte-offset-cursor driven (offset + line number): multi-GB files search with zero extra memory. Budget exhaustion (matches / output bytes / time) returns partial results plus a `resumeCursor` — a timeout becomes a page, never an error. Measured **0.44–0.49s for a full 2GB scan** (release build, warm cache).
+- **Token protection is server-side.** Hard caps on matches (200), output bytes (512KB), scan time (30s), keywords (8), and per-line output (4KB, truncated with a marker) — client requests can only lower them. Scans run through a semaphore concurrency gate (default 4); saturated gates reject immediately instead of queueing.
+- **Cancellation on disconnect.** When the client drops the request, a Drop guard sets an atomic flag and the scan stops at the next checkpoint — including inside pathological single-line files (newline search is windowed at 1MB so budget checks can't be bypassed).
+- **Auth**: same global Bearer token as REST/WS (constant-time compare). `/mcp` is deliberately not under the HTTP rate limiter — agent tool-call loops are dense by nature; heavy work is gated by the scan semaphore instead.
+- **Config** (`[mcp]` section, additive): `enabled` (default true; disabled → explicit 404), `host_name` (display name, defaults to system hostname). Documented in `docs/mcp.md` with per-client setup snippets and a multi-server example.
+
+### Fixes & hardening
+
+- **Symlinked log roots were rejected by tailr's own allowlist** — `allowed_dirs` were stored un-canonicalized while `validate_path` canonicalizes the request, so under symlinks (macOS `/tmp` → `/private/tmp`) paths handed out by the server itself failed validation. Affects REST too; all allowed dirs are now canonicalized at startup.
+- **`LineIndex::tail_start` reports an estimated line count** (average-line-length extrapolation, 296 vs 300 on a 300-line file) — fine for the web UI but wrong for MCP line numbers. `tail_log` counts lines exactly via the scanner (start byte from the reverse scan stays exact).
+- **Output-byte budget counted raw line length** — one giant matched line (2GB scanned, 4KB actual output after truncation) instantly exhausted any budget. Accounting now counts truncated output size.
+- **`tail_log` byte cap no longer truncates silently** — responses carry `truncated: true` when the 64MB read cap is hit.
+- **Token comparison is constant-time** (hand-rolled, zero new dependencies) for both the Bearer header and the WS query-param fallback.
+- **Disabled `/mcp` returns a deterministic 404** instead of falling into the SPA fallback (which 500s when no frontend dist is built).
+
+### Dependencies
+
+- axum 0.7 → 0.8, tower-http 0.5 → 0.6, tower-governor 0.5 → 0.6 (controlled upgrade, governor rate-limiting behavior verified identical). New: rmcp 0.5 (official Rust MCP SDK, locked), memchr 2 (SIMD newline/keyword scanning).
+
+### UI
+
+- **Settings gains an MCP page** (under a new "Labs" group): endpoint URL, client switcher (Claude Code / Cursor / Codex / OpenCode / generic JSON), ready-to-paste config snippets with one-click copy, and a token row that reflects the server's real auth state (probed, not assumed from stale browser storage).
+
+### Testing
+
+- 144 tests including 6 MCP protocol-level integration tests (official rmcp client over real HTTP: handshake, tools, content/count modes, auth rejection, disabled endpoint) and scanner unit tests covering pagination, cancellation, budgets, CRLF, and multi-window long lines.
+
 ## [v1.0.6] - 2026-08-14
 
 ### Security
