@@ -94,7 +94,7 @@
     "view": "View",
     "viewReleaseNotes": "View full release notes",
     "upgradeRequiresToken": "Upgrade requires an access token. Please set one in General settings and try again.",
-    "mcp": "AI Access (MCP)",
+    "mcp": "MCP",
     "mcpDesc": "Connect tailr to your AI client (Claude Code, Cursor, ...) so agents can search and analyze this server's logs directly.",
     "mcpDocs": "Setup guide",
     "mcpConfigPath": "Config file",
