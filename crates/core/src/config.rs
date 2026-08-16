@@ -86,15 +86,6 @@ log_timezone = "local"
 # results apart when you configure several tailr instances in one client.
 # Defaults to the system hostname.
 # host_name = "web1-prod"
-#
-# Dedicated auth token for /mcp, layered on the global `token` above:
-# - Unset: /mcp requires the global token (default — keeps a locked
-#   server locked).
-# - Set: only this token unlocks /mcp (agent credentials can be rotated
-#   independently of your web login).
-# - Empty string: /mcp is open even when the web UI requires a token
-#   (explicit opt-in; logs a startup warning).
-# token = "mcp-specific-secret"
 "#;
 
 /// Main configuration for tailr.
@@ -129,13 +120,6 @@ pub struct McpConfig {
     /// Display name in MCP tool responses so agents can tell multi-server
     /// results apart. Defaults to the system hostname when unset.
     pub host_name: Option<String>,
-    /// Dedicated Bearer token for `/mcp`:
-    /// - unset  → `/mcp` requires the global `token` (safe default: a locked
-    ///   web UI never silently opens a machine interface)
-    /// - set    → only this token unlocks `/mcp` (the global one is refused)
-    /// - ""     → `/mcp` is unauthenticated even when the global token is set
-    ///   (explicit opt-in; logs a startup warning)
-    pub token: Option<String>,
 }
 
 impl Default for McpConfig {
@@ -143,7 +127,6 @@ impl Default for McpConfig {
         Self {
             enabled: true,
             host_name: None,
-            token: None,
         }
     }
 }
@@ -571,28 +554,6 @@ host_name = "web1-prod"
         let config = load_config(&config_path, None, None, false, None, None).unwrap();
         assert!(!config.mcp.enabled);
         assert_eq!(config.mcp.host_name.as_deref(), Some("web1-prod"));
-    }
-
-    #[test]
-    fn test_mcp_token_variants() {
-        // unset → None（回落全局）
-        let dir = tempfile::tempdir().unwrap();
-        let config_path = dir.path().join("config.toml");
-        std::fs::write(&config_path, "[mcp]\nhost_name = \"x\"\n").unwrap();
-        let config = load_config(&config_path, None, None, false, None, None).unwrap();
-        assert_eq!(config.mcp.token, None);
-
-        // set → Some(值)
-        let config_path = dir.path().join("config2.toml");
-        std::fs::write(&config_path, "[mcp]\ntoken = \"mcp-secret\"\n").unwrap();
-        let config = load_config(&config_path, None, None, false, None, None).unwrap();
-        assert_eq!(config.mcp.token.as_deref(), Some("mcp-secret"));
-
-        // 显式空串 → Some("")（放开 MCP 认证）
-        let config_path = dir.path().join("config3.toml");
-        std::fs::write(&config_path, "[mcp]\ntoken = \"\"\n").unwrap();
-        let config = load_config(&config_path, None, None, false, None, None).unwrap();
-        assert_eq!(config.mcp.token.as_deref(), Some(""));
     }
 
     #[test]

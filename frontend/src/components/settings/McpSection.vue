@@ -11,32 +11,29 @@ const { copiedId, copy } = useCopyFeedbackId<string>()
 
 const endpoint = computed(() => `${window.location.origin}/mcp`)
 
-// 服务端 MCP 的认证/启用状态（来自 /api/health）：
-// - mcpAuthRequired：/mcp 实际需要认证（专用 token 已设置，或继承全局）
-// - mcpTokenDedicated：设置了专用 [mcp] token → 登录 token 无效，用占位符
-// - mcpEnabled：[mcp] enabled（默认 true）
-// 继承全局时登录 token 就是有效凭证（只读展示 + 填进片段）；专用 token
-// 的值永不回传前端，只能由用户在服务端查看后手动替换占位符。
-const mcpAuthRequired = ref(false)
-const mcpTokenDedicated = ref(false)
+// 服务端真实状态探测（/mcp 与 REST/WS 同源共用全局 token，没有单独凭证）：
+// - 认证态：不带凭证请求 /api/health，401 = 需要认证。不能只看
+//   localStorage——那是上一次登录的残留，服务端关掉认证后页面会误显示。
+// - 启用态：[mcp] enabled（默认 true），来自 healthCheck。
+const authRequired = ref(true)
 const mcpEnabled = ref(true)
 const probing = ref(true)
 onMounted(async () => {
   try {
+    // 原生 fetch（不经 api.ts，避免自动附带 localStorage 的 token）
+    const res = await fetch('/api/health')
+    authRequired.value = res.status === 401
     const health = await healthCheck()
-    mcpAuthRequired.value = health.mcpAuthRequired ?? false
-    mcpTokenDedicated.value = health.mcpTokenDedicated ?? false
     mcpEnabled.value = health.mcpEnabled ?? true
   } catch {
-    mcpAuthRequired.value = false
-    mcpTokenDedicated.value = false
+    authRequired.value = true
     mcpEnabled.value = true
   } finally {
     probing.value = false
   }
 })
 
-// 继承全局时的有效凭证 = 登录 token（只读展示）。
+// 登录 token 即 /mcp 的有效凭证（同源共用），只读展示 + 填进片段。
 const loginToken = useAuth().getToken()
 
 type Client = 'claudeCode' | 'cursor' | 'codex' | 'opencode' | 'generic'
@@ -56,10 +53,10 @@ const configPath = computed(
 
 const snippet = computed(() => {
   const url = endpoint.value
-  const auth = !mcpAuthRequired.value
-    ? null
-    : { Authorization: `Bearer ${mcpTokenDedicated.value ? '<MCP_TOKEN>' : loginToken}` }
-  const tk = mcpTokenDedicated.value ? '<MCP_TOKEN>' : loginToken
+  const auth = authRequired.value && loginToken
+    ? { Authorization: `Bearer ${loginToken}` }
+    : null
+  const tk = loginToken
   switch (client.value) {
     case 'claudeCode':
       // Claude Code requires type:"http" — a bare url entry is skipped.
@@ -131,7 +128,7 @@ async function copyText(text: string, id: string): Promise<void> {
       </div>
     </div>
 
-    <div v-if="!probing && mcpAuthRequired && !mcpTokenDedicated" class="mcp-row">
+    <div v-if="!probing && authRequired" class="mcp-row">
       <div class="mcp-label">Token</div>
       <div class="mcp-value">
         <code>{{ loginToken }}</code>
@@ -174,8 +171,7 @@ async function copyText(text: string, id: string): Promise<void> {
     </div>
 
     <p v-if="!probing && !mcpEnabled" class="mcp-warn-hint">{{ t('settings.mcpDisabledHint') }}</p>
-    <p v-else-if="!probing && mcpAuthRequired" class="mcp-token-hint">{{ t('settings.mcpDedicatedHint') }}</p>
-    <p v-else-if="!probing" class="mcp-token-hint">{{ t('settings.mcpTokenHint') }}</p>
+    <p v-else-if="!probing && !authRequired" class="mcp-token-hint">{{ t('settings.mcpTokenHint') }}</p>
   </div>
 </template>
 

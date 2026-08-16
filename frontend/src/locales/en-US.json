@@ -104,7 +104,6 @@
     "mcpTokenHint": "/mcp requires no authentication on this server; the snippet omits Authorization.",
     "mcpToken": "Token",
     "mcpGenericClient": "Generic",
-    "mcpDedicatedHint": "Dedicated MCP auth is enabled server-side — replace the MCP_TOKEN placeholder in the snippet with the actual [mcp] token value from config.toml.",
     "mcpDisabledHint": "The /mcp endpoint is disabled server-side ([mcp] enabled = false); the config below will not work until enabled."
   },
   "toast": {

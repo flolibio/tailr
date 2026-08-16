@@ -143,10 +143,6 @@ export interface HealthData {
   version: string
   uptimeSeconds: number
   upgradeInProgress: boolean
-  /** True when /mcp effectively requires a token (dedicated or inherited global). */
-  mcpAuthRequired?: boolean
-  /** True when a dedicated [mcp] token is set — the login token will NOT unlock /mcp. */
-  mcpTokenDedicated?: boolean
   /** True when the /mcp endpoint is mounted ([mcp] enabled, default true). */
   mcpEnabled?: boolean
 }
