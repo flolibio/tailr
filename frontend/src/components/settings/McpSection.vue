@@ -205,7 +205,6 @@ async function copyText(text: string, id: string): Promise<void> {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text);
-  user-select: all;
 }
 
 .mcp-clients {
@@ -230,9 +229,9 @@ async function copyText(text: string, id: string): Promise<void> {
 }
 
 .mcp-client-tab.active {
-  background: var(--accent);
+  background: transparent;
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent);
 }
 
 .mcp-path {
@@ -248,7 +247,6 @@ async function copyText(text: string, id: string): Promise<void> {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-2);
-  user-select: all;
 }
 
 .mcp-snippet {
