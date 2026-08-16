@@ -265,7 +265,6 @@ async function copyText(text: string, id: string): Promise<void> {
   line-height: 1.6;
   overflow-x: auto;
   color: var(--text);
-  user-select: all;
 }
 
 .mcp-copy-btn {
