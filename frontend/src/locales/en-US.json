@@ -103,7 +103,9 @@
     "mcpCopied": "Copied",
     "mcpTokenHint": "No token auth is enabled on this server, so the snippet omits headers; re-open this page after enabling auth for a complete config.",
     "mcpToken": "Token",
-    "mcpGenericClient": "Generic"
+    "mcpGenericClient": "Generic",
+    "mcpTokenPlaceholder": "token for /mcp",
+    "mcpTokenEditHint": "Defaults to your login token; if a dedicated [mcp] token is set in config.toml, enter that value instead."
   },
   "toast": {
     "close": "Close"

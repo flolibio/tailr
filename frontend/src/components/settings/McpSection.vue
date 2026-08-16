@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCopyFeedbackId } from '../../composables/useClipboard'
 import { useAuth } from '../../composables/useAuth'
@@ -10,10 +10,26 @@ const { copiedId, copy } = useCopyFeedbackId<string>()
 
 const endpoint = computed(() => `${window.location.origin}/mcp`)
 
-// The user's own token (already entered in this browser via the auth dialog).
-// Showing it here is safe: anyone who can see this page already authenticated
-// with it — and without it the snippet isn't actionable.
-const token = useAuth().getToken()
+// 探测服务端真实认证状态：不带凭证请求 /api/health（免限流只读端点），
+// 401 = 需要认证。不能只看 localStorage——那是上一次登录的残留，服务端
+// 关掉认证后页面仍会误显示 token。
+const authRequired = ref(true)
+const probing = ref(true)
+onMounted(async () => {
+  try {
+    // 原生 fetch（不经 api.ts，避免自动附带 localStorage 的 token）
+    const res = await fetch('/api/health')
+    authRequired.value = res.status === 401
+  } catch {
+    authRequired.value = true
+  } finally {
+    probing.value = false
+  }
+})
+
+// 可编辑的 token：默认带出登录时输入的值；配置了独立的 [mcp] token 时，
+// 用户在此填入专用值，片段随之更新（前端无从得知服务端的独立 token）。
+const token = ref(useAuth().getToken())
 
 type Client = 'claudeCode' | 'cursor' | 'codex' | 'opencode' | 'generic'
 const client = ref<Client>('claudeCode')
@@ -32,7 +48,8 @@ const configPath = computed(
 
 const snippet = computed(() => {
   const url = endpoint.value
-  const auth = token ? { Authorization: `Bearer ${token}` } : null
+  const tk = token.value
+  const auth = authRequired.value && tk ? { Authorization: `Bearer ${tk}` } : null
   switch (client.value) {
     case 'claudeCode':
       // Claude Code requires type:"http" — a bare url entry is skipped.
@@ -52,7 +69,7 @@ const snippet = computed(() => {
         '[mcp_servers.tailr]',
         `url = "${url}"`,
         ...(auth
-          ? ['# Streamable-HTTP auth (recent Codex versions):', 'http_headers = { Authorization = "Bearer ' + token + '" }']
+          ? ['# Streamable-HTTP auth (recent Codex versions):', 'http_headers = { Authorization = "Bearer ' + tk + '" }']
           : []),
       ].join('\n')
     case 'opencode':
@@ -104,10 +121,17 @@ async function copyText(text: string, id: string): Promise<void> {
       </div>
     </div>
 
-    <div v-if="token" class="mcp-row">
+    <div v-if="authRequired && !probing" class="mcp-row">
       <div class="mcp-label">Token</div>
       <div class="mcp-value">
-        <code>{{ token }}</code>
+        <input
+          v-model="token"
+          class="token-edit"
+          type="text"
+          spellcheck="false"
+          autocomplete="off"
+          :placeholder="t('settings.mcpTokenPlaceholder')"
+        />
         <button class="mcp-copy-btn" :title="t('settings.mcpCopy')" @click="copyText(token, 'token')">
           <Check v-if="copiedId === 'token'" :size="13" />
           <Copy v-else :size="13" />
@@ -146,7 +170,8 @@ async function copyText(text: string, id: string): Promise<void> {
       </button>
     </div>
 
-    <p v-if="!token" class="mcp-token-hint">{{ t('settings.mcpTokenHint') }}</p>
+    <p v-if="!probing && !authRequired" class="mcp-token-hint">{{ t('settings.mcpTokenHint') }}</p>
+    <p v-else-if="!probing" class="mcp-token-hint">{{ t('settings.mcpTokenEditHint') }}</p>
   </div>
 </template>
 
@@ -294,5 +319,22 @@ async function copyText(text: string, id: string): Promise<void> {
   margin: 0;
   font-size: 12px;
   color: var(--text-3);
+}
+
+.token-edit {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.token-edit:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 </style>

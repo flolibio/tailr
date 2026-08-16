@@ -103,7 +103,9 @@
     "mcpCopied": "已复制",
     "mcpTokenHint": "当前服务未启用 token 认证，配置片段中已省略 headers；启用认证后重新打开此页可获取完整配置。",
     "mcpToken": "Token",
-    "mcpGenericClient": "通用"
+    "mcpGenericClient": "通用",
+    "mcpTokenPlaceholder": "用于 /mcp 的 token",
+    "mcpTokenEditHint": "默认填入你的登录 token；若在 config.toml 配置了独立的 [mcp] token，请改为该专用值。"
   },
   "toast": {
     "close": "关闭"

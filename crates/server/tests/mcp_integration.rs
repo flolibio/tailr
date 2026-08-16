@@ -17,6 +17,10 @@ const TOKEN: &str = "test-token";
 /// 在随机端口起真实 TCP 服务（真实 axum::serve，非 oneshot），
 /// 返回 /mcp 的 URL。后台任务随测试运行时结束。
 async fn spawn_app(mcp: McpConfig, log_dir: PathBuf) -> String {
+    spawn_app_with_token(mcp, log_dir, TOKEN).await
+}
+
+async fn spawn_app_with_token(mcp: McpConfig, log_dir: PathBuf, global_token: &str) -> String {
     let router = app(
         vec![log_dir],
         PathBuf::from("/tmp/nonexistent.toml"),
@@ -25,7 +29,7 @@ async fn spawn_app(mcp: McpConfig, log_dir: PathBuf) -> String {
             levels: vec![],
         },
         LogTimezone::default(),
-        TOKEN.to_string(),
+        global_token.to_string(),
         LimitsConfig::default(),
         mcp,
     );
@@ -218,6 +222,7 @@ async fn mcp_disabled_returns_404() {
         McpConfig {
             enabled: false,
             host_name: None,
+            token: None,
         },
         dir,
     )
@@ -233,4 +238,86 @@ async fn mcp_disabled_returns_404() {
         .unwrap()
         .status();
     assert_eq!(status, 404);
+}
+
+#[tokio::test]
+async fn mcp_dedicated_token_replaces_global_on_mcp_path() {
+    let dir = fixture_dir();
+    // 全局 token 生效 + [mcp] token 专用：/mcp 只认 MCP token。
+    let url = spawn_app_with_token(
+        McpConfig {
+            enabled: true,
+            host_name: None,
+            token: Some("mcp-secret".to_string()),
+        },
+        dir.clone(),
+        TOKEN,
+    )
+    .await;
+
+    // 全局 token 在 /mcp 上被拒绝
+    let result = connect(&url, Some(TOKEN)).await;
+    assert!(result.is_err(), "global token must not unlock /mcp when [mcp] token is set");
+
+    // REST 仍然认全局 token（健康检查 401 后用全局 token 可访问）
+    let base = url.trim_end_matches("/mcp");
+    let unauthorized = reqwest::Client::new()
+        .get(format!("{base}/api/health"))
+        .send()
+        .await
+        .unwrap()
+        .status();
+    assert_eq!(unauthorized, 401);
+
+    // MCP token 握手成功
+    let client = connect(&url, Some("mcp-secret")).await.expect("mcp token handshake");
+    let tools = client.list_all_tools().await.unwrap();
+    assert!(tools.iter().any(|t| t.name == "search_logs"));
+}
+
+#[tokio::test]
+async fn mcp_empty_token_opens_mcp_while_global_still_locks_rest() {
+    let dir = fixture_dir();
+    let url = spawn_app_with_token(
+        McpConfig {
+            enabled: true,
+            host_name: None,
+            token: Some(String::new()),
+        },
+        dir.clone(),
+        TOKEN,
+    )
+    .await;
+
+    // 无任何凭证即可握手
+    let client = connect(&url, None).await.expect("open mcp handshake");
+    let _ = client.list_all_tools().await.unwrap();
+
+    // REST 仍需全局 token
+    let base = url.trim_end_matches("/mcp");
+    let unauthorized = reqwest::Client::new()
+        .get(format!("{base}/api/health"))
+        .send()
+        .await
+        .unwrap()
+        .status();
+    assert_eq!(unauthorized, 401);
+}
+
+#[tokio::test]
+async fn mcp_token_unset_falls_back_to_global() {
+    let dir = fixture_dir();
+    // token: None → 回落全局 token（升级安全的默认）
+    let url = spawn_app_with_token(
+        McpConfig {
+            enabled: true,
+            host_name: None,
+            token: None,
+        },
+        dir.clone(),
+        TOKEN,
+    )
+    .await;
+    let client = connect(&url, Some(TOKEN)).await.expect("global token fallback");
+    let _ = client.list_all_tools().await.unwrap();
 }
