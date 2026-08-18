@@ -194,6 +194,36 @@ async fn full_protocol_roundtrip() {
 }
 
 #[tokio::test]
+async fn tail_log_preserves_empty_line_numbering() {
+    // 回归：空行是真实行，必须占行号——曾经被 filter 掉导致行号整体漂移。
+    let dir = fixture_dir();
+    std::fs::write(dir.join("blank.log"), "aaa\n\nccc\n").unwrap();
+    let path = dir.join("blank.log").display().to_string();
+    let url = spawn_app(McpConfig::default(), dir).await;
+    let client = connect(&url, Some(TOKEN)).await.expect("handshake");
+    let args = json!({ "path": path, "lines": 3 }).as_object().cloned().unwrap();
+    let resp = client
+        .peer()
+        .call_tool(rmcp::model::CallToolRequestParam {
+            name: "tail_log".into(),
+            arguments: Some(args),
+        })
+        .await
+        .unwrap();
+    let v = tool_json(&resp);
+    assert_eq!(v["totalLines"], 3);
+    assert_eq!(v["incomplete"], false);
+    let lines = v["lines"].as_array().unwrap();
+    assert_eq!(lines.len(), 3);
+    assert_eq!(lines[0]["line"], 1);
+    assert_eq!(lines[0]["text"], "aaa");
+    assert_eq!(lines[1]["line"], 2);
+    assert_eq!(lines[1]["text"], "");
+    assert_eq!(lines[2]["line"], 3);
+    assert_eq!(lines[2]["text"], "ccc");
+}
+
+#[tokio::test]
 async fn unauthenticated_client_is_rejected_until_token_given() {
     let dir = fixture_dir();
     let url = spawn_app(McpConfig::default(), dir).await;

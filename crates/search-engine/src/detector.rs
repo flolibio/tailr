@@ -51,6 +51,11 @@ impl LevelDetector {
                 if line_lower_bytes.len() < keyword_bytes.len() {
                     continue;
                 }
+                // 关键词长于扫描窗口（256B）时 limit - len 下溢：跳过该
+                // 关键词防御，否则 debug panic / release 切片越界 panic。
+                if keyword_bytes.len() > limit {
+                    continue;
+                }
                 for i in 0..=limit - keyword_bytes.len() {
                     if line_lower_bytes[i..i + keyword_bytes.len()]
                         .iter()
@@ -90,6 +95,25 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    #[test]
+    fn test_keyword_longer_than_scan_window_does_not_panic() {
+        // >256 字节的关键词 + 足够长的行：曾因 limit - len 下溢 panic。
+        let long_keyword = "k".repeat(300);
+        let line = format!("x{}y", long_keyword);
+        let detector = crate::LevelDetector::from_config(&LogLevelConfig {
+            preset: "custom".to_string(),
+            levels: vec![LevelDef {
+                name: "WEIRD".to_string(),
+                keywords: vec![long_keyword],
+                color_light: "#000000".to_string(),
+                color_dark: "#ffffff".to_string(),
+            }],
+        });
+        // 不 panic、返回 UNKNOWN（超窗关键词被安全跳过）即通过
+        assert_eq!(detector.detect(&line), "UNKNOWN".to_string());
+        assert_eq!(detector.detect_ref(&line), "UNKNOWN");
     }
 
     #[test]

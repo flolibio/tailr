@@ -1,7 +1,7 @@
 //! MCP (Model Context Protocol) 服务端 — `/mcp` streamable HTTP 端点。
 //!
 //! 让 AI agent（Claude Code / Cursor 等）直接检索服务器日志：搜索、读尾部、
-//! 读任意游标、级别统计。设计决策见知识库《tailr-MCP-AI日志访问层设计》：
+//! 读任意游标、级别统计。关键设计决策（自足摘要，勿引用外部文档）：
 //!
 //! - **token 防护**：所有 tool 的输出都经 QueryService 预算钳制（命中数/
 //!   字节/超时），响应自带 `resumeCursor` 分页语义；tool description 与
@@ -250,20 +250,22 @@ impl McpTools {
     #[tool(description = "List the log files accessible on this server. Returns name/path/size/isDir for each entry. Start here to discover what you can query — the `path` values are the exact identifiers the other tools expect.")]
     async fn list_log_files(&self) -> Result<CallToolResult, McpError> {
         let state = self.state.clone();
-        let entries = tokio::task::spawn_blocking(move || list_files_blocking(&state))
-            .await
-            .map_err(|e| McpError::internal_error(format!("listing task failed: {e}"), None))?;
+        let (entries, truncated) =
+            tokio::task::spawn_blocking(move || list_files_blocking(&state))
+                .await
+                .map_err(|e| McpError::internal_error(format!("listing task failed: {e}"), None))?;
 
         Ok(CallToolResult::success(vec![Content::text(
             json!({
                 "host": self.state.host_name,
                 "files": entries,
+                "truncated": truncated,
             })
             .to_string(),
         )]))
     }
 
-    #[tool(description = "Read the LAST N lines of a log file (default 100, max 5000) with absolute line numbers. Good for a quick look at recent activity; prefer get_log_stats + search_logs for anything bigger. If truncated is true, the tail exceeded the byte cap — request fewer lines.")]
+    #[tool(description = "Read the LAST N lines of a log file (default 100, max 5000) with absolute line numbers. Good for a quick look at recent activity; prefer get_log_stats + search_logs for anything bigger. If truncated is true, the tail exceeded the byte cap — request fewer lines. If incomplete is true, line numbers are approximate (the line count did not finish scanning).")]
     async fn tail_log(
         &self,
         Parameters(args): Parameters<TailLogArgs>,
@@ -305,10 +307,16 @@ impl McpTools {
                 .map_err(query_io)?;
             let file_len = std::fs::metadata(&path_buf).map(|m| m.len()).unwrap_or(0);
             let tail_truncated = file_len.saturating_sub(tail.start_byte) > read as u64;
+            // 只丢弃末尾换行产生的空元素；中间的空行是真实行，
+            // 必须保留并占一个行号——否则与 scanner 的行号体系错位
+            // （空行后所有行号整体漂移）。
+            let mut parts: Vec<&[u8]> = buf.split(|&b| b == b'\n').collect();
+            if parts.last() == Some(&&[][..]) {
+                parts.pop();
+            }
             let mut line_no = start_line;
-            let lines: Vec<serde_json::Value> = buf
-                .split(|&b| b == b'\n')
-                .filter(|l| !l.is_empty())
+            let lines: Vec<serde_json::Value> = parts
+                .into_iter()
                 .map(|l| {
                     let mut end = l.len();
                     if end > 0 && l[end - 1] == b'\r' {
@@ -325,6 +333,9 @@ impl McpTools {
                 "totalLines": total_lines,
                 "sizeBytes": stats.total_bytes,
                 "truncated": tail_truncated,
+                // 行数统计未扫完时 start_line/line 是按部分计数推的，
+                // 只能当近似值——显式透传，别让 AI 当精确数用。
+                "incomplete": !stats.completed,
             }))
         })
         .await
@@ -341,7 +352,7 @@ impl McpTools {
         )]))
     }
 
-    #[tool(description = "Search a log file for lines containing ALL keywords (AND, case-insensitive). For 'how many/how often' questions set count_only=true (fast, counts without content). For inspection, returns matching lines merged into context windows (± context_lines). Workflow: get_log_stats first, then search with 2-3 specific keywords. If more/truncated is true, continue with resumeCursor (never restart); a timeout also returns partial results + resumeCursor — just continue. When reporting results, state the raw matched LINE count first, then any higher-level grouping you derive (e.g. request-pairs) — users usually think in lines.")]
+    #[tool(description = "Search a log file for lines containing ALL keywords (AND, case-insensitive). For 'how many/how often' questions set count_only=true (fast, counts without content). For inspection, returns matching lines merged into context windows (± context_lines). Workflow: get_log_stats first, then search with 2-3 specific keywords. If more/truncated is true, continue with resumeCursor (never restart); a timeout also returns partial results + resumeCursor — just continue. When count_only spans several pages, sum matchedLines across all pages for the total. When reporting results, state the raw matched LINE count first, then any higher-level grouping you derive (e.g. request-pairs) — users usually think in lines.")]
     async fn search_logs(
         &self,
         Parameters(args): Parameters<SearchLogsArgs>,
@@ -437,7 +448,9 @@ impl ServerHandler for McpTools {
 
 /// 同步列文件（spawn_blocking 里跑）：配置的 log_files 平铺 + log_dirs
 /// 递归（深度 ≤ MCP_LIST_DEPTH），只留文本文件，平铺输出（AI 不要树）。
-fn list_files_blocking(state: &AppState) -> Vec<serde_json::Value> {
+/// 返回 (条目, 是否因 MAX_LIST_ENTRIES 截断)——截断必须显式告知，
+/// 否则 AI 会以为列全了。
+fn list_files_blocking(state: &AppState) -> (Vec<serde_json::Value>, bool) {
     let mut out = Vec::new();
 
     for file in &state.log_files {
@@ -459,7 +472,7 @@ fn list_files_blocking(state: &AppState) -> Vec<serde_json::Value> {
         collect_text_files(dir, MCP_LIST_DEPTH, &mut out, &mut total);
     }
 
-    out
+    (out, total >= crate::api::MAX_LIST_ENTRIES)
 }
 
 fn collect_text_files(
