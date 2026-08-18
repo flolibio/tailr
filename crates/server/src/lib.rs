@@ -278,6 +278,16 @@ pub fn app(
     // heavy work is already gated by QueryService's scan semaphore. HTTP-level
     // 429 storms on legitimate agents would be worse than the abuse they'd
     // prevent (see mcp.rs module docs). Optionally disabled via [mcp] enabled=false.
+    // MCP 新增的是「无认证也能触发多 GB 全扫」的能力（REST 默认开放是
+    // 既有立场，但 REST 没有这种昂贵操作）。该组合显式告警。
+    if mcp.enabled && state.token.is_empty() {
+        tracing::warn!(
+            "MCP endpoint is enabled with NO auth token — anyone who can \
+             reach this port can read all configured logs and trigger \
+             full-file scans; set `token` or disable via [mcp] enabled=false"
+        );
+    }
+
     let mcp_router = if mcp.enabled {
         mcp::routes(state.clone())
             .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))

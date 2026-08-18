@@ -8,10 +8,12 @@
 //!
 //! 本模块是纯同步 `fn`：无 HTTP、无 async、无运行时假设，符合 core 边界。
 
+use std::collections::HashMap;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
-use std::time::Duration;
+use std::sync::Mutex;
+use std::time::{Duration, SystemTime};
 
 use tailr_search_engine::{
     file_stats, scan_file, FileStats, LevelDetector, ScanParams, ScanResult, DEFAULT_CONTEXT,
@@ -107,9 +109,18 @@ impl std::error::Error for QueryError {
     }
 }
 
+/// 已完成统计的缓存条目：追加型日志的 (mtime, size) 命中率极高，
+/// 一次全扫的精确行数可服务后续所有 stats/tail 调用。
+struct CachedStats {
+    mtime: SystemTime,
+    size: u64,
+    stats: FileStats,
+}
+
 pub struct QueryService {
     semaphore: tokio::sync::Semaphore,
     caps: QueryCaps,
+    stats_cache: Mutex<HashMap<PathBuf, CachedStats>>,
 }
 
 impl QueryService {
@@ -118,6 +129,7 @@ impl QueryService {
         Self {
             semaphore: tokio::sync::Semaphore::new(permits),
             caps,
+            stats_cache: Mutex::new(HashMap::new()),
         }
     }
 
@@ -180,17 +192,46 @@ impl QueryService {
     }
 
     /// 文件统计。同样占并发闸（全文件扫描同样是重活）。
+    ///
+    /// 缓存策略：以 (mtime, size) 为键缓存**已完成**的统计——追加型日志
+    /// 的连续 tail/stats 调用不再每次全扫；文件增长自动失效。未完成的
+    /// 部分计数不缓存。缓存命中不占并发闸（无扫描发生）。
     pub fn stats(
         &self,
         path: &Path,
         detector: Option<&LevelDetector>,
         cancel: Option<&AtomicBool>,
     ) -> Result<FileStats, QueryError> {
+        let meta = std::fs::metadata(path).map_err(QueryError::Io)?;
+        let (meta_mtime, meta_size) = (meta.modified().map_err(QueryError::Io)?, meta.len());
+
+        if let Ok(cache) = self.stats_cache.lock() {
+            if let Some(hit) = cache.get(path) {
+                if hit.mtime == meta_mtime && hit.size == meta_size {
+                    return Ok(hit.stats.clone());
+                }
+            }
+        }
+
         let _permit = self
             .semaphore
             .try_acquire()
             .map_err(|_| QueryError::Busy)?;
-        file_stats(path, detector, self.caps.max_time_budget, cancel).map_err(QueryError::Io)
+        let stats =
+            file_stats(path, detector, self.caps.max_time_budget, cancel).map_err(QueryError::Io)?;
+        if stats.completed {
+            if let Ok(mut cache) = self.stats_cache.lock() {
+                cache.insert(
+                    path.to_path_buf(),
+                    CachedStats {
+                        mtime: meta_mtime,
+                        size: meta_size,
+                        stats: stats.clone(),
+                    },
+                );
+            }
+        }
+        Ok(stats)
     }
 }
 
@@ -269,6 +310,29 @@ mod tests {
             )
             .unwrap_err();
         assert!(matches!(err, QueryError::KeywordTooLong(256)));
+    }
+
+    #[test]
+    fn stats_cache_invalidates_on_file_change() {
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        writeln!(f, "one").unwrap();
+        f.flush().unwrap();
+        let svc = QueryService::new(QueryCaps::default());
+
+        let s1 = svc.stats(f.path(), None, None).unwrap();
+        assert_eq!(s1.total_lines, 1);
+
+        // 追加后 (mtime,size) 变化 → 缓存失效 → 重新扫描
+        writeln!(f, "two").unwrap();
+        f.flush().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        let s2 = svc.stats(f.path(), None, None).unwrap();
+        assert_eq!(s2.total_lines, 2);
+
+        // 未变化 → 命中缓存返回同一结果
+        let s3 = svc.stats(f.path(), None, None).unwrap();
+        assert_eq!(s3.total_lines, 2);
     }
 
     #[test]

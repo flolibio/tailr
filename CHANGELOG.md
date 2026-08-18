@@ -1,6 +1,6 @@
 # Changelog
 
-## [v1.1.0] - 2026-08-16
+## [v1.1.0] - 2026-08-18
 
 **MCP — the AI log access layer.** tailr is now both a human log viewer and an MCP server: AI agents (Claude Code, Cursor, Codex, OpenCode, any MCP client) can list, search, count, and read server logs directly over `/mcp` — no SSH, no copy-paste. Single binary, zero new runtime dependencies.
 
@@ -21,6 +21,12 @@
 - **`tail_log` byte cap no longer truncates silently** — responses carry `truncated: true` when the 64MB read cap is hit.
 - **Token comparison is constant-time** (hand-rolled, zero new dependencies) for both the Bearer header and the WS query-param fallback.
 - **Disabled `/mcp` returns a deterministic 404** instead of falling into the SPA fallback (which 500s when no frontend dist is built).
+- **`tail_log` dropped empty lines and shifted line numbers** (external review) — the tail reader filtered all empty split segments, so files with blank lines got line numbers drifting from the scanner's. Empty lines now occupy their real line numbers; protocol-level regression test added.
+- **`tail_log` could report wrong line numbers from a partial line count** (external review) — if the line-count scan hit its time budget, the partial total was used as exact. Responses now carry `incomplete: true` in that case and the tool description tells agents to treat line numbers as approximate.
+- **Stats caching (mtime + size keyed)** — completed line/level counts are cached; repeated `tail_log`/`get_log_stats` calls on append-only logs no longer rescan the whole file. Cache hits skip the scan semaphore; file growth invalidates.
+- **Startup warning when MCP is enabled without a token** — the endpoint adds unauthenticated expensive-scan capability on top of the existing no-auth REST default; the combination is now logged loudly.
+- **LevelDetector no longer panics on keywords longer than the 256-byte scan window** (external review) — `limit - len` underflowed (debug panic / release slice OOB). Oversized keywords are now skipped safely.
+- **`list_log_files` signals truncation** — hitting the 5000-entry cap now returns `truncated: true` instead of silently dropping files; `search_logs` description clarifies that multi-page `count_only` results must be summed across pages.
 
 ### Dependencies
 
