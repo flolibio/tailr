@@ -89,9 +89,8 @@ fn tool_json(resp: &rmcp::model::CallToolResult) -> Value {
     let text = resp
         .content
         .iter()
-        .flatten()
-        .find_map(|c| match &c.raw {
-            rmcp::model::RawContent::Text(t) => Some(t.text.clone()),
+        .find_map(|c| match c {
+            rmcp::model::ContentBlock::Text(t) => Some(t.text.clone()),
             _ => None,
         })
         .expect("text content in tool result");
@@ -120,10 +119,7 @@ async fn full_protocol_roundtrip() {
     // list_log_files：host 字段 + 文件存在
     let resp = client
         .peer()
-        .call_tool(rmcp::model::CallToolRequestParam {
-            name: "list_log_files".into(),
-            arguments: None,
-        })
+        .call_tool(rmcp::model::CallToolRequestParams::new("list_log_files"))
         .await
         .unwrap();
     let v = tool_json(&resp);
@@ -148,10 +144,7 @@ async fn full_protocol_roundtrip() {
         .unwrap();
     let resp = client
         .peer()
-        .call_tool(rmcp::model::CallToolRequestParam {
-            name: "search_logs".into(),
-            arguments: Some(args),
-        })
+        .call_tool(rmcp::model::CallToolRequestParams::new("search_logs").with_arguments(args))
         .await
         .unwrap();
     let v = tool_json(&resp);
@@ -168,10 +161,7 @@ async fn full_protocol_roundtrip() {
         .unwrap();
     let resp = client
         .peer()
-        .call_tool(rmcp::model::CallToolRequestParam {
-            name: "search_logs".into(),
-            arguments: Some(args),
-        })
+        .call_tool(rmcp::model::CallToolRequestParams::new("search_logs").with_arguments(args))
         .await
         .unwrap();
     let v = tool_json(&resp);
@@ -182,10 +172,7 @@ async fn full_protocol_roundtrip() {
     let args = json!({ "path": log_path }).as_object().cloned().unwrap();
     let resp = client
         .peer()
-        .call_tool(rmcp::model::CallToolRequestParam {
-            name: "get_log_stats".into(),
-            arguments: Some(args),
-        })
+        .call_tool(rmcp::model::CallToolRequestParams::new("get_log_stats").with_arguments(args))
         .await
         .unwrap();
     let v = tool_json(&resp);
@@ -204,10 +191,7 @@ async fn tail_log_preserves_empty_line_numbering() {
     let args = json!({ "path": path, "lines": 3 }).as_object().cloned().unwrap();
     let resp = client
         .peer()
-        .call_tool(rmcp::model::CallToolRequestParam {
-            name: "tail_log".into(),
-            arguments: Some(args),
-        })
+        .call_tool(rmcp::model::CallToolRequestParams::new("tail_log").with_arguments(args))
         .await
         .unwrap();
     let v = tool_json(&resp);
@@ -242,6 +226,33 @@ async fn unauthenticated_client_is_rejected_until_token_given() {
     let result = connect(&url, None).await;
     assert!(result.is_err(), "unauthenticated handshake must fail");
     let client = connect(&url, Some(TOKEN)).await.expect("inherited global token");
+    let _ = client.list_all_tools().await.unwrap();
+}
+
+#[tokio::test]
+async fn browser_origin_requests_are_rejected_by_dns_rebinding_guard() {
+    let dir = fixture_dir();
+    let url = spawn_app(McpConfig::default(), dir).await;
+
+    // 带 Origin 头的请求（浏览器特征）：sentinel 白名单永不匹配 → 拒绝。
+    // DNS rebinding 场景即恶意网页借受害者浏览器发起的请求。
+    let rejected = authed_http(Some(TOKEN))
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("Accept", "application/json, text/event-stream")
+        .header("Origin", "http://evil.example")
+        .body(r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}"#)
+        .send()
+        .await
+        .unwrap()
+        .status();
+    assert!(
+        rejected.is_client_error() || rejected.is_server_error(),
+        "Origin-bearing request must be rejected, got {rejected}"
+    );
+
+    // 无 Origin 头（非浏览器 MCP 客户端的形态）：正常握手。
+    let client = connect(&url, Some(TOKEN)).await.expect("non-browser handshake");
     let _ = client.list_all_tools().await.unwrap();
 }
 
