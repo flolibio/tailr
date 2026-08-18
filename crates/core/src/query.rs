@@ -109,18 +109,30 @@ impl std::error::Error for QueryError {
     }
 }
 
-/// 已完成统计的缓存条目：追加型日志的 (mtime, size) 命中率极高，
-/// 一次全扫的精确行数可服务后续所有 stats/tail 调用。
-struct CachedStats {
+/// 已完成的**行数**统计（detector 无关）：追加型日志的 (mtime, size)
+/// 命中率极高，tail_log 的精确行号复用这里，不碰级别缓存。
+struct CachedLineCounts {
     mtime: SystemTime,
     size: u64,
+    total_lines: u64,
+    total_bytes: u64,
+}
+
+/// 已完成的**级别**统计：额外绑定 detector 指纹——级别配置热更后指纹
+/// 变化自动失效，也和行数缓存互不污染（曾共享条目导致 tail 先跑、
+/// get_log_stats 命中后返回全零级别）。
+struct CachedLevelStats {
+    mtime: SystemTime,
+    size: u64,
+    detector_fp: u64,
     stats: FileStats,
 }
 
 pub struct QueryService {
     semaphore: tokio::sync::Semaphore,
     caps: QueryCaps,
-    stats_cache: Mutex<HashMap<PathBuf, CachedStats>>,
+    line_cache: Mutex<HashMap<PathBuf, CachedLineCounts>>,
+    level_cache: Mutex<HashMap<PathBuf, CachedLevelStats>>,
 }
 
 impl QueryService {
@@ -129,7 +141,8 @@ impl QueryService {
         Self {
             semaphore: tokio::sync::Semaphore::new(permits),
             caps,
-            stats_cache: Mutex::new(HashMap::new()),
+            line_cache: Mutex::new(HashMap::new()),
+            level_cache: Mutex::new(HashMap::new()),
         }
     }
 
@@ -193,9 +206,10 @@ impl QueryService {
 
     /// 文件统计。同样占并发闸（全文件扫描同样是重活）。
     ///
-    /// 缓存策略：以 (mtime, size) 为键缓存**已完成**的统计——追加型日志
-    /// 的连续 tail/stats 调用不再每次全扫；文件增长自动失效。未完成的
-    /// 部分计数不缓存。缓存命中不占并发闸（无扫描发生）。
+    /// 双缓存：行数缓存（detector 无关，服务 tail_log 的精确行号）与
+    /// 级别缓存（绑定 detector 指纹，服务 get_log_stats）。键均为
+    /// (mtime, size)，文件增长自动失效；只缓存已完成的结果；命中不占
+    /// 并发闸。带 detector 的扫描同时填充两个缓存（一次扫描两用）。
     pub fn stats(
         &self,
         path: &Path,
@@ -204,11 +218,29 @@ impl QueryService {
     ) -> Result<FileStats, QueryError> {
         let meta = std::fs::metadata(path).map_err(QueryError::Io)?;
         let (meta_mtime, meta_size) = (meta.modified().map_err(QueryError::Io)?, meta.len());
+        let detector_fp = detector.map(|d| d.fingerprint());
 
-        if let Ok(cache) = self.stats_cache.lock() {
+        if let Some(fp) = detector_fp {
+            if let Ok(cache) = self.level_cache.lock() {
+                if let Some(hit) = cache.get(path) {
+                    if hit.mtime == meta_mtime
+                        && hit.size == meta_size
+                        && hit.detector_fp == fp
+                    {
+                        return Ok(hit.stats.clone());
+                    }
+                }
+            }
+        } else if let Ok(cache) = self.line_cache.lock() {
             if let Some(hit) = cache.get(path) {
                 if hit.mtime == meta_mtime && hit.size == meta_size {
-                    return Ok(hit.stats.clone());
+                    return Ok(FileStats {
+                        total_lines: hit.total_lines,
+                        total_bytes: hit.total_bytes,
+                        levels: Vec::new(),
+                        unknown_lines: 0,
+                        completed: true,
+                    });
                 }
             }
         }
@@ -220,15 +252,29 @@ impl QueryService {
         let stats =
             file_stats(path, detector, self.caps.max_time_budget, cancel).map_err(QueryError::Io)?;
         if stats.completed {
-            if let Ok(mut cache) = self.stats_cache.lock() {
-                cache.insert(
+            if let Ok(mut line_cache) = self.line_cache.lock() {
+                line_cache.insert(
                     path.to_path_buf(),
-                    CachedStats {
+                    CachedLineCounts {
                         mtime: meta_mtime,
                         size: meta_size,
-                        stats: stats.clone(),
+                        total_lines: stats.total_lines,
+                        total_bytes: stats.total_bytes,
                     },
                 );
+            }
+            if let Some(fp) = detector_fp {
+                if let Ok(mut level_cache) = self.level_cache.lock() {
+                    level_cache.insert(
+                        path.to_path_buf(),
+                        CachedLevelStats {
+                            mtime: meta_mtime,
+                            size: meta_size,
+                            detector_fp: fp,
+                            stats: stats.clone(),
+                        },
+                    );
+                }
             }
         }
         Ok(stats)
@@ -333,6 +379,73 @@ mod tests {
         // 未变化 → 命中缓存返回同一结果
         let s3 = svc.stats(f.path(), None, None).unwrap();
         assert_eq!(s3.total_lines, 2);
+    }
+
+    #[test]
+    fn stats_cache_line_path_does_not_pollute_level_path() {
+        // 回归：曾共享缓存条目——tail(None) 先跑后 get_log_stats(Some)
+        // 命中空级别条目，级别统计静默全零。
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        writeln!(f, "2026-01-01 ERROR boom").unwrap();
+        writeln!(f, "plain line").unwrap();
+        f.flush().unwrap();
+        let svc = QueryService::new(QueryCaps::default());
+        let det = tailr_search_engine::LevelDetector::from_config(&tailr_protocol::LogLevelConfig {
+            preset: "t".into(),
+            levels: vec![tailr_protocol::LevelDef {
+                name: "ERROR".into(),
+                keywords: vec!["ERROR".into()],
+                color_light: "#000".into(),
+                color_dark: "#fff".into(),
+            }],
+        });
+
+        // tail 路径先跑（只数行数）
+        let lines_only = svc.stats(f.path(), None, None).unwrap();
+        assert_eq!(lines_only.total_lines, 2);
+        assert!(lines_only.levels.is_empty());
+
+        // 紧接着级别路径：必须是真实级别计数，而不是命中被污染的条目
+        let leveled = svc.stats(f.path(), Some(&det), None).unwrap();
+        assert_eq!(leveled.total_lines, 2);
+        let err = leveled.levels.iter().find(|(n, _)| n == "ERROR").unwrap();
+        assert_eq!(err.1, 1);
+    }
+
+    #[test]
+    fn stats_level_cache_invalidates_on_detector_change() {
+        // 级别配置热更（新 detector 实例、关键词变化）→ 指纹不同 → 重扫。
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        writeln!(f, "aaa ERROR bbb").unwrap();
+        f.flush().unwrap();
+        let svc = QueryService::new(QueryCaps::default());
+        let det_error = tailr_search_engine::LevelDetector::from_config(&tailr_protocol::LogLevelConfig {
+            preset: "t".into(),
+            levels: vec![tailr_protocol::LevelDef {
+                name: "ERROR".into(),
+                keywords: vec!["ERROR".into()],
+                color_light: "#000".into(),
+                color_dark: "#fff".into(),
+            }],
+        });
+        let det_trace = tailr_search_engine::LevelDetector::from_config(&tailr_protocol::LogLevelConfig {
+            preset: "t".into(),
+            levels: vec![tailr_protocol::LevelDef {
+                name: "TRACE".into(),
+                keywords: vec!["TRACE".into()],
+                color_light: "#000".into(),
+                color_dark: "#fff".into(),
+            }],
+        });
+
+        let s1 = svc.stats(f.path(), Some(&det_error), None).unwrap();
+        assert_eq!(s1.levels.iter().find(|(n, _)| n == "ERROR").unwrap().1, 1);
+        // 换 detector（模拟热更）：指纹不同不命中旧条目，级别列表反映新配置
+        let s2 = svc.stats(f.path(), Some(&det_trace), None).unwrap();
+        assert!(s2.levels.iter().any(|(n, c)| n == "TRACE" && *c == 0));
+        assert!(!s2.levels.iter().any(|(n, _)| n == "ERROR"));
     }
 
     #[test]

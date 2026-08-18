@@ -14,6 +14,10 @@ struct CompiledLevel {
 /// 动态级别检测器
 pub struct LevelDetector {
     levels: Vec<CompiledLevel>,
+    /// 配置指纹（名称+关键词的 hash，构建时算一次）。stats 缓存靠它
+    /// 判断级别计数是否仍对当前配置有效——级别配置运行时热更后，
+    /// 新检测器指纹不同，旧计数自动失效。
+    fingerprint: u64,
 }
 
 impl LevelDetector {
@@ -27,7 +31,21 @@ impl LevelDetector {
                 keywords_lower: def.keywords.iter().map(|k: &String| k.to_ascii_lowercase()).collect(),
             })
             .collect();
-        Self { levels }
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        use std::hash::{Hash, Hasher};
+        for def in &config.levels {
+            def.name.hash(&mut hasher);
+            def.keywords.hash(&mut hasher);
+        }
+        Self {
+            levels,
+            fingerprint: hasher.finish(),
+        }
+    }
+
+    /// 配置指纹：同配置稳定，配置变化（含热更后的新实例）即变化。
+    pub fn fingerprint(&self) -> u64 {
+        self.fingerprint
     }
 
     /// 返回所有已配置的级别名称（按配置顺序）。

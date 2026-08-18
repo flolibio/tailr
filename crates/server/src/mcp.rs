@@ -17,12 +17,10 @@
 //! 注意：rmcp 锁定 0.5.x。main 分支已支持裸参数 tool 方法与 Host/Origin
 //! 校验配置，0.5.0 均没有——参数必须走 `Parameters<结构体>`，升级时同步调整。
 
-use std::future::Future; // tool 宏展开体引用
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use rmcp::handler::server::router::tool::ToolRouter;
-use rmcp::handler::server::tool::Parameters;
+use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::*;
 use rmcp::tool_handler;
 use rmcp::{
@@ -192,15 +190,11 @@ pub struct GetLogStatsArgs {
 
 pub struct McpTools {
     state: Arc<AppState>,
-    tool_router: ToolRouter<Self>,
 }
 
 impl McpTools {
     pub fn new(state: Arc<AppState>) -> Self {
-        Self {
-            state,
-            tool_router: Self::tool_router(),
-        }
+        Self { state }
     }
 
     /// 拿到通过路径校验的绝对路径（与 REST /api 同一套 allowlist）。
@@ -239,7 +233,7 @@ impl McpTools {
         .map_err(|e| McpError::internal_error(format!("search task failed: {e}"), None))?
         .map_err(query_error_to_mcp)?;
 
-        Ok(CallToolResult::success(vec![Content::text(
+        Ok(CallToolResult::success(vec![ContentBlock::text(
             scan_result_json(&result.0, path, &result.1).to_string(),
         )]))
     }
@@ -255,7 +249,7 @@ impl McpTools {
                 .await
                 .map_err(|e| McpError::internal_error(format!("listing task failed: {e}"), None))?;
 
-        Ok(CallToolResult::success(vec![Content::text(
+        Ok(CallToolResult::success(vec![ContentBlock::text(
             json!({
                 "host": self.state.host_name,
                 "files": entries,
@@ -347,7 +341,7 @@ impl McpTools {
                 dst.insert(k.clone(), v.clone());
             }
         }
-        Ok(CallToolResult::success(vec![Content::text(
+        Ok(CallToolResult::success(vec![ContentBlock::text(
             full.to_string(),
         )]))
     }
@@ -408,7 +402,7 @@ impl McpTools {
         .map_err(query_error_to_mcp)?;
 
         let (host, s) = stats;
-        Ok(CallToolResult::success(vec![Content::text(
+        Ok(CallToolResult::success(vec![ContentBlock::text(
             json!({
                 "host": host,
                 "path": args.path,
@@ -427,22 +421,21 @@ impl McpTools {
 #[tool_handler]
 impl ServerHandler for McpTools {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            server_info: Implementation {
-                name: "tailr".to_string(),
-                version: env!("CARGO_PKG_VERSION").to_string(),
-            },
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            instructions: Some(
-                "Search-oriented log access. Workflow: list_log_files → \
-                 get_log_stats → search_logs (AND keywords, case-insensitive) → \
-                 tail/read for context. Every response includes `host` so you can \
-                 tell multi-server results apart. Paginate with resumeCursor; \
-                 never re-request from the start."
-                    .to_string(),
-            ),
-            ..Default::default()
-        }
+        let mut info = ServerInfo::default();
+        let mut imp = Implementation::from_build_env();
+        imp.name = "tailr".to_string();
+        imp.version = env!("CARGO_PKG_VERSION").to_string();
+        info.server_info = imp;
+        info.capabilities = ServerCapabilities::builder().enable_tools().build();
+        info.instructions = Some(
+            "Search-oriented log access. Workflow: list_log_files → \
+             get_log_stats → search_logs (AND keywords, case-insensitive) → \
+             tail/read for context. Every response includes `host` so you can \
+             tell multi-server results apart. Paginate with resumeCursor; \
+             never re-request from the start."
+                .to_string(),
+        );
+        info
     }
 }
 
@@ -518,14 +511,20 @@ fn collect_text_files(
 
 /// 构造 `/mcp` 的 router（auth 中间件内，governor 外——见模块头注释）。
 pub fn routes(state: Arc<AppState>) -> axum::Router {
-    // 无服务端会话状态（stateful_mode=false）：每个 POST 独立处理，客户端
-    // 断线重连零成本。0.5.0 尚无 Host/Origin 校验配置（上游 main 已加），
-    // 接入安全由 auth_middleware 的 Bearer token 承担（与 REST/WS 同一策略）；
-    // 升级 rmcp 后补 [mcp] allowed_hosts/allowed_origins 配置。
-    let config = StreamableHttpServerConfig {
-        sse_keep_alive: Some(std::time::Duration::from_secs(15)),
-        stateful_mode: false,
-    };
+    // 无服务端会话状态（legacy_session_mode=false）：每个 POST 独立处理，
+    // 客户端断线重连零成本。简单请求直接回 JSON（json_response），无 SSE 开销。
+    //
+    // DNS rebinding 防护（rmcp 3.x 新增，补上 0.5 时代的挂账项 #5）：
+    // - Origin 校验：MCP 客户端全是非浏览器（请求无 Origin 头，直接放行）；
+    //   浏览器请求必带 Origin，sentinel 域名永不匹配 → 全部拒绝。恶意网页
+    //   借受害者浏览器打 http://内网IP:7700/mcp 读日志的路被堵死。
+    // - Host 校验保持关闭：tailr 部署在任意内网地址，Host 头不可预知
+    //   （rmcp 默认 loopback-only 会拒绝所有局域网访问）。
+    let config = StreamableHttpServerConfig::default()
+        .with_legacy_session_mode(false)
+        .with_json_response(true)
+        .with_allowed_origins(["http://tailr-mcp.invalid"])
+        .disable_allowed_hosts();
 
     let service: StreamableHttpService<McpTools, LocalSessionManager> =
         StreamableHttpService::new(
