@@ -126,6 +126,8 @@
     "copyPath": "复制路径",
     "showHistory": "显示历史文件",
     "hideHistory": "隐藏历史文件",
+    "showFullPath": "显示完整路径（应对重名目录）",
+    "hideFullPath": "仅显示文件名",
     "recent": "最近打开",
     "justNow": "刚刚",
     "minAgo": "分钟前",

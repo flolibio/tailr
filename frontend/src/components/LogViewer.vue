@@ -140,7 +140,7 @@ function getBadgeClass(level: string): string {
 }
 
 function getBadgeText(level: string): string {
-  if (level === 'UNKNOWN') return 'UNK'
+  // 全拼显示（含 UNKNOWN）——缩写 "UNK" 对部分用户不可理解
   return level
 }
 
@@ -697,7 +697,9 @@ defineExpose({ scrollToBottom, scrollToLine })
 }
 
 .col-badge {
-  min-width: 48px;
+  /* 52px 容纳最长的标准级别 UNKNOWN（12px mono 7 字符 ≈ 50px），
+     保持各行消息列对齐；更长的自定义级别（CRITICAL 等）按实际宽度撑开 */
+  min-width: 52px;
   padding-right: 14px;
   flex-shrink: 0;
 }

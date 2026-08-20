@@ -22,12 +22,14 @@ import { useI18n } from 'vue-i18n'
 import { listFiles } from '../services/api'
 import type { FileEntry } from '../services/api'
 import { useHistoricalFilter } from '../composables/useHistoricalFilter'
+import { usePathDisplay } from '../composables/usePathDisplay'
 import { useRecentFiles } from '../composables/useRecentFiles'
-import { Search, ChevronDown, RefreshCw, Eye, EyeOff } from 'lucide-vue-next'
+import { Search, ChevronDown, RefreshCw, Eye, EyeOff, FolderTree } from 'lucide-vue-next'
 import FileTreeNode from './FileTreeNode.vue'
 
 const { t } = useI18n()
 const { showHistorical, isHistoricalFile, toggle: toggleHistorical } = useHistoricalFilter()
+const { showFullPath, toggle: toggleFullPath } = usePathDisplay()
 const { recentFiles, remove: removeRecent } = useRecentFiles()
 
 const recentCollapsed = ref(recentFiles.value.length === 0)
@@ -93,8 +95,12 @@ function applyHistoricalFilter(node: TreeNode): TreeNode | null {
 
 /// Recursively filter the tree by search query. A dir survives if it matches
 /// or any descendant matches; matching dirs are forced expanded.
+/// Plain queries match the name; queries containing `/` also match the path
+/// (lets users disambiguate duplicate names by parent directory).
 function applySearchFilter(node: TreeNode, q: string): TreeNode | null {
-  const selfMatch = node.name.toLowerCase().includes(q)
+  const selfMatch =
+    node.name.toLowerCase().includes(q) ||
+    (q.includes('/') && node.path.toLowerCase().includes(q))
   if (!node.isDir) return selfMatch ? node : null
   const children = node.children
     .map((c) => applySearchFilter(c, q))
@@ -121,8 +127,10 @@ const filteredTree = computed(() => {
 const filteredRecentFiles = computed(() => {
   const q = filterText.value.trim().toLowerCase()
   if (!q) return recentFiles.value
-  return recentFiles.value.filter((rf) =>
-    basename(rf.path).toLowerCase().includes(q)
+  return recentFiles.value.filter(
+    (rf) =>
+      basename(rf.path).toLowerCase().includes(q) ||
+      (q.includes('/') && rf.path.toLowerCase().includes(q))
   )
 })
 
@@ -320,7 +328,7 @@ onMounted(() => {
               :title="rf.path"
               @click="emit('select', rf.path)"
             >
-              <span class="nav-text">{{ basename(rf.path) }}</span>
+              <span class="nav-text">{{ showFullPath ? rf.path : basename(rf.path) }}</span>
               <span class="nav-time">{{ formatRelativeTime(rf.openedAt) }}</span>
               <button class="nav-remove" @click.stop="removeRecent(rf.path)">✕</button>
             </div>
@@ -332,6 +340,14 @@ onMounted(() => {
         <div class="section-header">
           <span class="section-title">{{ t('fileBrowser.files') }}</span>
           <div class="section-actions" @click.stop>
+            <button
+              class="section-icon-btn"
+              :class="{ active: showFullPath }"
+              @click="toggleFullPath"
+              :title="showFullPath ? t('fileBrowser.hideFullPath') : t('fileBrowser.showFullPath')"
+            >
+              <FolderTree :size="16" :stroke-width="2" />
+            </button>
             <button
               class="section-icon-btn"
               @click="toggleHistorical"

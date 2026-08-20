@@ -1,5 +1,17 @@
 # Changelog
 
+## [v1.1.1] - 2026-08-20
+
+### Timestamp parsing
+
+- **nginx / Common Log Format timestamps are now parsed** — `[20/Aug/2026:21:01:19 +0800]` (access-log `time_local`) was not extracted because it sits mid-line after the host fields instead of at line start. The CLF pattern is now scanned anywhere in the line (bracketed) or as a prefix; the explicit offset always wins over the `timezone` config. Affects the Web UI, WS tail, and MCP timestamp filtering.
+
+### UI
+
+- **File list: full-path display toggle** — with duplicate directory names across projects (`app/access.log` in several roots), basename-only rows were ambiguous. A new toggle in the Files section header (folder-tree icon, persisted to localStorage) switches file rows and the Recent list to full paths; long paths ellipsize inside the sidebar. Search also matches paths when the query contains `/`, so `nginx/` narrows to that subtree. File rows always carry the full path as hover tooltip.
+- **Historical-file filter no longer hides today's date-named logs** — files named with today's date (`app-20260820.log`, `access.log-20260820`) are the actively-written log, not history; they now stay visible even with the history filter on. Explicit old-file markers (`.bak`/`.old`/`.prev`/`.save`) are still always hidden, and past dates are still filtered.
+- **Level badge shows `UNKNOWN` in full** instead of the `UNK` abbreviation, which was unclear to some users. Badge column min-width bumped 48 → 52px so standard-level rows keep an aligned message column.
+
 ## [v1.1.0] - 2026-08-18
 
 **MCP — the AI log access layer.** tailr is now both a human log viewer and an MCP server: AI agents (Claude Code, Cursor, Codex, OpenCode, any MCP client) can list, search, count, and read server logs directly over `/mcp` — no SSH, no copy-paste. Single binary, zero new runtime dependencies.

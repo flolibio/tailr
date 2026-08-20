@@ -2491,7 +2491,7 @@ dependencies = [
 
 [[package]]
 name = "tailr"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "axum",
  "clap",
@@ -2549,7 +2549,7 @@ dependencies = [
 
 [[package]]
 name = "tailr-server"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "arc-swap",
  "axum",

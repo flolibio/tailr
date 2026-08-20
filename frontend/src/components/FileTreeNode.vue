@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { FolderOpen, Folder, File as FileIcon, Check, Copy, Loader2 } from 'lucide-vue-next'
 import { useCopyFeedbackId } from '../composables/useClipboard'
+import { usePathDisplay } from '../composables/usePathDisplay'
 import type { TreeNode } from './FileBrowser.vue'
 
 const props = withDefaults(defineProps<{
@@ -19,7 +21,15 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { showFullPath } = usePathDisplay()
 const { copiedId: copiedPath, copy: copyToText } = useCopyFeedbackId<string>()
+
+/// File rows show the full path when the toggle is on (disambiguates
+/// duplicate names across sibling directories); overlong paths ellipsize
+/// via .file-name's nowrap+hidden rules. Dirs always keep their own name.
+const displayLabel = computed(() =>
+  !props.node.isDir && showFullPath.value ? props.node.path : props.node.name
+)
 
 function onSelect(): void {
   if (props.node.isDir) {
@@ -51,6 +61,7 @@ function formatSize(bytes: number): string {
         'is-selected': !node.isDir && selectedFile === node.path,
       }"
       :style="{ paddingLeft: 8 + level * 16 + 'px' }"
+      :title="!node.isDir ? node.path : undefined"
       @click="onSelect"
     >
       <!-- Indentation guide lines: one vertical line per ancestor level -->
@@ -69,7 +80,7 @@ function formatSize(bytes: number): string {
         <Folder v-else :size="14" :stroke-width="2" />
       </div>
       <div class="file-meta">
-        <div class="file-name">{{ node.name }}</div>
+        <div class="file-name">{{ displayLabel }}</div>
         <span v-if="!node.isDir && node.size != null" class="file-size">{{ formatSize(node.size) }}</span>
       </div>
       <button class="copy-path-btn" @click="copyPath($event)" :title="t('fileBrowser.copyPath')">

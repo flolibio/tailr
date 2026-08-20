@@ -1,4 +1,6 @@
-use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, TimeZone, Utc};
+use chrono::{
+    DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, TimeZone, Timelike, Utc,
+};
 use serde::{Deserialize, Serialize};
 
 /// Timezone assumption used when parsing timezone-less (naive) log timestamps.
@@ -212,6 +214,10 @@ pub fn try_parse_timestamp(
         }
     }
 
+    if let Some((ts, raw)) = try_parse_clf(line) {
+        return (Some(ts), Some(raw));
+    }
+
     if let Some((ts, raw)) = try_parse_date_only(line, tz) {
         return (Some(ts), Some(raw));
     }
@@ -316,6 +322,51 @@ fn try_parse_ctime(line: &str, tz: &LogTimezone) -> Option<(DateTime<Utc>, Strin
 
     let raw = format_raw_components(year_num, month_num, day, hour, min, sec, 0);
     Some((utc, raw))
+}
+
+/// Common Log Format / nginx `time_local`: `20/Aug/2026:21:01:19 +0800`.
+/// In nginx access logs it sits mid-line (after the host fields) inside
+/// brackets, so this is scanned anywhere in the line, not just as a prefix.
+/// The offset is always explicit in this format, so `tz` does not apply.
+fn try_parse_clf(line: &str) -> Option<(DateTime<Utc>, String)> {
+    // Bare prefix — also reached via the leading-`[` recursion in
+    // try_parse_timestamp. `dd/Mon/yyyy:HH:MM:SS +zzzz` is 26 chars with a
+    // zero-padded day; 25 covers an unpadded single-digit day.
+    for len in [26usize, 25] {
+        if let Some(slice) = line.get(..len) {
+            if let Some(result) = parse_clf_exact(slice.trim_end()) {
+                return Some(result);
+            }
+        }
+    }
+    // Bracketed anywhere: `[20/Aug/2026:21:01:19 +0800]`.
+    let mut rest = line;
+    while let Some(open) = rest.find('[') {
+        let after = &rest[open + 1..];
+        let Some(close) = after.find(']') else {
+            break;
+        };
+        if let Some(result) = parse_clf_exact(after.get(..close)?.trim()) {
+            return Some(result);
+        }
+        rest = &after[close..];
+    }
+    None
+}
+
+fn parse_clf_exact(s: &str) -> Option<(DateTime<Utc>, String)> {
+    let dt = DateTime::parse_from_str(s, "%d/%b/%Y:%H:%M:%S %z").ok()?;
+    let millis = (dt.nanosecond() % 1_000_000) / 1_000_000;
+    let raw = format_raw_components(
+        dt.year(),
+        dt.month(),
+        dt.day(),
+        dt.hour(),
+        dt.minute(),
+        dt.second(),
+        millis,
+    );
+    Some((dt.with_timezone(&Utc), raw))
 }
 
 fn month_to_num(m: &str) -> Option<u32> {
@@ -663,6 +714,55 @@ mod tests {
         let (ts, raw) = parse("[2026-07-05 12:30:08] [FATAL] something broke");
         assert!(ts.is_some(), "bracketed timestamp should parse");
         assert_eq!(raw.as_deref(), Some("2026-07-05 12:30:08"));
+    }
+
+    #[test]
+    fn test_nginx_access_log_mid_line_timestamp() {
+        // Real-world nginx access log: CLF time embedded after the host
+        // fields, not at line start.
+        let line = concat!(
+            r#"172.16.117.127 mg_dev.51talk.me mg_dev.51talk.com  [20/Aug/2026:21:01:19 +0800] "#,
+            r#""GET /admin/template/content?page=1&limit=20&invokeName=&type=&status=1 HTTP/1.1" "#,
+            r#"200 56627 "http://mg_dev.51talk.com/admin/template/content" 0.469 "#,
+            r#""Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "#,
+            r#"(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36" body="" "#,
+        );
+        let (ts, raw) = parse(line);
+        let utc = ts.expect("nginx CLF timestamp should parse mid-line");
+        assert_eq!(utc.format("%Y-%m-%d %H:%M:%S").to_string(), "2026-08-20 13:01:19");
+        assert_eq!(raw.as_deref(), Some("2026-08-20 21:01:19.000"));
+    }
+
+    #[test]
+    fn test_clf_leading_bracket() {
+        let (ts, raw) = parse("[20/Aug/2026:21:01:19 +0800] GET / HTTP/1.1");
+        assert!(ts.is_some(), "bracketed CLF timestamp should parse");
+        assert_eq!(raw.as_deref(), Some("2026-08-20 21:01:19.000"));
+    }
+
+    #[test]
+    fn test_clf_explicit_offset_wins_over_tz_config() {
+        let tz = LogTimezone::parse("+08:00").unwrap();
+        let (ts, _) = try_parse_timestamp("host [05/Aug/2026:08:00:00 +00:00] request", &tz);
+        let utc = ts.expect("CLF timestamp should parse");
+        assert_eq!(
+            utc.format("%H:%M:%S").to_string(),
+            "08:00:00",
+            "explicit +0000 offset must not be reinterpreted by tz config"
+        );
+    }
+
+    #[test]
+    fn test_bracketed_non_clf_not_matched() {
+        let (ts, _) = parse("prefix [INFO] done");
+        assert!(ts.is_none(), "non-date brackets must not match CLF");
+    }
+
+    #[test]
+    fn test_clf_single_digit_day() {
+        let (ts, raw) = parse("1.2.3.4 - - [5/Aug/2026:08:00:00 +0000] GET / HTTP/1.1");
+        assert!(ts.is_some(), "unpadded single-digit day should parse");
+        assert_eq!(raw.as_deref(), Some("2026-08-05 08:00:00.000"));
     }
 
     #[test]
