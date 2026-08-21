@@ -144,6 +144,21 @@ function getBadgeText(level: string): string {
   return level
 }
 
+/// 徽标列统一宽度：按当前级别配置里最长的名称（含兜底的 UNKNOWN）以
+/// 等宽字符数计算，写到 --badge-cols 供 .badge 使用（1ch 随等宽字体
+/// 自适应，跨平台无需写死像素）。所有行共享同一宽度，UNKNOWN/
+/// CRITICAL 等长名称不会把各自行的消息列挤出不对齐。
+/// 1.08 系数吸收 letter-spacing 0.04em 的额外宽度（含窄等宽字体余量）。
+const badgeCols = computed(() => {
+  let maxLen = 'UNKNOWN'.length
+  if (props.levelColors) {
+    for (const name of Object.keys(props.levelColors)) {
+      if (name.length > maxLen) maxLen = name.length
+    }
+  }
+  return Math.ceil(maxLen * 1.08 * 10) / 10
+})
+
 function formatTimestamp(entry: LogEntry): string {
   const raw = entry.rawTimestamp
 
@@ -462,7 +477,7 @@ defineExpose({ scrollToBottom, scrollToLine })
     <div
       ref="containerRef"
       class="log-viewer"
-      :style="{ '--line-height': lineHeight + 'px' }"
+      :style="{ '--line-height': lineHeight + 'px', '--badge-cols': badgeCols }"
       @scroll="onScroll"
     >
       <div class="scroll-spacer" :style="{ height: totalHeight + 'px' }">
@@ -697,9 +712,6 @@ defineExpose({ scrollToBottom, scrollToLine })
 }
 
 .col-badge {
-  /* 52px 容纳最长的标准级别 UNKNOWN（12px mono 7 字符 ≈ 50px），
-     保持各行消息列对齐；更长的自定义级别（CRITICAL 等）按实际宽度撑开 */
-  min-width: 52px;
   padding-right: 14px;
   flex-shrink: 0;
 }
@@ -714,6 +726,10 @@ defineExpose({ scrollToBottom, scrollToLine })
   background: transparent;
   white-space: nowrap;
   text-align: left;
+  /* 固定宽度（等宽字体 1ch 自适应）：短名称左侧对齐、右侧补空，
+     长名称（UNKNOWN/CRITICAL）不撑宽所在行 —— 各行消息列严格对齐 */
+  width: calc(var(--badge-cols, 7.5) * 1ch);
+  overflow: hidden;
 }
 
 .badge-alert { color: #FF3B30; }
