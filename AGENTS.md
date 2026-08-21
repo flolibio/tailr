@@ -322,7 +322,9 @@ Semantic Versioning (SemVer):
 
 Release workflow (on main after PR merge):
 ```bash
-# 1. Update version in Cargo.toml and crates/server/Cargo.toml
+# 1. Update version in Cargo.toml, crates/core/Cargo.toml, and crates/server/Cargo.toml
+#    (CI's version-consistency check requires all three to match; then
+#     `cargo update -p tailr-core -p tailr-server` to sync Cargo.lock)
 # 2. Update CHANGELOG.md
 # 3. Commit
 git add -A && git commit -m "vX.Y.Z: description"
