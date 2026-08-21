@@ -5,7 +5,7 @@
 <h1 align="center">tailr</h1>
 
 <p align="center">
-  Tail any log, in your browser. Fast, simple, real-time.
+  Tail any log — in your browser or straight into your AI agent. Fast, simple, real-time.
 </p>
 
 <p align="center">
@@ -18,6 +18,7 @@
 <p align="center">
   <a href="#quickstart">Quick Start</a> •
   <a href="#features">Features</a> •
+  <a href="#mcp-for-ai-agents">MCP</a> •
   <a href="#installation">Installation</a> •
   <a href="#api">API</a> •
   <a href="#license">License</a>
@@ -78,6 +79,30 @@ TAILR_TOKEN=your-secret tailr --log /var/log/app
 ```
 
 Open `http://localhost:7700` in your browser.
+
+## MCP for AI Agents
+
+tailr ships a built-in [Model Context Protocol](https://modelcontextprotocol.io) server: Claude Code, Cursor, and any MCP-capable client can list, search, and analyze your logs directly — no SSH, no copy-pasting. Scans are cursor-based and budget-capped server-side (a full 2 GB file scans in under a second), so agents page through large results without blowing up the context window.
+
+Connect Claude Code (add to `~/.claude.json` or project `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "tailr": {
+      "type": "http",
+      "url": "http://your-server:7700/mcp",
+      "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+    }
+  }
+}
+```
+
+> `"type": "http"` is required by Claude Code. Cursor uses the same shape in `~/.cursor/mcp.json` without the `type` field. Omit the `headers` block if tailr runs without a token.
+
+**Tools:** `list_log_files` · `get_log_stats` · `search_logs` (AND keywords, `count_only` mode, `resumeCursor` pagination) · `read_log_range` · `tail_log` — every response carries a `host` field, so agents can tell multi-server results apart.
+
+Setup snippets for Cursor / Codex / OpenCode, multi-server configs, and troubleshooting: **[docs/mcp.md](docs/mcp.md)**
 
 ## Installation
 
