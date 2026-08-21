@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { FolderOpen, Folder, File as FileIcon, Check, Copy, Loader2 } from 'lucide-vue-next'
 import { useCopyFeedbackId } from '../composables/useClipboard'
+import { usePathDisplay } from '../composables/usePathDisplay'
 import type { TreeNode } from './FileBrowser.vue'
 
 const props = withDefaults(defineProps<{
@@ -19,7 +21,17 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { showFullPath } = usePathDisplay()
 const { copiedId: copiedPath, copy: copyToText } = useCopyFeedbackId<string>()
+
+/// Full-path mode shows the complete path on every row — files AND
+/// directories. Directories matter most: watching A/ and B/ that both
+/// contain an A1/ subdir renders two indistinguishable "A1" rows;
+/// the absolute path disambiguates them (including duplicate tree roots).
+/// Overlong paths wrap to 2 lines via .file-name's clamp rules.
+const displayLabel = computed(() =>
+  showFullPath.value ? props.node.path : props.node.name
+)
 
 function onSelect(): void {
   if (props.node.isDir) {
@@ -49,8 +61,10 @@ function formatSize(bytes: number): string {
       :class="{
         'is-dir': node.isDir,
         'is-selected': !node.isDir && selectedFile === node.path,
+        'is-path-mode': showFullPath,
       }"
       :style="{ paddingLeft: 8 + level * 16 + 'px' }"
+      :title="node.path"
       @click="onSelect"
     >
       <!-- Indentation guide lines: one vertical line per ancestor level -->
@@ -69,7 +83,7 @@ function formatSize(bytes: number): string {
         <Folder v-else :size="14" :stroke-width="2" />
       </div>
       <div class="file-meta">
-        <div class="file-name">{{ node.name }}</div>
+        <div class="file-name">{{ displayLabel }}</div>
         <span v-if="!node.isDir && node.size != null" class="file-size">{{ formatSize(node.size) }}</span>
       </div>
       <button class="copy-path-btn" @click="copyPath($event)" :title="t('fileBrowser.copyPath')">
@@ -148,6 +162,28 @@ function formatSize(bytes: number): string {
 .file-item.is-selected .file-name {
   color: var(--accent);
   font-weight: 500;
+}
+
+/* ── 全路径模式：路径在行内换行（最多 2 行，仍放不下才省略）──
+   长路径不依赖侧栏宽度即可看全；行高随内容自适应。 */
+.file-item.is-path-mode {
+  height: auto;
+  min-height: 40px;
+}
+
+.file-item.is-path-mode .file-name {
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* 右侧复制按钮绝对定位悬浮在行上，换行文本给它留出空间 */
+.file-item.is-path-mode .file-meta {
+  padding-right: 28px;
 }
 
 .file-item:hover .copy-path-btn {

@@ -140,9 +140,24 @@ function getBadgeClass(level: string): string {
 }
 
 function getBadgeText(level: string): string {
-  if (level === 'UNKNOWN') return 'UNK'
+  // 全拼显示（含 UNKNOWN）——缩写 "UNK" 对部分用户不可理解
   return level
 }
+
+/// 徽标列统一宽度：按当前级别配置里最长的名称（含兜底的 UNKNOWN）以
+/// 等宽字符数计算，写到 --badge-cols 供 .badge 使用（1ch 随等宽字体
+/// 自适应，跨平台无需写死像素）。所有行共享同一宽度，UNKNOWN/
+/// CRITICAL 等长名称不会把各自行的消息列挤出不对齐。
+/// 1.08 系数吸收 letter-spacing 0.04em 的额外宽度（含窄等宽字体余量）。
+const badgeCols = computed(() => {
+  let maxLen = 'UNKNOWN'.length
+  if (props.levelColors) {
+    for (const name of Object.keys(props.levelColors)) {
+      if (name.length > maxLen) maxLen = name.length
+    }
+  }
+  return Math.ceil(maxLen * 1.08 * 10) / 10
+})
 
 function formatTimestamp(entry: LogEntry): string {
   const raw = entry.rawTimestamp
@@ -462,7 +477,7 @@ defineExpose({ scrollToBottom, scrollToLine })
     <div
       ref="containerRef"
       class="log-viewer"
-      :style="{ '--line-height': lineHeight + 'px' }"
+      :style="{ '--line-height': lineHeight + 'px', '--badge-cols': badgeCols }"
       @scroll="onScroll"
     >
       <div class="scroll-spacer" :style="{ height: totalHeight + 'px' }">
@@ -697,7 +712,6 @@ defineExpose({ scrollToBottom, scrollToLine })
 }
 
 .col-badge {
-  min-width: 48px;
   padding-right: 14px;
   flex-shrink: 0;
 }
@@ -712,6 +726,10 @@ defineExpose({ scrollToBottom, scrollToLine })
   background: transparent;
   white-space: nowrap;
   text-align: left;
+  /* 固定宽度（等宽字体 1ch 自适应）：短名称左侧对齐、右侧补空，
+     长名称（UNKNOWN/CRITICAL）不撑宽所在行 —— 各行消息列严格对齐 */
+  width: calc(var(--badge-cols, 7.5) * 1ch);
+  overflow: hidden;
 }
 
 .badge-alert { color: #FF3B30; }

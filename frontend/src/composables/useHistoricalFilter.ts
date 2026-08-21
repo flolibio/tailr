@@ -7,6 +7,9 @@
  * 默认隐藏（仅看实时日志），用户可 toggle 打开。
  * 持久化到 localStorage，记住用户选择。
  *
+ * 例外：按日期命名且日期为当天的文件（app-20260820.log）是正在写入的
+ * 活跃日志，即使开关处于隐藏状态也不过滤。
+ *
  * 影响范围：仅 file-list，不影响 Recent。
  */
 import { ref } from 'vue'
@@ -48,6 +51,49 @@ const HISTORICAL_PATTERNS: RegExp[] = [
   /\.(bak|old|prev|save)$/,
 ]
 
+/** 明确的旧文件后缀标记 —— 无论日期如何都视为历史文件。 */
+const OLD_FILE_MARKER: RegExp = /\.(bak|old|prev|save)$/
+
+/**
+ * 从文件名提取日期命名中的日期（YYYYMMDD 紧凑 / YYYY-MM-DD ISO）。
+ * 分隔符必须是 - 或 _ 或 .（避免把任意长数字串误读为日期），
+ * 日期后必须紧跟 . 或 _ 或结尾（logrotate dateext 的常见形态，
+ * 如 app-20260820.log、access.log-20260820、app.log.20260820）。
+ */
+const DATE_NAMED_PATTERNS: RegExp[] = [
+  /[-_.](\d{4})(\d{2})(\d{2})(?=[._]|$)/,
+  /[-_.](\d{4})-(\d{2})-(\d{2})(?=[._]|$)/,
+]
+
+interface FileDate {
+  year: number
+  month: number
+  day: number
+}
+
+function extractDateFromName(name: string): FileDate | null {
+  for (const re of DATE_NAMED_PATTERNS) {
+    const m = re.exec(name)
+    if (m) {
+      const year = Number(m[1])
+      const month = Number(m[2])
+      const day = Number(m[3])
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        return { year, month, day }
+      }
+    }
+  }
+  return null
+}
+
+/** 文件名中的日期是否是今天（按本地时区）。按日期命名的日志中，当天文件仍是活跃日志。 */
+function isNamedToday(name: string): boolean {
+  const d = extractDateFromName(name)
+  if (!d) return false
+  const now = new Date()
+  return d.year === now.getFullYear() && d.month === now.getMonth() + 1 && d.day === now.getDate()
+}
+
 // ── 模块级状态（单例）─────────────────────────────────────
 
 const showHistorical = ref(loadFromStorage())
@@ -56,6 +102,10 @@ const showHistorical = ref(loadFromStorage())
 
 export function useHistoricalFilter() {
   function isHistoricalFile(name: string): boolean {
+    // .bak/.old 等标记明确表示旧文件，即使带着今天的日期也过滤
+    if (OLD_FILE_MARKER.test(name)) return true
+    // 按日期命名的日志（app-20260820.log）：当天的文件是正在写入的活跃日志，不过滤
+    if (isNamedToday(name)) return false
     return HISTORICAL_PATTERNS.some((p) => p.test(name))
   }
 

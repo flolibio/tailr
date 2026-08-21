@@ -14,6 +14,11 @@ export interface TreeNode {
   /** True while this directory's children are being fetched (inline spinner). */
   loading: boolean
 }
+
+/// Sidebar drag-resize bounds (px). Exported so App.vue clamps its persisted
+/// width against the same limits. Keep in one place only — do not redeclare.
+export const SIDEBAR_MIN_WIDTH = 180
+export const SIDEBAR_MAX_WIDTH = 600
 </script>
 
 <script setup lang="ts">
@@ -22,12 +27,14 @@ import { useI18n } from 'vue-i18n'
 import { listFiles } from '../services/api'
 import type { FileEntry } from '../services/api'
 import { useHistoricalFilter } from '../composables/useHistoricalFilter'
+import { usePathDisplay } from '../composables/usePathDisplay'
 import { useRecentFiles } from '../composables/useRecentFiles'
-import { Search, ChevronDown, RefreshCw, Eye, EyeOff } from 'lucide-vue-next'
+import { Search, ChevronDown, RefreshCw, Eye, EyeOff, FolderTree } from 'lucide-vue-next'
 import FileTreeNode from './FileTreeNode.vue'
 
 const { t } = useI18n()
 const { showHistorical, isHistoricalFile, toggle: toggleHistorical } = useHistoricalFilter()
+const { showFullPath, toggle: toggleFullPath } = usePathDisplay()
 const { recentFiles, remove: removeRecent } = useRecentFiles()
 
 const recentCollapsed = ref(recentFiles.value.length === 0)
@@ -67,8 +74,8 @@ watch(() => props.refreshKey, (newVal, oldVal) => {
   }
 })
 
-const MIN_WIDTH = 180
-const MAX_WIDTH = 400
+const MIN_WIDTH = SIDEBAR_MIN_WIDTH
+const MAX_WIDTH = SIDEBAR_MAX_WIDTH
 
 const tree = ref<TreeNode[]>([])
 const loading = ref(false)
@@ -93,8 +100,12 @@ function applyHistoricalFilter(node: TreeNode): TreeNode | null {
 
 /// Recursively filter the tree by search query. A dir survives if it matches
 /// or any descendant matches; matching dirs are forced expanded.
+/// Plain queries match the name; queries containing `/` also match the path
+/// (lets users disambiguate duplicate names by parent directory).
 function applySearchFilter(node: TreeNode, q: string): TreeNode | null {
-  const selfMatch = node.name.toLowerCase().includes(q)
+  const selfMatch =
+    node.name.toLowerCase().includes(q) ||
+    (q.includes('/') && node.path.toLowerCase().includes(q))
   if (!node.isDir) return selfMatch ? node : null
   const children = node.children
     .map((c) => applySearchFilter(c, q))
@@ -121,8 +132,10 @@ const filteredTree = computed(() => {
 const filteredRecentFiles = computed(() => {
   const q = filterText.value.trim().toLowerCase()
   if (!q) return recentFiles.value
-  return recentFiles.value.filter((rf) =>
-    basename(rf.path).toLowerCase().includes(q)
+  return recentFiles.value.filter(
+    (rf) =>
+      basename(rf.path).toLowerCase().includes(q) ||
+      (q.includes('/') && rf.path.toLowerCase().includes(q))
   )
 })
 
@@ -317,10 +330,11 @@ onMounted(() => {
               v-for="rf in filteredRecentFiles"
               :key="rf.path"
               class="nav-item"
+              :class="{ 'is-path-mode': showFullPath }"
               :title="rf.path"
               @click="emit('select', rf.path)"
             >
-              <span class="nav-text">{{ basename(rf.path) }}</span>
+              <span class="nav-text">{{ showFullPath ? rf.path : basename(rf.path) }}</span>
               <span class="nav-time">{{ formatRelativeTime(rf.openedAt) }}</span>
               <button class="nav-remove" @click.stop="removeRecent(rf.path)">✕</button>
             </div>
@@ -332,6 +346,14 @@ onMounted(() => {
         <div class="section-header">
           <span class="section-title">{{ t('fileBrowser.files') }}</span>
           <div class="section-actions" @click.stop>
+            <button
+              class="section-icon-btn"
+              :class="{ active: showFullPath }"
+              @click="toggleFullPath"
+              :title="showFullPath ? t('fileBrowser.hideFullPath') : t('fileBrowser.showFullPath')"
+            >
+              <FolderTree :size="16" :stroke-width="2" />
+            </button>
             <button
               class="section-icon-btn"
               @click="toggleHistorical"
@@ -618,6 +640,22 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 全路径模式：与文件树行一致，路径换行最多 2 行 */
+.nav-item.is-path-mode {
+  height: auto;
+  min-height: 40px;
+}
+
+.nav-item.is-path-mode .nav-text {
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .nav-time {

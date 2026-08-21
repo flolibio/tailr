@@ -126,6 +126,8 @@
     "copyPath": "Copy path",
     "showHistory": "Show history files",
     "hideHistory": "Hide history files",
+    "showFullPath": "Show full paths (disambiguate duplicate names)",
+    "hideFullPath": "Show file names only",
     "recent": "Recent",
     "justNow": "just now",
     "minAgo": "min ago",
