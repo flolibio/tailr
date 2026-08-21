@@ -24,11 +24,13 @@ const { t } = useI18n()
 const { showFullPath } = usePathDisplay()
 const { copiedId: copiedPath, copy: copyToText } = useCopyFeedbackId<string>()
 
-/// File rows show the full path when the toggle is on (disambiguates
-/// duplicate names across sibling directories); overlong paths ellipsize
-/// via .file-name's nowrap+hidden rules. Dirs always keep their own name.
+/// Full-path mode shows the complete path on every row — files AND
+/// directories. Directories matter most: watching A/ and B/ that both
+/// contain an A1/ subdir renders two indistinguishable "A1" rows;
+/// the absolute path disambiguates them (including duplicate tree roots).
+/// Overlong paths wrap to 2 lines via .file-name's clamp rules.
 const displayLabel = computed(() =>
-  !props.node.isDir && showFullPath.value ? props.node.path : props.node.name
+  showFullPath.value ? props.node.path : props.node.name
 )
 
 function onSelect(): void {
@@ -59,10 +61,10 @@ function formatSize(bytes: number): string {
       :class="{
         'is-dir': node.isDir,
         'is-selected': !node.isDir && selectedFile === node.path,
-        'is-path-mode': !node.isDir && showFullPath,
+        'is-path-mode': showFullPath,
       }"
       :style="{ paddingLeft: 8 + level * 16 + 'px' }"
-      :title="!node.isDir ? node.path : undefined"
+      :title="node.path"
       @click="onSelect"
     >
       <!-- Indentation guide lines: one vertical line per ancestor level -->
