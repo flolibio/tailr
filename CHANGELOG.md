@@ -1,6 +1,6 @@
 # Changelog
 
-## [v1.1.1] - 2026-08-20
+## [v1.1.1] - 2026-08-21
 
 ### Timestamp parsing
 
