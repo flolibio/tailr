@@ -2,6 +2,7 @@
 import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FileBrowser from './components/FileBrowser.vue'
+import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from './components/FileBrowser.vue'
 import LogPanel from './components/LogPanel.vue'
 import FilterBar from './components/FilterBar.vue'
 import TabBar from './components/TabBar.vue'
@@ -79,7 +80,31 @@ const settingsInitialSection = ref<'general' | 'logLevels' | 'about'>('general')
 // v0.9: latest update notice received via WS (for badge dismiss on open).
 const pendingUpdate = ref<{ latestVersion: string; currentVersion: string; releaseUrl: string } | null>(null)
 const sidebarCollapsed = ref(false)
-const sidebarWidth = ref(300)
+
+// ── 侧栏宽度：持久化到 localStorage，拖动结束后防抖写入 ──────────────
+const SIDEBAR_WIDTH_KEY = 'tailr-sidebar-width'
+const SIDEBAR_WIDTH_DEFAULT = 300
+
+function loadSidebarWidth(): number {
+  try {
+    const v = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))
+    if (Number.isFinite(v) && v >= SIDEBAR_MIN_WIDTH && v <= SIDEBAR_MAX_WIDTH) return v
+  } catch {}
+  return SIDEBAR_WIDTH_DEFAULT
+}
+
+const sidebarWidth = ref(loadSidebarWidth())
+
+let saveSidebarTimer: ReturnType<typeof setTimeout> | undefined
+watch(sidebarWidth, (w) => {
+  clearTimeout(saveSidebarTimer)
+  saveSidebarTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(SIDEBAR_WIDTH_KEY, String(w))
+    } catch {}
+  }, 300)
+})
+
 const refreshKey = ref(0)
 
 const { token, showTokenDialog } = useAuth()

@@ -14,6 +14,11 @@ export interface TreeNode {
   /** True while this directory's children are being fetched (inline spinner). */
   loading: boolean
 }
+
+/// Sidebar drag-resize bounds (px). Exported so App.vue clamps its persisted
+/// width against the same limits. Keep in one place only — do not redeclare.
+export const SIDEBAR_MIN_WIDTH = 180
+export const SIDEBAR_MAX_WIDTH = 600
 </script>
 
 <script setup lang="ts">
@@ -69,8 +74,8 @@ watch(() => props.refreshKey, (newVal, oldVal) => {
   }
 })
 
-const MIN_WIDTH = 180
-const MAX_WIDTH = 400
+const MIN_WIDTH = SIDEBAR_MIN_WIDTH
+const MAX_WIDTH = SIDEBAR_MAX_WIDTH
 
 const tree = ref<TreeNode[]>([])
 const loading = ref(false)
@@ -325,6 +330,7 @@ onMounted(() => {
               v-for="rf in filteredRecentFiles"
               :key="rf.path"
               class="nav-item"
+              :class="{ 'is-path-mode': showFullPath }"
               :title="rf.path"
               @click="emit('select', rf.path)"
             >
@@ -634,6 +640,22 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 全路径模式：与文件树行一致，路径换行最多 2 行 */
+.nav-item.is-path-mode {
+  height: auto;
+  min-height: 40px;
+}
+
+.nav-item.is-path-mode .nav-text {
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .nav-time {
