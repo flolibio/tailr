@@ -3,6 +3,8 @@
     "selectFile": "选择文件以开始查看日志",
     "loading": "加载中...",
     "noMatchingLogs": "没有匹配的日志",
+    "noMatchHint": "已加载 {count} 行日志，均不匹配当前过滤条件",
+    "clearFilters": "清除过滤条件",
     "waitingForData": "等待日志数据...",
     "noFile": "未选择文件",
     "lines": "行",

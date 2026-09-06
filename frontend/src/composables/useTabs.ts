@@ -138,6 +138,7 @@ function ensureWs(): void {
   if (wsInitialized) return
   wsInitialized = true
   wsClient.connect()
+  ensureHealLoop()
 
   wsClient.on('append', (p: unknown, newEntries: unknown) => {
     if (typeof p !== 'string' || !Array.isArray(newEntries)) return
@@ -296,6 +297,51 @@ async function loadInitial(tab: TabState): Promise<void> {
       tab.isLoading = false
     }
   }
+}
+
+// ── Empty-tab self-heal ──
+// A tab can legitimately load 0 entries: the file was empty at open time
+// (rotation gap / truncation window) and live WS appends are then the only
+// way content appears. If WS delivery also fails (server restart, connection
+// dropped during the gap, fan-out glitch), the tab sits on "waiting for data"
+// forever — the classic share-link-opens-empty bug. Re-tail empty tabs every
+// few seconds until they have content; stop once non-empty.
+const EMPTY_HEAL_INTERVAL_MS = 5000
+let healTimer: ReturnType<typeof setInterval> | null = null
+const healingPaths = new Set<string>()
+
+function healEmptyTab(tab: TabState): void {
+  if (healingPaths.has(tab.path)) return
+  healingPaths.add(tab.path)
+  void getFileTail(tab.path, INITIAL_LINES)
+    .then((data) => {
+      if (data.entries.length === 0) return
+      const t = tabs.value.find((x) => x.path === tab.path)
+      // Only fill still-empty tabs — never overwrite content that arrived
+      // via WS (or the user's reload) while the request was in flight.
+      if (!t || t.entries.length > 0 || t.loadError) return
+      t.entries = data.entries
+      t.totalLines = data.totalLines
+      // No WS resubscribe happens here, so no Subscribed message will arrive
+      // to correct the estimate (same as reloadActiveTab).
+      t.pendingCorrection = null
+      dismissRateLimitToast()
+    })
+    .catch(() => {
+      /* transient (network / 429) — the next tick retries */
+    })
+    .finally(() => healingPaths.delete(tab.path))
+}
+
+function ensureHealLoop(): void {
+  if (healTimer !== null) return
+  healTimer = setInterval(() => {
+    for (const tab of tabs.value) {
+      if (tab.isLazy || tab.isLoading || tab.loadError) continue
+      if (tab.entries.length > 0) continue
+      healEmptyTab(tab)
+    }
+  }, EMPTY_HEAL_INTERVAL_MS)
 }
 
 function closeTab(path: string): void {

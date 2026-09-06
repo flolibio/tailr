@@ -1033,6 +1033,13 @@ select {
   color: var(--text-2);
 }
 
+/* Secondary line under .empty-text (e.g. "N lines loaded" under a filter
+   no-match state). Pairs with the .btn-retry-inline action button. */
+.empty-hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
 .loading-spinner {
   width: 20px;
   height: 20px;
