@@ -23,10 +23,20 @@ const SLOW_THRESHOLD: f64 = 0.8;
 const WATCHER_POLL_MS: u64 = 100;
 const WS_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
+/// One client's subscription to a file. `path` is the path string exactly as
+/// the client used it in its subscribe message — the Append fan-out echoes it
+/// back so the frontend can match the message to its tab, even though the
+/// registry key is the canonicalized path (log dirs reached through symlinks,
+/// e.g. /tmp → /private/tmp on macOS, canonicalize differently).
+struct SubscriberEntry {
+    tx: mpsc::Sender<WSMessage>,
+    path: String,
+}
+
 pub struct FileSubscribers {
     ring_buffer: VecDeque<LogEntry>,
     next_seq: u64,
-    subscribers: HashMap<String, mpsc::Sender<WSMessage>>,
+    subscribers: HashMap<String, SubscriberEntry>,
 }
 
 impl FileSubscribers {
@@ -63,12 +73,30 @@ impl FileSubscribers {
             .collect()
     }
 
-    fn subscribe(&mut self, client_id: String, tx: mpsc::Sender<WSMessage>) {
-        self.subscribers.insert(client_id, tx);
+    fn subscribe(&mut self, client_id: String, tx: mpsc::Sender<WSMessage>, path: String) {
+        self.subscribers.insert(client_id, SubscriberEntry { tx, path });
     }
 
     fn unsubscribe(&mut self, client_id: &str) {
         self.subscribers.remove(client_id);
+    }
+
+    /// Remove a subscriber that registered with exactly `path` (unsubscribe
+    /// message). The registry is keyed by canonical path, but the client only
+    /// knows its original spelling — and the file may already be gone (rotated),
+    /// so re-canonicalizing is not an option. Matching the stored subscribe-time
+    /// path is exact either way. Returns true if a subscriber was removed.
+    fn unsubscribe_path(&mut self, client_id: &str, path: &str) -> bool {
+        if self
+            .subscribers
+            .get(client_id)
+            .is_some_and(|e| e.path == path)
+        {
+            self.subscribers.remove(client_id);
+            true
+        } else {
+            false
+        }
     }
 
     fn subscriber_count(&self) -> usize {
@@ -228,23 +256,33 @@ async fn handle_subscribe(
     };
 
     let initial_lines = {
-        if let Some(entry) = state.line_indices.get(&path_buf) {
-            entry.value().total_lines()
-        } else {
-            // LineIndex::build mmaps the whole file and scans every byte —
-            // O(file_size). On a 10G log this blocks the tokio worker for
-            // seconds, stalling every other WS push / HTTP request / watcher
-            // poll. Move it to a blocking thread so the async runtime stays
-            // responsive. (Concurrent first-open of the same file may build
-            // twice; build is a pure function so results are equivalent.)
-            let pb = path_buf.clone();
-            match tokio::task::spawn_blocking(move || LineIndex::build(&pb)).await {
-                Ok(Ok(idx)) => {
-                    let lines = idx.total_lines();
-                    state.line_indices.insert(path_buf.clone(), idx);
-                    lines
+        // stat before taking the DashMap guard — Ref is not Send and must not
+        // be held across an await point.
+        let current_size = tokio::fs::metadata(&path_buf).await.map(|m| m.len());
+        match state.line_indices.get(&path_buf) {
+            // Cached index is usable only if the file has not shrunk since it
+            // was built (shrink = truncate/rotate made total_lines stale).
+            // A same-size in-place rewrite is not caught — acceptable for a
+            // cheap heuristic; it only skews reported line numbers.
+            Some(entry) if current_size.is_ok_and(|s| s >= entry.file_size) => {
+                entry.total_lines()
+            }
+            _ => {
+                // LineIndex::build mmaps the whole file and scans every byte —
+                // O(file_size). On a 10G log this blocks the tokio worker for
+                // seconds, stalling every other WS push / HTTP request / watcher
+                // poll. Move it to a blocking thread so the async runtime stays
+                // responsive. (Concurrent first-open of the same file may build
+                // twice; build is a pure function so results are equivalent.)
+                let pb = path_buf.clone();
+                match tokio::task::spawn_blocking(move || LineIndex::build(&pb)).await {
+                    Ok(Ok(idx)) => {
+                        let lines = idx.total_lines();
+                        state.line_indices.insert(path_buf.clone(), idx);
+                        lines
+                    }
+                    _ => 0,
                 }
-                _ => 0,
             }
         }
     };
@@ -264,8 +302,13 @@ async fn handle_subscribe(
     }
 
     let mut subs = state.file_subscribers.lock().await;
+    // Key by the canonical path — the watcher loop fans out entries keyed by
+    // the canonicalized path it watches, so any other spelling (symlinked log
+    // dirs, e.g. /tmp → /private/tmp) would never match and pushes would be
+    // silently dropped. The client's original spelling is remembered per
+    // subscriber and echoed in every message sent to it.
     let file_sub = subs
-        .entry(path.to_string())
+        .entry(path_buf.to_string_lossy().to_string())
         .or_insert_with(FileSubscribers::new);
 
     if let Some(after) = after_seq {
@@ -282,7 +325,7 @@ async fn handle_subscribe(
         }
     }
 
-    file_sub.subscribe(client_id.to_string(), tx.clone());
+    file_sub.subscribe(client_id.to_string(), tx.clone(), path.to_string());
 
     let _ = tx
         .send(WSMessage::Subscribed {
@@ -301,14 +344,15 @@ async fn handle_subscribe(
 
 async fn handle_unsubscribe(state: &AppState, client_id: &str, path: &str) {
     let mut subs = state.file_subscribers.lock().await;
-    if let Some(file_sub) = subs.get_mut(path) {
-        file_sub.unsubscribe(client_id);
-        debug!(
-            client_id = %client_id,
-            path = %path,
-            subscribers = file_sub.subscriber_count(),
-            "client unsubscribed"
-        );
+    // Registry keys are canonical paths while `path` is the client's original
+    // spelling (which may no longer canonicalize if the file rotated away), so
+    // match against the per-subscriber stored path instead of the map key.
+    let mut removed = false;
+    for file_sub in subs.values_mut() {
+        removed |= file_sub.unsubscribe_path(client_id, path);
+    }
+    if removed {
+        debug!(client_id = %client_id, path = %path, "client unsubscribed");
     }
 }
 
@@ -399,19 +443,24 @@ pub fn spawn_watcher_loop(state: Arc<AppState>) {
                 let entries_for_msg: Vec<LogEntry> = batch.iter().map(|(_, e)| e.clone()).collect();
                 let last_seq = batch.last().map(|(s, _)| *s).unwrap_or(0);
 
-                let msg = WSMessage::Append {
-                    path: key.clone(),
-                    seq: last_seq,
-                    entries: entries_for_msg,
-                };
-
                 let mut dead_clients = Vec::new();
 
-                for (cid, sender) in &file_sub.subscribers {
-                    let remaining = sender.capacity();
+                for (cid, sub) in &file_sub.subscribers {
+                    // Echo the subscriber's own subscribe-time path so the
+                    // frontend matches the message to its tab (the registry
+                    // key here is canonical and may differ from what the
+                    // client used).
+                    let msg = WSMessage::Append {
+                        path: sub.path.clone(),
+                        seq: last_seq,
+                        entries: entries_for_msg.clone(),
+                    };
+
+                    let remaining = sub.tx.capacity();
                     let threshold = (CLIENT_CHANNEL_SIZE as f64 * (1.0 - SLOW_THRESHOLD)) as usize;
                     if remaining <= threshold {
-                        let _ = sender
+                        let _ = sub
+                            .tx
                             .send(WSMessage::Error {
                                 code: "SLOW".to_string(),
                                 message: "client is falling behind".to_string(),
@@ -419,7 +468,7 @@ pub fn spawn_watcher_loop(state: Arc<AppState>) {
                             .await;
                     }
 
-                    if sender.try_send(msg.clone()).is_err() {
+                    if sub.tx.try_send(msg).is_err() {
                         warn!(client_id = %cid, path = %key, "try_send failed, marking as dead client");
                         dead_clients.push(cid.clone());
                     }
