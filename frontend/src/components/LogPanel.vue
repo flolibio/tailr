@@ -27,6 +27,18 @@ const filteredEntries = computed(() =>
   filterEntries(props.tab.entries, props.tab.selectedLevels, props.tab.filterKeywords, props.allLevels),
 )
 
+// True when a level or keyword filter is actually narrowing the view. An empty
+// (or full) selectedLevels set means "no level filter" (see filterEntries).
+const hasActiveFilters = computed(() =>
+  props.tab.filterKeywords.length > 0
+  || (props.tab.selectedLevels.length > 0 && props.tab.selectedLevels.length < props.allLevels.length),
+)
+
+function clearFilters(): void {
+  props.tab.filterKeywords = []
+  props.tab.selectedLevels = []
+}
+
 // Expose the inner LogViewer instance so the parent can call
 // scrollToLine (bookmarks) / scrollToBottom (tail) on the active panel.
 let instanceRef: InstanceType<typeof LogViewer> | null = null
@@ -64,7 +76,16 @@ defineExpose({
     </div>
     <!-- no data: loaded but entries empty (or all filtered out) -->
     <div v-else-if="filteredEntries.length === 0" class="empty-state">
-      <div class="empty-text">{{ tab.filterKeywords.length ? t('app.noMatchingLogs') : t('app.waitingForData') }}</div>
+      <!-- entries loaded but everything filtered out — say so, offer a way out -->
+      <template v-if="tab.entries.length > 0">
+        <div class="empty-text">{{ t('app.noMatchingLogs') }}</div>
+        <div class="empty-hint">{{ t('app.noMatchHint', { count: tab.entries.length }) }}</div>
+        <button v-if="hasActiveFilters" class="btn-retry-inline" @click="clearFilters">
+          {{ t('app.clearFilters') }}
+        </button>
+      </template>
+      <!-- genuinely no entries (empty file / rotation gap) — self-heal polling refills -->
+      <div v-else class="empty-text">{{ t('app.waitingForData') }}</div>
     </div>
     <!-- log viewer -->
     <LogViewer

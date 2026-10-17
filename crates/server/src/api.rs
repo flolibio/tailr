@@ -488,11 +488,25 @@ async fn file_tail(
         let p = path.clone();
         match tokio::task::spawn_blocking(move || LineIndex::tail_start(&p, lines)).await {
             Ok(Ok(tail)) => tail,
-            _ => {
-                return Ok(Json(ApiSuccess::ok(FileTailData {
-                    entries: Vec::new(),
-                    total_lines: 0,
-                })))
+            // validate_path canonicalized this file moments ago; it vanished in
+            // between (log rotation). Report it honestly — an empty 200 here
+            // would render as a silent "waiting for data" forever.
+            Ok(Err(e)) if e.kind() == std::io::ErrorKind::NotFound => {
+                return Err(ApiError::from(ErrorCode::NotFound));
+            }
+            Ok(Err(e)) => {
+                tracing::warn!(path = %path.display(), error = %e, "tail_start failed");
+                return Err(ApiError::from(CoreError::with_detail(
+                    ErrorCode::Internal,
+                    e.to_string(),
+                )));
+            }
+            Err(e) => {
+                tracing::error!(path = %path.display(), error = %e, "tail_start task failed");
+                return Err(ApiError::from(CoreError::with_detail(
+                    ErrorCode::Internal,
+                    e.to_string(),
+                )));
             }
         }
     };
@@ -506,7 +520,7 @@ async fn file_tail(
 
     let start_line = tail.total_lines.saturating_sub(lines as u64);
     let detector = state.level_detector.load();
-    let entries = read_lines_from(
+    let entries = match read_lines_from(
         &path,
         tail.start_byte,
         lines,
@@ -514,7 +528,21 @@ async fn file_tail(
         &detector,
         &state.log_timezone,
     )
-    .await;
+    .await
+    {
+        Ok(entries) => entries,
+        // Same rotation race as tail_start above: report instead of an empty 200.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Err(ApiError::from(ErrorCode::NotFound))
+        }
+        Err(e) => {
+            tracing::warn!(path = %path.display(), error = %e, "read_lines_from failed");
+            return Err(ApiError::from(CoreError::with_detail(
+                ErrorCode::Internal,
+                e.to_string(),
+            )));
+        }
+    };
 
     Ok(Json(ApiSuccess::ok(FileTailData {
         entries,
@@ -724,18 +752,13 @@ async fn read_lines_from(
     base_line: u64,
     detector: &tailr_search_engine::LevelDetector,
     log_timezone: &LogTimezone,
-) -> Vec<LogEntry> {
+) -> std::io::Result<Vec<LogEntry>> {
     use tokio::io::{AsyncBufReadExt, AsyncSeekExt, BufReader, SeekFrom};
 
-    let file = match tokio::fs::File::open(path).await {
-        Ok(f) => f,
-        Err(_) => return Vec::new(),
-    };
+    let file = tokio::fs::File::open(path).await?;
 
     let mut reader = BufReader::new(file);
-    if reader.seek(SeekFrom::Start(start_byte)).await.is_err() {
-        return Vec::new();
-    }
+    reader.seek(SeekFrom::Start(start_byte)).await?;
 
     let mut entries = Vec::new();
     let mut buf = String::new();
@@ -743,10 +766,7 @@ async fn read_lines_from(
 
     loop {
         buf.clear();
-        let n = match reader.read_line(&mut buf).await {
-            Ok(n) => n,
-            Err(_) => break,
-        };
+        let n = reader.read_line(&mut buf).await?;
         if n == 0 {
             break;
         }
@@ -775,5 +795,5 @@ async fn read_lines_from(
         }
     }
 
-    entries
+    Ok(entries)
 }

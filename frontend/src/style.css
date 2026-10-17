@@ -55,12 +55,20 @@
   --c-trace-bg:#F1EFE8;  --c-trace-text:#5F5E5A;  --c-trace-border:#D3D1C7;
 
   --c-follow-bg: #ECFDF5; --c-follow-text: #065F46; --c-follow-border: #A7F3D0; --c-follow-hover: #D1FAE5;
+  /* Non-level semantics: toast success / action feedback */
+  --c-success-text: #3B6D11;
 
   --accent: #185FA5;
   --accent-hover: #134b84;
   --accent-light: #E6F1FB;
   --chip-bg: var(--accent-light);
   --chip-text: var(--accent);
+  /* Text/icons sitting directly on --accent (or a strong hue) surface */
+  --on-accent: #ffffff;
+  /* Modal dialog backdrop */
+  --scrim: rgba(23,23,23,0.5);
+  /* JSON field syntax palette (expanded log rows) */
+  --json-key: #a626a4; --json-str: #50a14f; --json-num: #986801; --json-bool: #e45649;
 
   /* Elevation */
   --shadow-sm: 0 1px 2px rgba(23,23,23,0.05);
@@ -70,7 +78,7 @@
 
   /* Type */
   --font-sans: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: monospace, 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New';
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
   --font-size-base: 14px;
   --fw-regular: 400;
   --fw-medium: 500;
@@ -101,12 +109,17 @@
   --c-trace-bg:#242420;  --c-trace-text:#B4B2A9;  --c-trace-border:#444441;
 
   --c-follow-bg: #022C22; --c-follow-text: #34D399; --c-follow-border: #064E3B; --c-follow-hover: #064E3B;
+  --c-success-text: #97C459;
 
   --accent: #5B9DFF;
   --accent-hover: #79b0ff;
   --accent-light: #0f2740;
   --chip-bg: var(--accent-light);
   --chip-text: #85B7EB;
+  /* Dark accent is a light blue — dark text reads better on it than white */
+  --on-accent: #0b1e36;
+  --scrim: rgba(0,0,0,0.55);
+  --json-key: #c678dd; --json-str: #98c379; --json-num: #d19a66; --json-bool: #e06c75;
 
   /* Keyword hues: brighter on dark background for visibility */
   --kw-1: 43  100% 60%;
@@ -143,12 +156,20 @@
   --c-trace-bg:#F1EFE8;  --c-trace-text:#5F5E5A;  --c-trace-border:#D3D1C7;
 
   --c-follow-bg: #ECFDF5; --c-follow-text: #065F46; --c-follow-border: #A7F3D0; --c-follow-hover: #D1FAE5;
+  /* Non-level semantics: toast success / action feedback */
+  --c-success-text: #3B6D11;
 
   --accent: #185FA5;
   --accent-hover: #134b84;
   --accent-light: #E6F1FB;
   --chip-bg: var(--accent-light);
   --chip-text: var(--accent);
+  /* Text/icons sitting directly on --accent (or a strong hue) surface */
+  --on-accent: #ffffff;
+  /* Modal dialog backdrop */
+  --scrim: rgba(23,23,23,0.5);
+  /* JSON field syntax palette (expanded log rows) */
+  --json-key: #a626a4; --json-str: #50a14f; --json-num: #986801; --json-bool: #e45649;
 
   --shadow-sm: 0 1px 2px rgba(23,23,23,0.05);
   --shadow-md: 0 4px 12px rgba(23,23,23,0.08);
@@ -335,6 +356,17 @@ mark.kw-mark-2 { --kw-cur: var(--kw-2); }
 mark.kw-mark-3 { --kw-cur: var(--kw-3); }
 mark.kw-mark-4 { --kw-cur: var(--kw-4); }
 mark.kw-mark-5 { --kw-cur: var(--kw-5); }
+
+/* Keyword chips (FilterBar) share the --kw-* palette. Dark theme tunes chip
+   alpha for readability on dark surfaces — theme overrides live here with the
+   palette, not inside components (design guideline §3.5). */
+:root.dark .chip.kw-chip {
+  background: hsl(var(--kw-cur) / 16%);
+  color: hsl(var(--kw-cur) / 85%);
+}
+:root.dark .chip.kw-chip:hover {
+  background: hsl(var(--kw-cur) / 26%);
+}
 
 /* ── Dynamic level tags ── */
 .level-tag.dynamic-level {
@@ -1031,6 +1063,13 @@ select {
 .empty-text {
   font-size: 14px;
   color: var(--text-2);
+}
+
+/* Secondary line under .empty-text (e.g. "N lines loaded" under a filter
+   no-match state). Pairs with the .btn-retry-inline action button. */
+.empty-hint {
+  font-size: 12px;
+  color: var(--text-3);
 }
 
 .loading-spinner {

@@ -203,7 +203,7 @@ onBeforeUnmount(() => {
   margin-bottom: auto;
   width: 2px;
   height: 16px;
-  background: rgba(0, 0, 0, 0.14);
+  background: var(--border-2);
   pointer-events: none;
 }
 
@@ -340,7 +340,7 @@ onBeforeUnmount(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--c-unread, #5B9DFF);
+  background: var(--c-unread);
   flex-shrink: 0;
   opacity: 0;
 }
