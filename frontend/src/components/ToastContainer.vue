@@ -123,7 +123,7 @@ function iconFor(t: Toast) {
   background: var(--bg);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-popover);
   pointer-events: auto;
   min-width: 260px;
   max-width: 360px;
@@ -135,8 +135,8 @@ function iconFor(t: Toast) {
 }
 
 .toast.info .toast-icon { color: var(--accent); }
-.toast.success .toast-icon { color: #22c55e; }
-.toast.warning .toast-icon { color: #f59e0b; }
+.toast.success .toast-icon { color: var(--c-success-text); }
+.toast.warning .toast-icon { color: var(--c-warn-text); }
 .toast.error .toast-icon { color: var(--c-error-text); }
 .toast.loading .toast-icon { color: var(--text-3); }
 

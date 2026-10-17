@@ -324,7 +324,7 @@ async function copyText(text: string, id: string): Promise<void> {
 .mcp-warn-hint {
   margin: 0;
   font-size: 12px;
-  color: var(--warn, #e0a800);
+  color: var(--c-warn-text);
 }
 
 </style>

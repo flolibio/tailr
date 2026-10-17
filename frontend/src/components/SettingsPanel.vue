@@ -254,7 +254,7 @@ async function switchLocale(newLocale: string): Promise<void> {
   width: 13px;
   height: 13px;
   border-radius: 50%;
-  background: white;
+  background: var(--on-accent);
   top: 3px;
   left: 3px;
   transition: left .16s;
@@ -276,7 +276,7 @@ async function switchLocale(newLocale: string): Promise<void> {
 .theme-opt {
   flex: 1;
   padding: 6px 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   font-size: 12px;
   font-weight: 500;

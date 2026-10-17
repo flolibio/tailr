@@ -512,7 +512,7 @@ defineExpose({ scrollToBottom, scrollToLine })
               </span>
               <span class="col-actions">
                 <span class="action-btn" @click="toggleBookmark(entry)" :title="t('logViewer.bookmark')">
-                  <Bookmark :size="16" :stroke-width="2" fill="none" :color="filePath && isBookmarked(filePath, entry.lineNum) ? '#FF453A' : 'currentColor'" />
+                  <Bookmark :size="16" :stroke-width="2" fill="none" :class="{ 'bookmark-on': filePath && isBookmarked(filePath, entry.lineNum) }" />
                 </span>
                 <span v-if="isJson(entry.raw)" class="action-btn" @click.stop="toggleExpand(entry.lineNum)" :title="expandedLines.has(entry.lineNum) ? t('logViewer.collapse') : t('logViewer.expandJson')">
                   <Minimize2 v-if="expandedLines.has(entry.lineNum)" :size="16" :stroke-width="2" />
@@ -732,13 +732,22 @@ defineExpose({ scrollToBottom, scrollToLine })
   overflow: hidden;
 }
 
-.badge-alert { color: #FF3B30; }
-.badge-error { color: #FF453A; }
-.badge-warn  { color: #FF9F0A; }
-.badge-info  { color: #64D2FF; }
-.badge-debug { color: #30D158; }
-.badge-trace { color: #BF5AF2; }
-.badge-unknown { color: #666666; }
+/* Fallback colors when no user-configured level color applies — same
+   semantic source as everything else: the --c-{level}-text tokens, so the
+   badge reads correctly in both themes and matches chips/filters. */
+.badge-alert   { color: var(--c-alert-text); }
+.badge-error   { color: var(--c-error-text); }
+.badge-warn    { color: var(--c-warn-text); }
+.badge-info    { color: var(--c-info-text); }
+.badge-debug   { color: var(--c-debug-text); }
+.badge-trace   { color: var(--c-trace-text); }
+.badge-unknown { color: var(--text-3); }
+
+/* Bookmarked-row action icon: same gold identity as the ★ bookmark cue
+   (§3.3), instead of an off-palette red. */
+.action-btn .bookmark-on {
+  color: var(--c-star);
+}
 /* .badge-dynamic { color from inline style } */
 
 .col-msg {
@@ -808,7 +817,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   background: var(--bg-2);
   padding: 12px;
   margin: 2px 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   max-height: 400px;
   overflow-y: auto;
   font-size: 14px;
@@ -816,37 +825,22 @@ defineExpose({ scrollToBottom, scrollToLine })
   border: 1px solid var(--border);
 }
 
+/* JSON syntax palette lives in style.css tokens (--json-*), defined per
+   theme there — components never carry their own :root.dark overrides. */
 .json-expanded :deep(.json-key) {
-  color: #a626a4;
+  color: var(--json-key);
 }
 
 .json-expanded :deep(.json-str) {
-  color: #50a14f;
+  color: var(--json-str);
 }
 
 .json-expanded :deep(.json-num) {
-  color: #986801;
+  color: var(--json-num);
 }
 
 .json-expanded :deep(.json-bool) {
-  color: #e45649;
-}
-
-/* Dark theme JSON colors */
-:root.dark .json-expanded :deep(.json-key) {
-  color: #c678dd;
-}
-
-:root.dark .json-expanded :deep(.json-str) {
-  color: #98c379;
-}
-
-:root.dark .json-expanded :deep(.json-num) {
-  color: #d19a66;
-}
-
-:root.dark .json-expanded :deep(.json-bool) {
-  color: #e06c75;
+  color: var(--json-bool);
 }
 
 /* ── Compact Mode (single-line, original layout) ── */
@@ -893,7 +887,7 @@ defineExpose({ scrollToBottom, scrollToLine })
   width: 40px;
   height: 40px;
   background: var(--bg-3);
-  border: 1px solid var(--border, #d0d0d0);
+  border: 1px solid var(--border);
   color: var(--text-2);
   border-radius: 50%;
   padding: 0;

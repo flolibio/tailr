@@ -222,7 +222,7 @@ const sysCpuClamped = computed(() => Math.min(data.value?.systemCpuPercent ?? 0,
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #1d9e75;
+  background: var(--c-success-text);
   position: relative;
 }
 
@@ -231,7 +231,7 @@ const sysCpuClamped = computed(() => Math.min(data.value?.systemCpuPercent ?? 0,
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: #1d9e75;
+  background: var(--c-success-text);
 }
 
 .live-dot.flash::after {
@@ -326,7 +326,7 @@ const sysCpuClamped = computed(() => Math.min(data.value?.systemCpuPercent ?? 0,
 }
 
 .bar-fill.warning {
-  background: #f59e0b;
+  background: var(--c-warn-text);
 }
 
 .bar-caption {

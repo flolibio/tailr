@@ -592,21 +592,16 @@ defineExpose({ focus })
    shared .kw-chip rule derives bg/text/border from that hue. Shares the same
    --kw-* palette as in-log <mark> highlights (defined in style.css). */
 .chip.kw-chip {
-  background: hsl(var(--kw-cur) / 10%);
+  background: hsl(var(--kw-cur) / 14%);
   color: hsl(var(--kw-cur) / 100%);
-  border-color: hsl(var(--kw-cur) / 20%);
+  border-color: hsl(var(--kw-cur) / 30%);
 }
 .chip.kw-chip:hover {
   background: hsl(var(--kw-cur) / 22%);
   color: hsl(var(--kw-cur));
 }
-:global(:root.dark) .chip.kw-chip {
-  background: hsl(var(--kw-cur) / 16%);
-  color: hsl(var(--kw-cur) / 85%);
-}
-:global(:root.dark) .chip.kw-chip:hover {
-  background: hsl(var(--kw-cur) / 26%);
-}
+/* Dark-theme chip alpha lives with the kw palette in style.css (§3.5:
+   components never carry :root.dark overrides). */
 .chip.kw-1 { --kw-cur: var(--kw-1); }
 .chip.kw-2 { --kw-cur: var(--kw-2); }
 .chip.kw-3 { --kw-cur: var(--kw-3); }
@@ -646,7 +641,7 @@ defineExpose({ focus })
 
 .chip-remove:hover {
   background: hsl(var(--kw-cur));
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .filter-input {
@@ -717,7 +712,7 @@ defineExpose({ focus })
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-md);
 }
 
 /* ── Suggestions dropdown ── */
@@ -730,7 +725,7 @@ defineExpose({ focus })
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-md);
   z-index: 100;
   max-height: 240px;
   overflow-y: auto;
@@ -742,7 +737,7 @@ defineExpose({ focus })
   align-items: center;
   gap: 8px;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 14px;
   color: var(--text);

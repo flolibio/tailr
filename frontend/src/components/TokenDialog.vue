@@ -90,7 +90,7 @@ function handleKeydown(e: KeyboardEvent): void {
 .token-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -102,7 +102,7 @@ function handleKeydown(e: KeyboardEvent): void {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-popover);
   overflow: hidden;
 }
 
@@ -192,7 +192,7 @@ function handleKeydown(e: KeyboardEvent): void {
   border-radius: var(--radius);
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
   transition: all 0.12s;
 }

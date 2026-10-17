@@ -525,7 +525,7 @@ onUnmounted(() => {
 .settings-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -540,7 +540,7 @@ onUnmounted(() => {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-popover);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -581,7 +581,7 @@ onUnmounted(() => {
 
 .close-btn:hover {
   background: var(--c-error-text);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* ── Body ── */
@@ -751,7 +751,7 @@ onUnmounted(() => {
 
 .toggle.on::after {
   transform: translateX(16px);
-  background: #fff;
+  background: var(--on-accent);
 }
 
 /* ── Font settings row ── */
@@ -834,12 +834,12 @@ onUnmounted(() => {
 }
 
 .fp-lvl-info {
-  color: #3b82f6;
+  color: var(--c-info-text);
   font-weight: 600;
 }
 
 .fp-lvl-warn {
-  color: #f59e0b;
+  color: var(--c-warn-text);
   font-weight: 600;
 }
 
@@ -857,7 +857,7 @@ onUnmounted(() => {
 .theme-opt {
   min-width: 70px;
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   font-size: 14px;
   font-weight: 500;
@@ -995,7 +995,7 @@ onUnmounted(() => {
   border-radius: var(--radius);
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1013,8 +1013,8 @@ onUnmounted(() => {
 }
 
 .btn-save.success {
-  background: #22c55e;
-  border-color: #22c55e;
+  background: var(--c-success-text);
+  border-color: var(--c-success-text);
 }
 
 .btn-save.error {
@@ -1026,8 +1026,8 @@ onUnmounted(() => {
 .spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+  border: 2px solid color-mix(in srgb, var(--on-accent) 30%, transparent);
+  border-top-color: var(--on-accent);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }

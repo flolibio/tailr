@@ -51,7 +51,7 @@ const emit = defineEmits<{
 .color-picker-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -64,7 +64,7 @@ const emit = defineEmits<{
   border-radius: var(--radius-lg);
   padding: 16px;
   min-width: 280px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-popover);
 }
 
 .picker-header {
@@ -109,7 +109,7 @@ const emit = defineEmits<{
 .palette-swatch {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;

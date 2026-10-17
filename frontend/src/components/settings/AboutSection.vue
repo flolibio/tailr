@@ -346,7 +346,7 @@ onUnmounted(() => {
 }
 
 .version-inline-status.ok {
-  color: #22c55e;
+  color: var(--c-success-text);
 }
 
 .version-inline-status.new {
@@ -519,7 +519,7 @@ onUnmounted(() => {
   border-radius: var(--radius);
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
