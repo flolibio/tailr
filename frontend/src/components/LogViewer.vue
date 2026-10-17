@@ -714,6 +714,13 @@ defineExpose({ scrollToBottom, scrollToLine })
 .col-badge {
   padding-right: 14px;
   flex-shrink: 0;
+  /* Center the badge via the parent (guideline §2). As a plain inline
+     child the badge sits on this box's text baseline, whose strut uses
+     the inherited (larger) font — a different metric than the badge's
+     own 12px, so the badge drifted upward in cozy mode. Flex centering
+     removes the baseline from the equation entirely. */
+  display: flex;
+  align-items: center;
 }
 
 .badge {
@@ -733,6 +740,8 @@ defineExpose({ scrollToBottom, scrollToLine })
      长名称（UNKNOWN/CRITICAL）不撑宽所在行 —— 各行消息列严格对齐 */
   width: calc(var(--badge-cols, 7.5) * 1ch);
   overflow: hidden;
+  /* Fixed-width column chrome must not be squeezed by the flex parent */
+  flex-shrink: 0;
 }
 
 /* Fallback colors when no user-configured level color applies — same
