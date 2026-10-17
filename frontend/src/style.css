@@ -78,7 +78,7 @@
 
   /* Type */
   --font-sans: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: monospace, 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New';
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
   --font-size-base: 14px;
   --fw-regular: 400;
   --fw-medium: 500;

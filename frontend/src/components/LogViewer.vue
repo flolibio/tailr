@@ -722,7 +722,10 @@ defineExpose({ scrollToBottom, scrollToLine })
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  font-family: var(--font-mono);
+  /* Inherit the log-body font (the user's settings choice) — same metrics
+     as the timestamp column, so baselines line up on every row. A separate
+     family here renders with different ascent and visibly drifts upward. */
+  font-family: inherit;
   background: transparent;
   white-space: nowrap;
   text-align: left;
